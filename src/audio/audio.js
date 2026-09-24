@@ -1,4 +1,5 @@
-// Fully synthesized SFX + a small step sequencer for original battle music.
+// Fully synthesized SFX; the score lives in music.js.
+import { Music } from './music.js';
 export class Audio {
   constructor() {
     this.ctx = null;
@@ -26,7 +27,7 @@ export class Audio {
     this.sfx.gain.value = 0.9;
     this.sfx.connect(this.master);
     this.music = ctx.createGain();
-    this.music.gain.value = 0.32;
+    this.music.gain.value = 0.5;
     this.music.connect(this.master);
     // noise buffer
     const len = ctx.sampleRate * 2;
@@ -39,7 +40,8 @@ export class Audio {
       const x = (i / 1023) * 2 - 1;
       this.curve[i] = Math.tanh(x * 3.5);
     }
-    this.seq = null;
+    this.score = new Music(ctx, this.music, this.noise);
+    this.current = null;
   }
 
   resume() {
@@ -218,150 +220,24 @@ export class Audio {
 
   // ---------- music ----------
   playMusic(name) {
-    if (!this.ctx) return;
-    this.stopMusic();
-    const song = SONGS[name];
-    if (!song) return;
-    this.seq = { song, step: 0, next: this.ctx.currentTime + 0.1, timer: null };
-    const tick = () => {
-      const s = this.seq;
-      if (!s) return;
-      const spb = 60 / s.song.bpm / 2; // eighth notes
-      while (s.next < this.ctx.currentTime + 0.15) {
-        this.musicStep(s.song, s.step, s.next, spb);
-        s.step++;
-        s.next += spb;
-      }
-    };
-    this.seq.timer = setInterval(tick, 30);
-    tick();
+    if (!this.ctx || this.current === name) return;
+    this.current = name;
+    this.score.play(name);
   }
 
   stopMusic() {
-    if (this.seq) clearInterval(this.seq.timer);
-    this.seq = null;
+    this.current = null;
+    this.score?.stop();
   }
 
-  musicStep(song, step, t, spb) {
-    if (!this.musicOn || this.muted) return;
-    const out = this.music;
-    const bars = song.chords.length;
-    const bar = Math.floor(step / 8) % bars;
-    const s8 = step % 8;
-    const chord = song.chords[bar];
-    const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
-    // drums
-    const dp = song.drums;
-    if (dp.kick[s8]) { this.osc('sine', 120, 40, t, 0.18, 0.7, out); }
-    if (dp.snare[s8]) {
-      this.noiseBurst(t, 0.16, 0.45, out, { type: 'bandpass', f0: 1800, q: 0.6 });
-      this.osc('triangle', 220, 160, t, 0.08, 0.2, out);
-    }
-    this.noiseBurst(t, 0.04, dp.hat[s8] ? 0.12 : 0.05, out, { type: 'highpass', f0: 7000 });
-    if (song.sixteenth) this.noiseBurst(t + spb / 2, 0.03, 0.05, out, { type: 'highpass', f0: 8000 });
-    // bass (eighths, root with octave pops)
-    const root = chord[0] - 24;
-    const bn = song.bass[s8] === 2 ? root + 12 : root;
-    if (song.bass[s8]) {
-      this.bassNote(mtof(bn), t, spb * 0.9, 0.22, out);
-      if (song.sixteenth) this.bassNote(mtof(bn), t + spb / 2, spb * 0.45, 0.14, out);
-    }
-    // pad on bar start
-    if (s8 === 0) {
-      for (const n of chord) this.osc('sawtooth', mtof(n - 12), mtof(n - 12), t, spb * 8, 0.028, out, { a: 0.1, detune: 6 });
-    }
-    // lead
-    const mel = song.melody[(step % (bars * 8))];
-    if (typeof mel === 'number') {
-      let len = 1;
-      while (song.melody[(step + len) % (bars * 8)] === '-' && len < 8) len++;
-      this.leadNote(mtof(mel), t, spb * len * 0.95, song.leadVol || 0.07, out);
-    }
+  duckMusic(depth, hold) {
+    this.score?.duck(depth, hold);
   }
 
-  bassNote(f, t, dur, vol, out) {
-    const ctx = this.ctx;
-    const o = ctx.createOscillator();
-    o.type = 'sawtooth';
-    o.frequency.value = f;
-    const fl = ctx.createBiquadFilter();
-    fl.type = 'lowpass';
-    fl.frequency.setValueAtTime(900, t);
-    fl.frequency.exponentialRampToValueAtTime(200, t + dur);
-    fl.Q.value = 4;
-    const g = ctx.createGain();
-    this.env(g, t, 0.005, vol, dur);
-    o.connect(fl).connect(g).connect(out);
-    o.start(t);
-    o.stop(t + dur + 0.05);
-  }
-
-  leadNote(f, t, dur, vol, out) {
-    const ctx = this.ctx;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
-    g.gain.setValueAtTime(vol, t + Math.max(0.02, dur - 0.05));
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    const lfo = ctx.createOscillator();
-    lfo.frequency.value = 5.5;
-    const lg = ctx.createGain();
-    lg.gain.value = f * 0.008;
-    lfo.connect(lg);
-    for (const [type, det] of [['square', -7], ['sawtooth', 7]]) {
-      const o = ctx.createOscillator();
-      o.type = type;
-      o.frequency.value = f;
-      o.detune.value = det;
-      lg.connect(o.frequency);
-      o.connect(g);
-      o.start(t);
-      o.stop(t + dur + 0.05);
-    }
-    const fl = ctx.createBiquadFilter();
-    fl.type = 'lowpass';
-    fl.frequency.value = 3200;
-    g.connect(fl).connect(out);
-    lfo.start(t);
-    lfo.stop(t + dur + 0.05);
+  stinger(name) {
+    if (!this.ctx) return;
+    this.current = null;
+    if (name === 'victory') this.score.victory();
+    else this.score.defeat();
   }
 }
-
-// Original compositions (A minor battle theme, D minor boss theme).
-const _ = '-';
-const SONGS = {
-  battle: {
-    bpm: 152,
-    chords: [[69, 72, 76], [65, 69, 72], [72, 76, 79], [67, 71, 74], [69, 72, 76], [65, 69, 72], [67, 71, 74], [64, 68, 71]],
-    bass: [1, 1, 2, 1, 1, 1, 2, 1],
-    drums: { kick: [1, 0, 0, 1, 1, 0, 0, 0], snare: [0, 0, 1, 0, 0, 0, 1, 0], hat: [1, 1, 1, 1, 1, 1, 1, 1] },
-    melody: [
-      69, 72, 76, _, 74, 72, 74, 76,
-      77, _, 76, 74, 72, _, 69, _,
-      72, 76, 79, _, 77, 76, 74, 76,
-      74, _, _, 71, 74, 79, 77, 79,
-      81, _, 79, 76, 77, _, 76, 74,
-      72, _, 74, 76, 77, 76, 74, 72,
-      74, _, 76, 77, 79, _, 77, 74,
-      76, _, _, _, 80, _, 83, _,
-    ],
-  },
-  boss: {
-    bpm: 168,
-    sixteenth: true,
-    leadVol: 0.075,
-    chords: [[62, 65, 69], [58, 62, 65], [60, 64, 67], [57, 61, 64], [62, 65, 69], [58, 62, 65], [55, 58, 62], [57, 61, 64]],
-    bass: [1, 1, 1, 2, 1, 1, 1, 2],
-    drums: { kick: [1, 0, 1, 0, 1, 0, 1, 0], snare: [0, 0, 1, 0, 0, 0, 1, 1], hat: [1, 1, 1, 1, 1, 1, 1, 1] },
-    melody: [
-      74, _, 72, 74, 77, _, 76, 74,
-      70, _, _, 69, 70, 72, 74, _,
-      72, _, 76, 79, 77, 76, 72, _,
-      73, _, 76, _, 81, _, 79, 76,
-      74, 77, 81, _, 79, 77, 76, 77,
-      74, _, 70, _, 72, 74, 77, _,
-      79, _, 77, 74, 70, _, 74, 79,
-      81, _, _, _, 76, _, 73, _,
-    ],
-  },
-};

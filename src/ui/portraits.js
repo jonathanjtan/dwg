@@ -120,16 +120,23 @@ function cropSheet(img, e) {
   const w = e.cellW || Math.floor((img.width - gap * (cols - 1)) / cols);
   const h = e.cellH || Math.floor((img.height - (e.trimBottom || 0) - gap * (rows - 1)) / rows);
   const out = {};
-  for (const [expr, idx] of Object.entries(e.frames || DEFAULT_FRAMES)) {
-    if (idx >= cols * rows) continue;
+  for (const [expr, f] of Object.entries(e.frames || DEFAULT_FRAMES)) {
+    // a frame is a grid index, or an explicit [x, y, w, h] rect for irregular cut-in sheets
+    const [sx, sy, sw, sh] = Array.isArray(f)
+      ? f
+      : [(f % cols) * (w + gap), Math.floor(f / cols) * (h + gap), w, h];
+    if (!Array.isArray(f) && f >= cols * rows) continue;
+    const scale = Math.min(1, 256 / Math.max(sw, sh));
     const c = document.createElement('canvas');
-    c.width = w;
-    c.height = h;
+    c.width = Math.round(sw * scale);
+    c.height = Math.round(sh * scale);
     const g = c.getContext('2d');
-    g.drawImage(img, (idx % cols) * (w + gap), Math.floor(idx / cols) * (h + gap), w, h, 0, 0, w, h);
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    const cw = c.width, chh = c.height;
     if (e.key) {
       // chroma-key the sheet's flat background colour to transparent
-      const data = g.getImageData(0, 0, w, h);
+      const data = g.getImageData(0, 0, cw, chh);
       const d = data.data, [kr, kg, kb] = e.key;
       for (let i = 0; i < d.length; i += 4) {
         if (Math.abs(d[i] - kr) + Math.abs(d[i + 1] - kg) + Math.abs(d[i + 2] - kb) < 24) d[i + 3] = 0;
@@ -150,7 +157,8 @@ export async function loadPortraits() {
       const e = typeof entry === 'string' ? { file: entry } : entry;
       const img = await loadImage('assets/portraits/' + e.file);
       if (!img) return;
-      external[name] = e.cols || e.rows ? cropSheet(img, e) : { idle: img.src };
+      external[name] = e.cols || e.rows || e.frames ? cropSheet(img, e) : { idle: img.src };
+      external[name].holdTalk = !!e.holdTalk;
     }));
     return Object.keys(external).length > 0;
   } catch (e) {
@@ -160,6 +168,16 @@ export async function loadPortraits() {
 
 export function hasSheet(name) {
   return !!external[name];
+}
+
+// holdTalk: show the talk frame for the whole line instead of flapping (sheets whose talk frame is a different bust).
+export function holdsTalk(name) {
+  return !!external[name]?.holdTalk;
+}
+
+// Image portraits are downscaled art (smooth); the built-in 16x16 fallback is upscaled (pixelated).
+export function renderingFor(name) {
+  return external[name] ? 'auto' : 'pixelated';
 }
 
 const cache = {};

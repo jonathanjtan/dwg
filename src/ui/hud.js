@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { portrait, loadPortraits, hasSheet } from './portraits.js';
+import { portrait, loadPortraits, hasSheet, renderingFor, holdsTalk } from './portraits.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -23,6 +23,7 @@ export class HUD {
       if (!any) return;
       this.faceExpr = '';
       this.el.cutinPortrait.src = portrait('amuro', null, 'shout');
+      this.el.portrait.style.imageRendering = this.el.cutinPortrait.style.imageRendering = renderingFor('amuro');
       document.body.classList.toggle('sheet-portraits', hasSheet('amuro'));
     });
     this.mapCtx = this.el.map.getContext('2d');
@@ -191,6 +192,7 @@ export class HUD {
       if (d.speaker === 'char') this.el.dialogue.classList.add('char');
       else if (d.speaker === 'denim' || d.speaker === 'gene') this.el.dialogue.classList.add('zeon');
       this.el.dlgPortrait.src = portrait(d.speaker);
+      this.el.dlgPortrait.style.imageRendering = renderingFor(d.speaker);
       this.dlgExpr = 'idle';
       this.el.dlgName.textContent = d.name;
       this.el.dlgText.textContent = '';
@@ -205,7 +207,7 @@ export class HUD {
       const n = Math.min(d.text.length, Math.floor(this.dlgT * 55));
       this.el.dlgText.textContent = d.text.slice(0, n);
       // mouth flaps while the line types out (sprite-sheet portraits only)
-      const expr = n < d.text.length && Math.floor(this.dlgT / 0.11) % 2 ? 'talk' : 'idle';
+      const expr = holdsTalk(d.speaker) ? 'talk' : n < d.text.length && Math.floor(this.dlgT / 0.11) % 2 ? 'talk' : 'idle';
       if (expr !== this.dlgExpr) { this.dlgExpr = expr; this.el.dlgPortrait.src = portrait(d.speaker, '#0b1424', expr); }
       if (this.dlgT > d.dur) {
         this.dlgCur = null;

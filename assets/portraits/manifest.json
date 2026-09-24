@@ -2,5 +2,9 @@
   "amuro": {
     "file": "amuro.png", "cols": 3, "rows": 2, "gap": 1, "trimBottom": 10, "key": [32, 200, 248],
     "frames": { "idle": 0, "talk": 1, "shout": 2, "blink": 3, "hurtTalk": 4, "hurt": 5 }
+  },
+  "bright": {
+    "file": "bright.png", "holdTalk": true,
+    "frames": { "idle": [420, 0, 260, 260], "talk": [915, 0, 265, 265], "shout": [10, 440, 400, 400] }
   }
 }

@@ -2,7 +2,7 @@
 
 A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. You pilot Amuro's RX-78-2 through a Zeon raid on Side 7: cut through hundreds of Zaku IIs, defeat the squad leaders Denim and Gene, then drive off Char's red Zaku.
 
-Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Models, animation, effects, audio and music are procedural and written from scratch. The only image asset is the pilot portrait sheet.
+Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Models, animation, effects, audio and music are procedural and written from scratch. The only image assets are the pilot portrait sheets.
 
 ## Play
 
@@ -45,14 +45,15 @@ Charge attacks change with how far into the combo you are, as in Dynasty Warrior
 - `src/core/rig.js`: a 13-part humanoid rig with keyframed pose clips. It drives both Object3D rigs (the Gundam and the commanders) and `InstancedMesh` crowds of up to 300 Zakus.
 - `src/game/`: the hero moveset (`moves.js`), crowd AI with attack tokens, officers and Char, combat, projectiles and the stage script.
 - `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke and debris, plus shockwave rings and the saber ribbon trail.
-- `src/audio/audio.js`: WebAudio-synthesized sound effects and two original chiptune-rock tracks.
+- `src/audio/audio.js`: WebAudio-synthesized sound effects.
+- `src/audio/music.js`: the score, synthesized live. It's original anime hard rock with double-tracked distorted guitars, bass, a rock kit, a gliding lead, pads and arps. There's a battle theme, a boss theme for Char, a title theme, and victory and defeat stingers.
 - `src/world/world.js`: the Side 7 town and the O'Neill cylinder shell curving up into the sky.
 - `src/post.js`: the MSAA HDR target, capped bloom, depth of field, grade and dither.
 
 ## Credits
 
 - Several feel and rendering techniques are adapted from [voxel-musou](https://github.com/mike007jd/voxel-musou) (MIT, © 2026 BubuAi): the lens-side crowd clear and lens-clear shader, hero-local hit-stop with victim shudder, hit tint and flinch variants, the launch apex float and bounce, wind-up telegraphs with feints, and the post chain (square-bokeh DoF, split-tone grade, ordered-dither retro finish).
-- The Amuro Ray portrait sheet is from *SD Gundam G Generation* (PlayStation), ripped by Arima, via The Spriters Resource. See `assets/portraits/README.md` to add more pilots.
+- Pilot portraits come from The Spriters Resource: Amuro Ray from *SD Gundam G Generation* (PlayStation, ripped by Arima), and Bright Noa from *SD Gundam G Generation Wars* (PlayStation 2). See `assets/portraits/README.md` to add more pilots.
 
 ## Disclaimer
 

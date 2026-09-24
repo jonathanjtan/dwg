@@ -155,8 +155,7 @@ export class Stage {
     this.t = 0;
     g.hud.announce('MISSION COMPLETE', 'THE RED COMET WITHDRAWS');
     g.hud.setObjective('Side 7 secured');
-    g.audio.stopMusic();
-    g.audio.play('victory');
+    g.audio.stinger('victory');
     g.hero.invuln = 99;
     // with their ace gone the remaining Zaku go up in a chain of explosions
     const left = [...g.crowd.list].sort((a, b) => Math.hypot(a.x - g.hero.pos.x, a.z - g.hero.pos.z) - Math.hypot(b.x - g.hero.pos.x, b.z - g.hero.pos.z));

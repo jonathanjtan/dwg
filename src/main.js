@@ -117,6 +117,14 @@ class Game {
       const m = this.audio.toggleMute();
       $('mute-btn').textContent = m ? 'SOUND: OFF' : 'SOUND: ON';
     });
+    // title theme starts on the first gesture (browsers block audio before one)
+    const titleMusic = () => {
+      if (this.mode !== 'title') return;
+      this.audio.resume();
+      this.audio.playMusic('title');
+    };
+    addEventListener('pointerdown', titleMusic);
+    addEventListener('keydown', titleMusic);
     addEventListener('keydown', (e) => {
       if (e.code === 'Enter' && this.mode === 'title') this.start();
       else if (e.code === 'Enter' && this.mode === 'results') this.start();
@@ -142,6 +150,7 @@ class Game {
   start() {
     this.audio.resume();
     this.audio.play('ui');
+    this.audio.stopMusic();
     document.getElementById('title').classList.add('hidden');
     document.getElementById('results').classList.add('hidden');
     document.getElementById('pause').classList.add('hidden');
@@ -169,6 +178,7 @@ class Game {
     document.getElementById('pause').classList.add('hidden');
     document.getElementById('results').classList.add('hidden');
     this.audio.stopMusic();
+    this.audio.playMusic('title');
     this.stage.reset();
     this.projectiles.clear();
     this.items.clear();
@@ -257,7 +267,7 @@ class Game {
   }
   onHeroDeath() {
     this.hud.announce('MISSION FAILED', 'THE GUNDAM HAS FALLEN', true);
-    this.audio.stopMusic();
+    this.audio.stinger('defeat');
     this.slowmo(0.25, 1.5);
     this.stage.phase = 'lose';
     this.timers.push({ t: 3.5, fn: () => this.finish(false) });
@@ -266,6 +276,7 @@ class Game {
     this.stage.onHeroLanded();
   }
   onMusou() {
+    this.audio.duckMusic(0.25, 1.0);
     this.hud.cutin();
     this.hud.whiteFlash(0.35);
     this.worldSlowT = 1.0;
