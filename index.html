@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Gundam Musou: Side 7</title>
+<meta name="description" content="A voxel Dynasty Warriors: Gundam tribute in three.js. Amuro and the RX-78-2 versus a Zeon invasion of Side 7.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Russo+One&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+  <div id="vignette"></div>
+  <div id="flash"></div>
+
+  <!-- in-game HUD -->
+  <div id="hud" class="hidden">
+    <div id="stage-info">
+      <div class="stage-jp">サイド7</div>
+      <div class="stage-name">SIDE 7 · U.C. 0079</div>
+      <div id="objective">Repel the Zeon raid</div>
+    </div>
+
+    <div id="boss-bars"></div>
+
+    <div id="map-wrap">
+      <canvas id="minimap" width="200" height="200"></canvas>
+      <div id="ko"><span class="ko-label">KO</span><span id="ko-count">0</span></div>
+      <div id="timer">00:00</div>
+    </div>
+
+    <div id="combo" class="hidden"><span id="combo-count">0</span><span class="combo-label">HITS</span></div>
+
+    <div id="player">
+      <div id="portrait-frame"><img id="portrait" alt=""></div>
+      <div id="bars">
+        <div class="pilot"><span class="pilot-jp">アムロ・レイ</span><span class="pilot-en">AMURO RAY · RX-78-2</span></div>
+        <div class="bar hp"><div id="hp-lag"></div><div id="hp-fill"></div><span id="hp-text">1200</span></div>
+        <div class="bar sp"><div id="sp-fill"></div><span id="sp-ready">SP READY · I</span></div>
+      </div>
+    </div>
+
+    <div id="dialogue" class="hidden">
+      <img id="dlg-portrait" alt="">
+      <div class="dlg-body"><div id="dlg-name"></div><div id="dlg-text"></div></div>
+    </div>
+
+    <div id="announce"></div>
+    <div id="toasts"></div>
+    <div id="tags"></div>
+    <div id="keys">
+      <span><b>WASD</b> move</span><span><b>J</b>/<b>LMB</b> attack</span><span><b>K</b>/<b>RMB</b> charge</span>
+      <span><b>Space</b> jump</span><span><b>L</b>/<b>Shift</b> boost</span><span><b>I</b>/<b>F</b> SP attack</span>
+      <span><b>Q E</b>/mouse camera</span><span><b>H</b> hide</span>
+    </div>
+  </div>
+
+  <div id="cutin" class="hidden">
+    <div class="cutin-band"></div>
+    <img id="cutin-portrait" alt="">
+    <div class="cutin-text"><div class="cutin-jp">必殺</div><div class="cutin-en">SP ATTACK</div></div>
+  </div>
+
+  <!-- title -->
+  <div id="title" class="screen">
+    <div class="title-inner">
+      <div class="logo-jp">機動戦士ガンダム</div>
+      <div class="logo">GUNDAM <span>MUSOU</span></div>
+      <div class="logo-sub">VOXEL WARRIORS · SIDE 7 INCIDENT</div>
+      <div class="mission">
+        <div class="mission-tag">MISSION 01</div>
+        <div class="mission-name">Amuro vs. the Zaku raid</div>
+        <div class="mission-desc">Zeon has breached Side 7. Board the RX-78-2, cut through the Zaku squadrons, defeat their commanders, and drive off the Red Comet.</div>
+      </div>
+      <div class="diff" id="diff">
+        <button data-d="easy">EASY</button><button data-d="normal" class="on">NORMAL</button><button data-d="hard">HARD</button>
+      </div>
+      <button id="launch" class="big">LAUNCH</button>
+      <div class="hint">Press <b>Enter</b> or click · Gamepad supported</div>
+      <div class="controls">
+        <div><b>WASD</b> Move</div><div><b>J / Left click</b> Attack</div>
+        <div><b>K / Right click</b> Charge attack</div><div><b>Space</b> Jump</div>
+        <div><b>L / Shift</b> Boost dodge</div><div><b>I / F</b> SP attack</div>
+        <div><b>Mouse / Q E</b> Camera</div><div><b>Esc</b> Pause · <b>M</b> Mute</div>
+      </div>
+      <div class="combo-guide">Charge attacks change with how far into the combo you are: <b>K</b> fires the beam rifle, <b>J K</b> launches, <b>J J K</b> spins, <b>J J J K</b> fires a rifle spread, <b>J J J J K</b> rams with the shield, <b>J J J J J K</b> fires a charged mega beam.</div>
+    </div>
+    <div class="credit">Fan-made tribute. Not affiliated with Sotsu, Sunrise or Bandai Namco. Inspired by <a href="https://github.com/mike007jd/voxel-musou" target="_blank" rel="noopener">voxel-musou</a>.</div>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <div class="panel">
+      <div class="panel-title">PAUSED</div>
+      <button id="resume" class="big">RESUME</button>
+      <button id="restart">RESTART MISSION</button>
+      <button id="mute-btn">SOUND: ON</button>
+      <button id="to-title">QUIT TO TITLE</button>
+    </div>
+  </div>
+
+  <div id="results" class="screen hidden">
+    <div class="panel wide">
+      <div id="res-title" class="panel-title">MISSION COMPLETE</div>
+      <div id="res-rank">S</div>
+      <div id="res-stats"></div>
+      <div class="row">
+        <button id="retry" class="big">SORTIE AGAIN</button>
+        <button id="res-title-btn">TITLE</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading" class="screen"><div class="spinner"></div><div>Preparing Side 7…</div></div>
+  <div id="touch-warn" class="hidden">Keyboard, mouse or gamepad required.</div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

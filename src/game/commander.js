@@ -1,0 +1,586 @@
+// Named officers (Denim, Gene) and the boss (Char's red Zaku).
+import * as THREE from 'three';
+import { RigObject, Clip, makePose, poseFrom, lerpPose, P, RY, RPITCH, RYAW } from '../core/rig.js';
+import { MOVES } from './moves.js';
+import { rand, clamp, damp, angleDamp, wrapAngle } from '../core/util.js';
+import { Trail } from '../fx/fx.js';
+
+const GRAV = 32;
+const CSTANCE = poseFrom({
+  y: -0.1, torso: [0.1, -0.15, 0], head: [-0.05, 0.12, 0],
+  uArmR: [-0.35, 0, -0.3], fArmR: [-0.7, 0, 0], hand: [0.35, 0, 0],
+  uArmL: [-0.3, 0, 0.25], fArmL: [-0.7, 0, 0],
+  thighR: [-0.3, 0, -0.12], shinR: [0.42, 0, 0], thighL: [-0.05, 0, 0.12], shinL: [0.32, 0, 0],
+});
+const GUARD = poseFrom({
+  torso: [0.2, 0.55, 0], head: [0.1, -0.4, 0],
+  uArmR: [-0.3, 0, -0.9], fArmR: [-0.8, 0, 0], uArmL: [-1.2, 0.4, 0.2], fArmL: [-1.4, 0, 0],
+  thighR: [-0.4, 0, -0.2], shinR: [0.6, 0, 0], thighL: [0.1, 0, 0.2], shinL: [0.5, 0, 0], y: -0.25,
+}, CSTANCE);
+const AIM = poseFrom({
+  torso: [0, -0.3, 0], head: [0, 0.25, 0], uArmR: [-1.52, 0, 0.12], fArmR: [0, 0, 0], hand: [1.57, 0, 0],
+  uArmL: [-1.3, 0, -0.45], fArmL: [-0.5, 0, 0], y: -0.12,
+}, CSTANCE);
+const KICK = new Clip([
+  { t: 0, p: { torso: [-0.3, 0, 0], thighR: [0.4, 0, 0], shinR: [1.4, 0, 0], thighL: [-0.3, 0, 0], shinL: [0.6, 0, 0], uArmR: [0.4, 0, -0.6], uArmL: [0.4, 0, 0.6], y: -0.3 } },
+  { t: 0.14, p: { torso: [-0.5, 0, 0], thighR: [-1.65, 0, 0], shinR: [0.05, 0, 0], thighL: [0.5, 0, 0], shinL: [0.6, 0, 0], uArmR: [0.6, 0, -0.9], uArmL: [0.6, 0, 0.9], y: 0.1 }, e: 'snap' },
+  { t: 0.5, p: { torso: [-0.4, 0, 0], thighR: [-1.5, 0, 0], shinR: [0.1, 0, 0] } },
+  { t: 0.75, p: { torso: [0.1, 0, 0], thighR: [-0.3, 0, 0], shinR: [0.4, 0, 0], y: -0.2 } },
+], CSTANCE);
+const HURT_A = poseFrom({ torso: [-0.5, 0.35, 0.12], head: [-0.4, 0, 0], uArmR: [-0.7, 0, -0.9], uArmL: [-0.7, 0, 0.9], y: -0.15 }, CSTANCE);
+const AIRP = poseFrom({ torso: [-0.4, 0, 0], head: [-0.5, 0, 0], uArmR: [-2.2, 0, -0.8], uArmL: [-2.2, 0, 0.8], thighR: [-0.6, 0, -0.2], shinR: [0.9, 0, 0], thighL: [-0.2, 0, 0.2], shinL: [0.5, 0, 0] }, CSTANCE);
+const DOWNP = poseFrom({ pitch: -1.5, torso: [-0.1, 0, 0], head: [-0.3, 0.4, 0], uArmR: [-0.3, 0, -1.1], uArmL: [-0.2, 0, 1.2], thighR: [-0.5, 0, -0.2], shinR: [0.8, 0, 0], y: 0 }, CSTANCE);
+const TAUNT = new Clip([
+  { t: 0, p: {} },
+  { t: 0.4, p: { torso: [-0.15, 0.3, 0], head: [-0.2, -0.3, 0], uArmR: [-0.5, 0, -1.2], fArmR: [-0.3, 0, 0], hand: [1.2, 0, 0], uArmL: [-0.2, 0, 0.4], y: -0.02 } },
+  { t: 1.6, p: { torso: [-0.12, 0.3, 0] } },
+  { t: 2.0, p: {} },
+], CSTANCE);
+
+const COMBOS = {
+  officer: [['N1', 'N2'], ['N3'], ['N1', 'N3']],
+  char: [['N1', 'N2', 'N3'], ['N2', 'N1', 'N4'], ['KICK'], ['N1', 'KICK'], ['N5']],
+};
+
+export class Commander {
+  constructor(game, cfg) {
+    this.game = game;
+    this.cfg = cfg;
+    this.name = cfg.name;
+    this.kind = cfg.kind;
+    this.rig = new RigObject(cfg.def);
+    game.scene.add(this.rig.root);
+    this.rig.nodes.gun.visible = false;
+    this.pos = new THREE.Vector3(cfg.x, 0, cfg.z);
+    this.vel = new THREE.Vector3();
+    this.heading = cfg.yaw || 0;
+    this.maxHp = cfg.hp * game.difficulty.enemyHp;
+    this.hp = this.maxHp;
+    this.radius = 1.0;
+    this.alive = true;
+    this.state = cfg.drop ? 'drop' : 'idle';
+    if (cfg.drop) { this.pos.y = 30; this.vel.y = -18; }
+    this.t = 0;
+    this.cd = 1.2;
+    this.pose = makePose();
+    this.prev = makePose();
+    this.blend = 1;
+    this.hitIds = [];
+    this.flash = 0;
+    this.combo = null;
+    this.comboIdx = 0;
+    this.moveT = 0;
+    this.poise = 0;
+    this.recentHits = 0;
+    this.invuln = 0;
+    this.lie = 0;
+    this.fired = 0;
+    this.hitDone = false;
+    this.speed = cfg.speed;
+    this.height = 3.2;
+    this.x = this.pos.x;
+    this.z = this.pos.z;
+    this.y = 0;
+    this.trail = new Trail(game.scene, cfg.trail || 0xff8a2a, 12);
+    this.afterimageT = 0;
+    this._v = new THREE.Vector3();
+    this._a = new THREE.Vector3();
+    this._b = new THREE.Vector3();
+    this._r = [0, 0];
+  }
+
+  setState(s) {
+    this.prev.set(this.pose);
+    this.prev[RYAW] = wrapAngle(this.prev[RYAW]);
+    this.blend = 0;
+    this.state = s;
+    this.t = 0;
+  }
+
+  dispose() {
+    this.game.scene.remove(this.rig.root);
+    this.game.scene.remove(this.trail.mesh);
+  }
+
+  damage(dmg, kb, up, fromX, fromZ, id, opts = {}) {
+    const g = this.game;
+    if (!this.alive || this.state === 'retreat' || this.state === 'dead') return false;
+    if (this.invuln > 0) return false;
+    if (id && this.hitIds.includes(id)) return false;
+    if (id) { this.hitIds.push(id); if (this.hitIds.length > 8) this.hitIds.shift(); }
+    const dx = this.pos.x - fromX, dz = this.pos.z - fromZ;
+    const l = Math.hypot(dx, dz) || 1;
+    // guarding blocks frontal hits
+    if (this.state === 'guard' && !opts.sp) {
+      const facing = Math.sin(this.heading) * -dx / l + Math.cos(this.heading) * -dz / l;
+      if (facing > 0.2) {
+        this.hp -= dmg * 0.08;
+        g.fx.sparks(this._v.set(this.pos.x - dx / l * 1.2, 2.2, this.pos.z - dz / l * 1.2), 10, 0xffe080, 10);
+        g.audio.play('clang', { vol: 0.6 });
+        this.flash = 0.3;
+        this.vel.x = dx / l * 3; this.vel.z = dz / l * 3;
+        return true;
+      }
+    }
+    this.hp -= dmg;
+    this.flash = 1;
+    this.recentHits++;
+    this.poise += dmg;
+    g.hud.bossHit(this);
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.defeat(dx / l, dz / l);
+      return true;
+    }
+    const heavy = up > 6 || kb > 8.5 || opts.sp;
+    const armored = (this.state === 'combo' && this.kind === 'char' && this.moveT > 0.05 && !heavy) || this.state === 'dash';
+    if (armored) return true;
+    if (this.state === 'air' || heavy || this.poise > this.maxHp * 0.12) {
+      this.poise = 0;
+      this.setState('air');
+      this.vel.set(dx / l * kb * 0.8, Math.max(up, 5), dz / l * kb * 0.8);
+      if (this.pos.y > 0.3) this.vel.y = Math.max(up * 0.6, 4);
+    } else {
+      this.setState('hurt');
+      this.vel.set(dx / l * kb * 0.7, 0, dz / l * kb * 0.7);
+    }
+    this.heading = Math.atan2(-dx, -dz);
+    // Char dodges out of long strings
+    if (this.kind === 'char' && this.recentHits >= 5 && this.state === 'hurt' && Math.random() < 0.7) {
+      this.recentHits = 0;
+      this.evade();
+    }
+    return true;
+  }
+
+  defeat(dx, dz) {
+    const g = this.game;
+    this.alive = false;
+    if (this.kind === 'char') {
+      this.setState('retreat');
+      this.vel.set(dx * 6, 12, dz * 6);
+      g.onCommanderDefeated(this);
+    } else {
+      this.setState('dying');
+      this.vel.set(dx * 8, 9, dz * 8);
+      g.onCommanderDefeated(this);
+    }
+  }
+
+  evade() {
+    const g = this.game;
+    this.setState('evade');
+    const a = this.heading + Math.PI + rand(-0.9, 0.9);
+    this.evadeDir = { x: Math.sin(a), z: Math.cos(a) };
+    this.invuln = 0.4;
+    g.audio.play('boost', { vol: 0.7 });
+  }
+
+  update(dt) {
+    const g = this.game;
+    const hero = g.hero;
+    this.t += dt;
+    this.cd -= dt;
+    this.flash = Math.max(0, this.flash - dt * 5);
+    this.invuln = Math.max(0, this.invuln - dt);
+    this.recentHits = Math.max(0, this.recentHits - dt * 1.2);
+    this.poise = Math.max(0, this.poise - dt * this.maxHp * 0.02);
+    const dx = hero.pos.x - this.pos.x, dz = hero.pos.z - this.pos.z;
+    const dist = Math.hypot(dx, dz);
+    const toHero = Math.atan2(dx, dz);
+    const heroOk = hero.alive && hero.state !== 'intro';
+    const isChar = this.kind === 'char';
+    const target = this.targetPose || (this.targetPose = makePose());
+    const sp = this.speed;
+    let trailOn = false;
+
+    switch (this.state) {
+      case 'drop': {
+        this.vel.y = Math.min(this.vel.y + 22 * dt, -5);
+        this.pos.y += this.vel.y * dt;
+        g.fx.thruster(this._v.set(this.pos.x, this.pos.y + 1.8, this.pos.z - 0.5), { x: 0, y: -1, z: -0.2 }, 0xffb070, 1.5);
+        target.set(poseFrom({ thighR: [-0.8, 0, 0], shinR: [1.2, 0, 0], uArmR: [-0.3, 0, -0.6], uArmL: [-0.3, 0, 0.6] }, CSTANCE));
+        if (this.pos.y <= 0) {
+          this.pos.y = 0;
+          this.vel.set(0, 0, 0);
+          g.fx.ring(this.pos, 0.5, 5, 0xffc080, 0.5);
+          g.fx.dust(this.pos, 16, 1.4);
+          g.camera.shake(0.35);
+          g.audio.play('slam');
+          this.setState('taunt');
+        }
+        break;
+      }
+      case 'taunt': {
+        this.heading = angleDamp(this.heading, toHero, 4, dt);
+        TAUNT.sample(this.t, target);
+        if (this.t > 1.9) this.setState('idle');
+        break;
+      }
+      case 'idle': {
+        this.heading = angleDamp(this.heading, toHero, 8, dt);
+        // guard reaction to hero swings
+        if (heroOk && dist < 6 && hero.state === 'attack' && Math.random() < dt * (isChar ? 3 : 1.4)) {
+          this.setState('guard');
+          break;
+        }
+        if (heroOk && this.cd <= 0) {
+          if (dist > 16 && (isChar || Math.random() < 0.4)) {
+            if (Math.random() < (isChar ? 0.35 : 0.5)) { this.setState('aim'); this.fired = 0; }
+            else this.dash(toHero);
+          } else if (dist > 7 && Math.random() < (isChar ? 0.2 : 0.3)) {
+            this.setState('aim'); this.fired = 0;
+          } else {
+            const list = COMBOS[this.kind];
+            this.combo = list[(Math.random() * list.length) | 0];
+            this.comboIdx = 0;
+            this.startComboStep();
+          }
+          break;
+        }
+        // strafe / close distance
+        const want = isChar ? 5 : 6;
+        let mx = 0, mz = 0;
+        if (dist > want + 1) { mx = dx / dist; mz = dz / dist; }
+        else if (dist < want - 1.5) { mx = -dx / dist; mz = -dz / dist; }
+        else { mx = dz / dist * (this.cfg.strafe || 1); mz = -dx / dist * (this.cfg.strafe || 1); }
+        const s = dist > 25 ? sp * 1.3 : sp * 0.7;
+        this.vel.x = damp(this.vel.x, mx * s, 6, dt);
+        this.vel.z = damp(this.vel.z, mz * s, 6, dt);
+        this.walkPose(target, dt);
+        break;
+      }
+      case 'dash': {
+        const T = 0.6;
+        this.vel.x = Math.sin(this.heading) * sp * 3;
+        this.vel.z = Math.cos(this.heading) * sp * 3;
+        this.heading = angleDamp(this.heading, toHero, 4, dt);
+        this.thrust(1.5);
+        trailOn = true;
+        target.set(poseFrom({ torso: [0.55, 0, 0], head: [-0.3, 0, 0], thighR: [0.5, 0, 0], shinR: [0.8, 0, 0], thighL: [0.3, 0, 0], shinL: [0.6, 0, 0], uArmR: [0.5, 0, -0.5], uArmL: [0.5, 0, 0.5], y: -0.2 }, CSTANCE));
+        if (dist < 4.5 || this.t > T * 1.6) {
+          const list = COMBOS[this.kind];
+          this.combo = list[(Math.random() * list.length) | 0];
+          this.comboIdx = 0;
+          this.startComboStep();
+        }
+        break;
+      }
+      case 'combo': {
+        const name = this.combo[this.comboIdx];
+        const speedMul = isChar ? 1.0 : 0.8;
+        this.moveT += dt * speedMul;
+        const t = this.moveT;
+        trailOn = name !== 'KICK';
+        if (name === 'KICK') {
+          KICK.sample(t, target);
+          if (t > 0.1 && t < 0.5) {
+            this.vel.x = Math.sin(this.heading) * sp * 2.2;
+            this.vel.z = Math.cos(this.heading) * sp * 2.2;
+            this.thrust(1.3);
+          } else { this.vel.x = damp(this.vel.x, 0, 10, dt); this.vel.z = damp(this.vel.z, 0, 10, dt); }
+          if (t > 0.14 && t < 0.5 && !this.hitDone && dist < 3.2) {
+            this.hitDone = true;
+            hero.takeHit(this.cfg.dmg * 1.6, this.pos.x, this.pos.z, true);
+            g.audio.play('slam', { vol: 0.8 });
+          }
+          if (t >= 0.8) this.nextComboStep();
+        } else {
+          const m = MOVES[name];
+          m.clip.sample(Math.min(t, m.clip.dur), target);
+          if (t < 0.08) this.heading = angleDamp(this.heading, toHero, 12, dt);
+          if (m.lunge) {
+            const a = m.lunge[0], b = m.lunge[m.lunge.length - 1];
+            const moving = t >= a[0] && t <= b[0];
+            const v = moving ? (b[1] - a[1]) / (b[0] - a[0]) * speedMul : 0;
+            const lim = dist < 2.4 ? 0 : 1;
+            this.vel.x = Math.sin(this.heading) * v * lim;
+            this.vel.z = Math.cos(this.heading) * v * lim;
+          } else { this.vel.x = 0; this.vel.z = 0; }
+          if (m.air) this.pos.y = m.air ? Math.max(0, this.airCurve(m.air, t)) : 0;
+          const h = m.hits && m.hits[0];
+          if (h && !this.hitDone && t >= h.t && t <= h.t1 + 0.02) {
+            const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
+            const dot = dist > 0 ? (dx * fx + dz * fz) / dist : 1;
+            const range = (h.range || h.len || 4) * 0.95;
+            const arc = h.shape === 'circle' || h.arc >= 360 ? -1 : Math.cos((h.arc || 120) * Math.PI / 360);
+            if (dist < range && dot >= arc && hero.pos.y < 3) {
+              this.hitDone = true;
+              hero.takeHit(this.cfg.dmg * (h.big ? 1.5 : 1), this.pos.x, this.pos.z, !!h.big || name === 'N4');
+            }
+          }
+          if (m.swing !== undefined && t >= m.swing && t - dt * speedMul < m.swing) g.audio.play('hawk', { vol: 0.6 });
+          if (t >= m.chain + (isChar ? 0.02 : 0.12)) this.nextComboStep();
+        }
+        break;
+      }
+      case 'aim': {
+        this.vel.x = damp(this.vel.x, 0, 8, dt);
+        this.vel.z = damp(this.vel.z, 0, 8, dt);
+        this.heading = angleDamp(this.heading, toHero, 8, dt);
+        this.rig.nodes.gun.visible = true;
+        this.rig.nodes.hawk.visible = false;
+        lerpPose(target, CSTANCE, AIM, Math.min(1, this.t / 0.2));
+        const shots = isChar ? 8 : 6;
+        const start = isChar ? 0.35 : 0.55;
+        if (this.t > start && this.fired < shots && this.t >= start + this.fired * 0.1) {
+          this.fired++;
+          this.rig.root.updateMatrixWorld(true);
+          const from = this.rig.nodes.hand.localToWorld(this._v.set(0, 0, 1.2));
+          const a = this.heading + rand(-0.04, 0.04);
+          const aimY = (hero.pos.y + 1.6 - from.y) / Math.max(1, dist);
+          g.projectiles.enemyBullet(from, new THREE.Vector3(Math.sin(a), aimY, Math.cos(a)).normalize(), isChar ? 1.4 : 1.1);
+          target[P.uArmR * 3] -= 0.1;
+        }
+        if (this.t > start + shots * 0.1 + 0.3) {
+          this.rig.nodes.gun.visible = false;
+          this.rig.nodes.hawk.visible = true;
+          this.setState('idle');
+          this.cd = rand(0.6, 1.4) * (isChar ? 0.6 : 1);
+        }
+        break;
+      }
+      case 'guard': {
+        this.vel.x = damp(this.vel.x, 0, 8, dt);
+        this.vel.z = damp(this.vel.z, 0, 8, dt);
+        this.heading = angleDamp(this.heading, toHero, 10, dt);
+        target.set(GUARD);
+        if (this.t > (isChar ? 0.5 : 0.8)) {
+          // counter attack
+          const list = COMBOS[this.kind];
+          this.combo = list[(Math.random() * list.length) | 0];
+          this.comboIdx = 0;
+          this.startComboStep();
+        }
+        break;
+      }
+      case 'evade': {
+        const u = this.t / 0.4;
+        const s = 26 * (1 - u) + 2;
+        this.vel.x = this.evadeDir.x * s;
+        this.vel.z = this.evadeDir.z * s;
+        this.thrust(1.6);
+        trailOn = true;
+        this.afterimage(dt);
+        target.set(poseFrom({ torso: [-0.3, 0, 0], thighR: [0.4, 0, 0], shinR: [0.8, 0, 0], uArmR: [0.4, 0, -0.6], uArmL: [0.4, 0, 0.6], y: -0.25 }, CSTANCE));
+        if (this.t > 0.4) { this.setState('idle'); this.cd = 0.15; }
+        break;
+      }
+      case 'hurt': {
+        this.vel.x = damp(this.vel.x, 0, 8, dt);
+        this.vel.z = damp(this.vel.z, 0, 8, dt);
+        target.set(HURT_A);
+        if (this.t > 0.35) { this.setState('idle'); this.cd = Math.min(this.cd, 0.3); }
+        break;
+      }
+      case 'air': {
+        this.vel.y -= GRAV * dt;
+        this.pos.y += this.vel.y * dt;
+        this.lie = Math.min(1, this.lie + dt * 3);
+        target.set(AIRP);
+        target[RPITCH] = -1.3 * this.lie;
+        if (this.pos.y <= 0 && this.vel.y < 0) {
+          this.pos.y = 0;
+          this.vel.set(this.vel.x * 0.3, 0, this.vel.z * 0.3);
+          g.fx.dust(this.pos, 10, 1.3);
+          this.setState('down');
+          this.lie = 1;
+        }
+        break;
+      }
+      case 'down': {
+        this.vel.x = damp(this.vel.x, 0, 6, dt);
+        this.vel.z = damp(this.vel.z, 0, 6, dt);
+        target.set(DOWNP);
+        if (this.t > (isChar ? 0.5 : 0.9)) { this.setState('getup'); this.invuln = 0.9; }
+        break;
+      }
+      case 'getup': {
+        this.lie = Math.max(0, 1 - this.t / 0.4);
+        lerpPose(target, DOWNP, CSTANCE, 1 - this.lie);
+        if (this.t > 0.45) {
+          this.lie = 0;
+          if (isChar && Math.random() < 0.6) this.evade();
+          else { this.setState('idle'); this.cd = 0.3; }
+        }
+        break;
+      }
+      case 'dying': {
+        this.vel.y -= GRAV * dt;
+        this.pos.y = Math.max(0, this.pos.y + this.vel.y * dt);
+        if (this.pos.y === 0) { this.vel.x *= 0.9; this.vel.z *= 0.9; }
+        this.lie = Math.min(1, this.lie + dt * 2);
+        this.flash = 0.5 + 0.5 * Math.sin(this.t * 40);
+        target.set(DOWNP);
+        target[RPITCH] = -1.5 * this.lie;
+        if (Math.random() < dt * 12) g.fx.sparks(this._v.set(this.pos.x + rand(-1, 1), 1 + rand(0, 1.5), this.pos.z + rand(-1, 1)), 6, 0xffc060, 8);
+        if (this.t > 1.1) {
+          g.fx.explode(this._v.set(this.pos.x, 1.6, this.pos.z), 2.2, [this.cfg.colors.DG, this.cfg.colors.LG, 0x3a3a3a]);
+          g.fx.explode(this._v.set(this.pos.x + 1, 2.4, this.pos.z), 1.4, [this.cfg.colors.DG, this.cfg.colors.LG]);
+          g.camera.shake(0.8);
+          g.audio.play('bigboom');
+          this.state = 'dead';
+          this.rig.root.visible = false;
+          this.trail.mesh.visible = false;
+          g.onCommanderExploded(this);
+        }
+        break;
+      }
+      case 'retreat': {
+        // Char withdraws: stagger, then boost up and away.
+        if (this.t < 1.6) {
+          this.vel.y -= GRAV * dt;
+          this.pos.y = Math.max(0, this.pos.y + this.vel.y * dt);
+          this.vel.x *= 0.95; this.vel.z *= 0.95;
+          if (Math.random() < dt * 10) g.fx.sparks(this._v.set(this.pos.x + rand(-1, 1), 1.5 + rand(0, 1.5), this.pos.z + rand(-1, 1)), 6, 0xffc060, 8);
+          target.set(HURT_A);
+        } else {
+          this.vel.y = Math.min(this.vel.y + 30 * dt, 22);
+          this.vel.x = damp(this.vel.x, -Math.sin(this.heading) * 10, 2, dt);
+          this.vel.z = damp(this.vel.z, -Math.cos(this.heading) * 10, 2, dt);
+          this.pos.y += this.vel.y * dt;
+          this.thrust(2);
+          target.set(poseFrom({ torso: [0.2, 0, 0], thighR: [-0.6, 0, 0], shinR: [1, 0, 0], uArmR: [-0.2, 0, -0.5], uArmL: [-0.2, 0, 0.5] }, CSTANCE));
+          if (this.pos.y > 80) { this.state = 'dead'; this.rig.root.visible = false; this.trail.mesh.visible = false; }
+        }
+        break;
+      }
+      case 'dead':
+        return;
+    }
+
+    if (this.state !== 'drop' && this.state !== 'retreat' && this.state !== 'dying') {
+      this.pos.x += this.vel.x * dt;
+      this.pos.z += this.vel.z * dt;
+      if (this.state === 'air' || this.pos.y > 0) {
+        if (this.state !== 'air' && this.state !== 'combo') this.pos.y = Math.max(0, this.pos.y - 10 * dt);
+      }
+    } else if (this.state !== 'drop') {
+      this.pos.x += this.vel.x * dt;
+      this.pos.z += this.vel.z * dt;
+    }
+    if (this.state !== 'retreat') {
+      const r = g.world.resolve(this.pos.x, this.pos.z, this.radius, this._r);
+      this.pos.x = r[0];
+      this.pos.z = r[1];
+      // don't overlap the hero
+      if (dist < 1.9 && dist > 1e-4 && hero.pos.y < 2.5) {
+        this.pos.x -= dx / dist * (1.9 - dist);
+        this.pos.z -= dz / dist * (1.9 - dist);
+      }
+    }
+    this.x = this.pos.x; this.z = this.pos.z; this.y = this.pos.y;
+
+    // blend + apply
+    this.blend = Math.min(1, this.blend + dt / 0.08);
+    if (this.blend < 1) lerpPose(this.pose, this.prev, target, this.blend);
+    else this.pose.set(target);
+    const rig = this.rig;
+    rig.root.position.set(this.pos.x, this.pos.y + this.lie * 0.45, this.pos.z);
+    rig.root.rotation.y = this.heading;
+    rig.applyPose(this.pose);
+    rig.setFlash(this.flash, 0xffffff);
+    rig.root.updateMatrixWorld(true);
+    const hand = rig.nodes.hand;
+    hand.localToWorld(this._a.set(0, -0.3, 0.45));
+    hand.localToWorld(this._b.set(0, -0.3, 0.75));
+    this.trail.push(this._a, this._b, trailOn && this.rig.nodes.hawk.visible);
+    if (isChar && this.state !== 'dead' && Math.random() < dt * 6) g.fx.aura(this.pos, 0xff3040, 1, 1.2);
+  }
+
+  airCurve(keys, t) {
+    if (t <= keys[0][0]) return keys[0][1];
+    for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]) {
+      const a = keys[i - 1], b = keys[i];
+      const u = (t - a[0]) / (b[0] - a[0]);
+      return a[1] + (b[1] - a[1]) * u * u * (3 - 2 * u);
+    }
+    return keys[keys.length - 1][1];
+  }
+
+  walkPose(target, dt) {
+    const sp = Math.hypot(this.vel.x, this.vel.z);
+    this.phase = (this.phase || 0) + dt * sp * 0.7;
+    const w = clamp(sp / this.speed, 0, 1);
+    const s = Math.sin(this.phase), c = Math.cos(this.phase);
+    target.set(CSTANCE);
+    target[P.torso * 3] += 0.2 * w;
+    target[P.thighR * 3] += -0.8 * s * w;
+    target[P.thighL * 3] += 0.8 * s * w;
+    target[P.shinR * 3] += Math.max(0, c) * 1.1 * w;
+    target[P.shinL * 3] += Math.max(0, -c) * 1.1 * w;
+    target[P.uArmR * 3] += 0.4 * s * w;
+    target[P.uArmL * 3] -= 0.4 * s * w;
+    target[RY] = -0.1 - Math.abs(c) * 0.08 * w;
+  }
+
+  dash(toHero) {
+    this.heading = toHero;
+    this.setState('dash');
+    this.game.audio.play('boost', { vol: 0.7 });
+  }
+
+  startComboStep() {
+    const g = this.game;
+    this.setState('combo');
+    this.moveT = 0;
+    this.hitDone = false;
+    const name = this.combo[this.comboIdx];
+    // telegraph: mono-eye glint
+    this.rig.root.updateMatrixWorld(true);
+    const eye = this.rig.nodes.head.localToWorld(this._v.set(0, 0.25, 0.35));
+    g.fx.hit(eye, 0xff3070);
+    if (name !== 'KICK') g.audio.play('hawk', { vol: 0.25, pitch: 1.4 });
+  }
+
+  nextComboStep() {
+    this.comboIdx++;
+    if (this.comboIdx >= this.combo.length) {
+      this.setState('idle');
+      this.pos.y = 0;
+      this.cd = rand(0.8, 1.8) * (this.kind === 'char' ? 0.55 : 1) / this.game.difficulty.speed;
+      return;
+    }
+    this.startComboStep();
+  }
+
+  thrust(strength) {
+    const torso = this.rig.nodes.torso;
+    this.rig.root.updateMatrixWorld(true);
+    const p = torso.localToWorld(this._v.set(0, 0.2, -0.6));
+    this.game.fx.thruster(p, { x: -Math.sin(this.heading) * 0.8, y: -0.4, z: -Math.cos(this.heading) * 0.8 }, 0xffa060, strength);
+  }
+
+  afterimage(dt) {
+    this.afterimageT -= dt;
+    if (this.afterimageT > 0) return;
+    this.afterimageT = 0.05;
+    const q = this.game.fx.glow.spawn();
+    q.x = this.pos.x; q.y = this.pos.y + 1.6; q.z = this.pos.z;
+    q.vx = q.vy = q.vz = 0; q.max = 0.3; q.g = 0; q.drag = 0;
+    q.s0 = 1.8; q.s1 = 0.4; q.c0.setRGB(1.6, 0.15, 0.2); q.c1.setRGB(0.4, 0, 0);
+    q.rx = 0; q.ry = this.heading; q.rz = 0;
+  }
+}
+
+export class Commanders {
+  constructor(game) {
+    this.game = game;
+    this.list = [];
+  }
+  add(cfg) {
+    const c = new Commander(this.game, cfg);
+    this.list.push(c);
+    return c;
+  }
+  update(dt) {
+    for (const c of this.list) c.update(dt);
+  }
+  clear() {
+    for (const c of this.list) c.dispose();
+    this.list.length = 0;
+  }
+  get active() {
+    return this.list.filter((c) => c.alive);
+  }
+}
