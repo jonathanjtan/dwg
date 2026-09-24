@@ -64,7 +64,8 @@ export class Combat {
     for (const e of near) {
       if (!e.alive || e.state === 'dying' || e.state === 'drop') continue;
       if (!this.inShape(spec, hx, hy, hz, h, e.x, e.y, e.z, e.radius)) continue;
-      const ok = g.crowd.damage(e, spec.dmg * dmgMul, spec.kb, spec.up, hx, hz, id, { pull: spec.pull ? spec.pull : 0 });
+      const radial = spec.shape === 'circle' || (spec.arc || 0) >= 360;
+      const ok = g.crowd.damage(e, spec.dmg * dmgMul, spec.kb, spec.up, hx, hz, id, { pull: spec.pull ? spec.pull : 0, big: spec.big, radial });
       if (!ok) continue;
       hits++;
       this.hitFx(e.x, e.y + 1.8, e.z, spec, hits);
@@ -97,9 +98,10 @@ export class Combat {
     const hero = g.hero;
     g.addCombo(n);
     if (hero.state !== 'musou') hero.sp = Math.min(hero.maxSp, hero.sp + n * 0.9);
-    // hit-stop sells impact; stronger for heavy blows
-    g.hitstop(spec.big ? 0.085 : Math.min(0.06, 0.035 + n * 0.004));
-    g.camera.shake(spec.big ? 0.35 : 0.08 + Math.min(0.12, n * 0.01));
+    // hero hit-stop: 1 frame per tick (+1 per 5 extra victims, max 4); heavy contact 7 frames.
+    // No camera shake on normal hits; only heavy blows kick the camera.
+    g.hitstop(spec.big ? 7 / 60 : Math.min(4, 1 + Math.floor((n - 1) / 5)) / 60);
+    if (spec.big) g.camera.shake(0.3);
   }
 
   // Projectile (beam) vs targets along a segment.

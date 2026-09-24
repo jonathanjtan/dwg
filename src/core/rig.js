@@ -213,7 +213,7 @@ export class InstancedRig {
       } else {
         w.multiplyMatrices(parentM, _t);
       }
-      const hidden = e.bit && (hide & e.bit);
+      const hidden = hide === -1 || (e.bit && (hide & e.bit));
       if (e.solid) {
         e.solid.setMatrixAt(i, hidden ? ZERO : w);
         e.solid.instanceColor.setXYZ(i, cr, cg, cb);

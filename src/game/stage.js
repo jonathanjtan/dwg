@@ -66,7 +66,7 @@ export class Stage {
     const cfgs = {
       denim: { name: 'denim', kind: 'officer', title: 'DENIM · ZAKU II', jp: 'デニム', def: commanderDef(), colors: CMD_COLORS, hp: 900, speed: 6.2, dmg: 44, strafe: 1 },
       gene: { name: 'gene', kind: 'officer', title: 'GENE · ZAKU II', jp: 'ジーン', def: commanderDef(), colors: CMD_COLORS, hp: 1050, speed: 6.8, dmg: 48, strafe: -1 },
-      char: { name: 'char', kind: 'char', title: 'CHAR AZNABLE · ZAKU II S', jp: 'シャア・アズナブル', def: charDef(), colors: CHAR_COLORS, hp: 3000, speed: 11, dmg: 50, trail: 0xff4a3a, strafe: 1 },
+      char: { name: 'char', kind: 'char', title: 'CHAR AZNABLE · ZAKU II S', jp: 'シャア・アズナブル', def: charDef(), colors: CHAR_COLORS, hp: 3000, speed: 11, dmg: 46, trail: 0xff4a3a, strafe: 1 },
     };
     const cfg = { ...cfgs[which], x, z, drop: true, yaw: Math.atan2(hero.x - x, hero.z - z) };
     const c = g.commanders.add(cfg);

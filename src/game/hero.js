@@ -553,9 +553,9 @@ export class Hero {
     dmg = Math.round(dmg * g.difficulty.dmgTaken);
     this.hp = Math.max(0, this.hp - dmg);
     this.sp = Math.min(this.maxSp, this.sp + dmg * 0.08);
-    this.flash = 1;
+    this.flash = kind === 'bullet' ? 0.35 : 1;
     g.stats.damageTaken += dmg;
-    g.hud.hurt();
+    if (kind !== 'bullet') g.hud.hurt();
     if (kind !== 'bullet' || Math.random() < 0.3) g.fx.hit(this._v.set(this.pos.x, this.pos.y + 1.8, this.pos.z), 0xffa040);
     g.audio.play('hurt', { vol: kind === 'bullet' ? 0.35 : 1 });
     g.camera.shake(heavy ? 0.5 : kind === 'bullet' ? 0.05 : 0.2);
@@ -775,8 +775,8 @@ export class Hero {
     rig.root.rotation.y = this.heading;
     rig.applyPose(this.pose);
     const f = Math.max(this.flash, this.armorFlash);
-    this.armorFlash = Math.max(0, this.armorFlash - dt * 4);
-    rig.setFlash(f * 0.45, this.armorFlash > 0 ? 0xffc040 : 0xff6040);
+    this.armorFlash = Math.max(0, this.armorFlash - dt * 7);
+    rig.setFlash(f * (this.armorFlash > 0 ? 0.18 : 0.35), this.armorFlash > 0 ? 0xffd080 : 0xff5030);
 
     // weapons
     const rifleMove = (this.state === 'attack' && this.move.rifle);

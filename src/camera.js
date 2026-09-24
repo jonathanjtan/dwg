@@ -6,12 +6,13 @@ export class CameraRig {
     this.cam = camera;
     this.world = world;
     this.yaw = 0;
-    this.pitch = 0.42;
-    this.dist = 11.5;
-    this.distTarget = 11.5;
+    this.pitch = 0.3;
+    this.dist = 8.8;
+    this.distTarget = 8.8;
+    this.crowdPull = 0;
     this.target = new THREE.Vector3(0, 2.4, 0);
     this.trauma = 0;
-    this.fovBase = 55;
+    this.fovBase = 46;
     this.fovKick = 0;
     this.idleLook = 0;
     this.cine = null;
@@ -35,7 +36,7 @@ export class CameraRig {
     this.cine = { t: 0, ...opts };
   }
 
-  update(dt, rdt, heroPos, heroHeading, input, moving) {
+  update(dt, rdt, heroPos, heroHeading, input, moving, crowdN = 0) {
     let manual = false;
     if (input) {
       const sens = 0.0026;
@@ -61,8 +62,10 @@ export class CameraRig {
       this.yaw = angleDamp(this.yaw, heroHeading, 0.9, rdt);
     }
 
-    this.dist = damp(this.dist, this.distTarget, 6, rdt);
-    const goal = this._v.set(heroPos.x, heroPos.y * (this.yFollow ?? 0.7) + 2.5, heroPos.z);
+    // dense crowd: pull out ~15% so the mob reads around the hero
+    this.crowdPull = damp(this.crowdPull, Math.min(1, Math.max(0, (crowdN - 15) / 30)), 1.5, rdt);
+    this.dist = damp(this.dist, this.distTarget * (1 + 0.15 * this.crowdPull), 6, rdt);
+    const goal = this._v.set(heroPos.x, heroPos.y * (this.yFollow ?? 0.7) + 2.3, heroPos.z);
     this.target.x = damp(this.target.x, goal.x, 14, rdt);
     this.target.z = damp(this.target.z, goal.z, 14, rdt);
     this.target.y = damp(this.target.y, goal.y, 8, rdt);

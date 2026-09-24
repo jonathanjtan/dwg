@@ -1,8 +1,5 @@
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { Post } from './post.js';
 import { Input, lockPointer } from './core/input.js';
 import { World } from './world/world.js';
 import { FX } from './fx/fx.js';
@@ -34,17 +31,12 @@ class Game {
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    // tone mapping + sRGB happen in the post chain's final pass
 
     this.scene = new THREE.Scene();
     this.cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 3000);
 
-    this.composer = new EffectComposer(this.renderer);
-    this.composer.addPass(new RenderPass(this.scene, this.cam));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.85, 0.45, 0.88);
-    this.composer.addPass(this.bloom);
-    this.composer.addPass(new OutputPass());
+    this.post = new Post(this.renderer, Math.round(innerWidth * this.pixelRatio), Math.round(innerHeight * this.pixelRatio));
 
     this.time = 0;
     this.timers = [];
@@ -73,6 +65,8 @@ class Game {
     this.worldSlowT = 0;
     this.titleT = 0;
     this.frameTimes = [];
+    this._focus = new THREE.Vector3();
+    this._near = [];
 
     addEventListener('resize', () => this.resize());
     document.addEventListener('pointerlockchange', () => {
@@ -98,7 +92,7 @@ class Game {
     this.cam.aspect = innerWidth / innerHeight;
     this.cam.updateProjectionMatrix();
     this.renderer.setSize(innerWidth, innerHeight);
-    this.composer.setSize(innerWidth, innerHeight);
+    this.post.setSize(Math.round(innerWidth * this.pixelRatio), Math.round(innerHeight * this.pixelRatio));
   }
 
   bindUI() {
@@ -162,7 +156,7 @@ class Game {
     this.hero.reset();
     this.hero.startIntro();
     this.camera.yaw = 0;
-    this.camera.pitch = 0.42;
+    this.camera.pitch = 0.3;
     this.camera.target.set(0, 3, -14);
     this.mode = 'play';
     this.hud.show(true);
@@ -226,6 +220,7 @@ class Game {
   }
 
   // ---------- events ----------
+  // Hit-stop freezes the hero only; victims shudder a few frames and the world keeps moving.
   hitstop(d) {
     this.stopT = Math.max(this.stopT, d);
   }
@@ -299,7 +294,7 @@ class Game {
       this.cam.position.set(Math.sin(a) * r, 2.4 + Math.sin(this.titleT * 0.3) * 0.4, Math.cos(a) * r);
       const side = new THREE.Vector3(-Math.cos(a), 0, Math.sin(a)).multiplyScalar(2.6);
       this.cam.lookAt(side.x, 2.1, side.z);
-      this.composer.render();
+      this.render();
       this.input.endFrame();
       return;
     }
@@ -317,14 +312,14 @@ class Game {
     if (act.recenter) this.camera.recenter(this.hero.heading);
 
     if (this.mode === 'paused') {
-      this.composer.render();
+      this.render();
       this.input.endFrame();
       return;
     }
 
     // time scaling: hit-stop, slow-mo, SP cut-in freeze for the world
-    let scale = 1;
-    if (this.stopT > 0) { this.stopT -= rdt; scale = 0.06; }
+    let scale = 1, heroScale = 1;
+    if (this.stopT > 0) { this.stopT -= rdt; heroScale = 0.04; }
     if (this.slowT > 0) { this.slowT -= rdt; scale = Math.min(scale, this.slowScale); }
     const dt = rdt * scale;
     let wdt = dt;
@@ -340,7 +335,7 @@ class Game {
 
     const playable = this.mode === 'play';
     const heroAct = playable ? act : {};
-    this.hero.update(dt, heroAct, this.input);
+    this.hero.update(dt * heroScale, heroAct, this.input);
     this.crowd.update(wdt);
     this.commanders.update(wdt);
     this.projectiles.update(wdt);
@@ -353,15 +348,24 @@ class Game {
 
     const moving = Math.hypot(this.hero.vel.x, this.hero.vel.z) > 2;
     this.camera.yFollow = this.hero.state === 'intro' ? 0.95 : 0.7;
-    this.camera.update(dt, rdt, this.hero.pos, this.hero.heading, playable ? this.input : null, moving);
+    const crowdN = this.crowd.grid.query(this.hero.pos.x, this.hero.pos.z, 12, this._near).length;
+    this.camera.update(dt, rdt, this.hero.pos, this.hero.heading, playable ? this.input : null, moving, crowdN);
     this.world.follow(this.hero.pos);
     this.world.fadeNear(this.cam.position);
     this.audio.listener = this.hero.pos;
     this.crowd.render(wdt);
     this.projectiles.render();
     this.hud.update(rdt);
-    this.composer.render();
+    this.render();
     this.input.endFrame();
+  }
+
+  render() {
+    const h = this.hero.pos;
+    this.post.focus = Math.max(4, this.cam.position.distanceTo(this._focus.set(h.x, h.y + 2, h.z)));
+    const sp = this.hero.state === 'musou' && this.hero.spPhase === 0 ? 1 : 0;
+    this.post.musou += (sp - this.post.musou) * (sp ? 0.15 : 0.08);
+    this.post.render(this.scene, this.cam, this.time);
   }
 
   adaptQuality(rdt) {
@@ -375,7 +379,6 @@ class Game {
     if (pr !== this.pixelRatio) {
       this.pixelRatio = pr;
       this.renderer.setPixelRatio(pr);
-      this.composer.setPixelRatio?.(pr);
       this.resize();
     }
   }

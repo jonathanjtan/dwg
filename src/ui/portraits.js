@@ -99,8 +99,73 @@ const ART = {
   ],
 };
 
+// Optional image portraits listed in assets/portraits/manifest.json override the pixel art.
+// An entry is either a file name (one image) or a sprite sheet of expressions:
+//   { "file": "amuro.png", "cols": 3, "rows": 2, "gap": 1, "trimBottom": 10, "key": [32, 200, 248],
+//     "frames": { "idle": 0, "talk": 1, "shout": 2, "blink": 3, "hurt": 4, "hurtTalk": 5 } }
+const external = {};
+const DEFAULT_FRAMES = { idle: 0, talk: 1, shout: 2, blink: 3, hurt: 4, hurtTalk: 5 };
+
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function cropSheet(img, e) {
+  const cols = e.cols || 1, rows = e.rows || 1, gap = e.gap ?? 1;
+  const w = e.cellW || Math.floor((img.width - gap * (cols - 1)) / cols);
+  const h = e.cellH || Math.floor((img.height - (e.trimBottom || 0) - gap * (rows - 1)) / rows);
+  const out = {};
+  for (const [expr, idx] of Object.entries(e.frames || DEFAULT_FRAMES)) {
+    if (idx >= cols * rows) continue;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const g = c.getContext('2d');
+    g.drawImage(img, (idx % cols) * (w + gap), Math.floor(idx / cols) * (h + gap), w, h, 0, 0, w, h);
+    if (e.key) {
+      // chroma-key the sheet's flat background colour to transparent
+      const data = g.getImageData(0, 0, w, h);
+      const d = data.data, [kr, kg, kb] = e.key;
+      for (let i = 0; i < d.length; i += 4) {
+        if (Math.abs(d[i] - kr) + Math.abs(d[i + 1] - kg) + Math.abs(d[i + 2] - kb) < 24) d[i + 3] = 0;
+      }
+      g.putImageData(data, 0, 0);
+    }
+    out[expr] = c.toDataURL();
+  }
+  return out;
+}
+
+export async function loadPortraits() {
+  try {
+    const res = await fetch('assets/portraits/manifest.json', { cache: 'no-cache' });
+    if (!res.ok) return false;
+    const map = await res.json();
+    await Promise.all(Object.entries(map).map(async ([name, entry]) => {
+      const e = typeof entry === 'string' ? { file: entry } : entry;
+      const img = await loadImage('assets/portraits/' + e.file);
+      if (!img) return;
+      external[name] = e.cols || e.rows ? cropSheet(img, e) : { idle: img.src };
+    }));
+    return Object.keys(external).length > 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+export function hasSheet(name) {
+  return !!external[name];
+}
+
 const cache = {};
-export function portrait(name, bg = '#0b1424') {
+export function portrait(name, bg = '#0b1424', expr = 'idle') {
+  const ext = external[name];
+  if (ext) return ext[expr] || ext.idle;
   const key = name + bg;
   if (cache[key]) return cache[key];
   const art = ART[name] || ART.amuro;

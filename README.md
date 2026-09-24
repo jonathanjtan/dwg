@@ -2,7 +2,7 @@
 
 A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. You pilot Amuro's RX-78-2 through a Zeon raid on Side 7: cut through hundreds of Zaku IIs, defeat the squad leaders Denim and Gene, then drive off Char's red Zaku.
 
-Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Everything here (models, animation, effects, audio, music) is procedural and written from scratch. There are no asset files.
+Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Models, animation, effects, audio and music are procedural and written from scratch. The only image asset is the pilot portrait sheet.
 
 ## Play
 
@@ -47,6 +47,12 @@ Charge attacks change with how far into the combo you are, as in Dynasty Warrior
 - `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke and debris, plus shockwave rings and the saber ribbon trail.
 - `src/audio/audio.js`: WebAudio-synthesized sound effects and two original chiptune-rock tracks.
 - `src/world/world.js`: the Side 7 town and the O'Neill cylinder shell curving up into the sky.
+- `src/post.js`: the MSAA HDR target, capped bloom, depth of field, grade and dither.
+
+## Credits
+
+- Several feel and rendering techniques are adapted from [voxel-musou](https://github.com/mike007jd/voxel-musou) (MIT, © 2026 BubuAi): the lens-side crowd clear and lens-clear shader, hero-local hit-stop with victim shudder, hit tint and flinch variants, the launch apex float and bounce, wind-up telegraphs with feints, and the post chain (square-bokeh DoF, split-tone grade, ordered-dither retro finish).
+- The Amuro Ray portrait sheet is from *SD Gundam G Generation* (PlayStation), ripped by Arima, via The Spriters Resource. See `assets/portraits/README.md` to add more pilots.
 
 ## Disclaimer
 

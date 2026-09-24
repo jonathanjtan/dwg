@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { Palette, VoxelModel, meshVoxels, VoxMat } from '../core/voxel.js';
 import { mulberry32 } from '../core/util.js';
+import { lensClear } from '../core/lensclear.js';
 
 export const ARENA = 104; // half-size of the playable square
 const R = 520; // colony radius
@@ -369,11 +370,13 @@ function treeModel(rnd) {
   return m;
 }
 
+const propMat = lensClear(VoxMat.solid.clone(), 2.2);
+
 function addVoxel(group, model, x, y, z, scale = 1, rotY = 0, solidFn = null) {
   const g = meshVoxels(model, { scale, solidFn, greedy: true });
   const holder = new THREE.Group();
   if (g.solid) {
-    const mesh = new THREE.Mesh(g.solid, VoxMat.solid);
+    const mesh = new THREE.Mesh(g.solid, propMat);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     holder.add(mesh);

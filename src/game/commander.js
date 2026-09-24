@@ -4,6 +4,7 @@ import { RigObject, Clip, makePose, poseFrom, lerpPose, P, RY, RPITCH, RYAW } fr
 import { MOVES } from './moves.js';
 import { rand, clamp, damp, angleDamp, wrapAngle } from '../core/util.js';
 import { Trail } from '../fx/fx.js';
+import { lensClear } from '../core/lensclear.js';
 
 const GRAV = 32;
 const CSTANCE = poseFrom({
@@ -49,6 +50,7 @@ export class Commander {
     this.name = cfg.name;
     this.kind = cfg.kind;
     this.rig = new RigObject(cfg.def);
+    lensClear(this.rig.solidMat, 2.2);
     game.scene.add(this.rig.root);
     this.rig.nodes.gun.visible = false;
     this.pos = new THREE.Vector3(cfg.x, 0, cfg.z);
@@ -124,6 +126,7 @@ export class Commander {
     }
     this.hp -= dmg;
     this.flash = 1;
+    this.shudder = 0.05;
     this.recentHits++;
     this.poise += dmg;
     g.hud.bossHit(this);
@@ -179,6 +182,13 @@ export class Commander {
   update(dt) {
     const g = this.game;
     const hero = g.hero;
+    if (this.shudder > 0 && this.state !== 'dead') {
+      this.shudder -= dt;
+      this.flash = Math.max(0, this.flash - dt * 5);
+      this.rig.setFlash(this.flash, 0xffe0a0);
+      this.rig.root.position.x = this.pos.x + Math.sin(this.shudder * 400) * 0.07;
+      return;
+    }
     this.t += dt;
     this.cd -= dt;
     this.flash = Math.max(0, this.flash - dt * 5);

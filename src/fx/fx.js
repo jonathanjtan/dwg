@@ -1,6 +1,7 @@
 // Particle + effect systems, all voxel flavoured (cubes everywhere).
 import * as THREE from 'three';
 import { rand } from '../core/util.js';
+import { lensClear } from '../core/lensclear.js';
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -28,7 +29,7 @@ class CubePool {
       this.p.push({
         x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0, max: 1,
         s0: 1, s1: 0, sPeak: 0, c0: new THREE.Color(), c1: new THREE.Color(),
-        rx: 0, ry: 0, rz: 0, wx: 0, wy: 0, wz: 0, g: 0, drag: 0, bounce: 0, stretch: 0, fadePow: 1, floor: 0,
+        rx: 0, ry: 0, rz: 0, wx: 0, wy: 0, wz: 0, sx: 1, sy: 1, sz: 1, g: 0, drag: 0, bounce: 0, stretch: 0, fadePow: 1, floor: 0,
       });
     this.n = 0;
     this.tmpC = new THREE.Color();
@@ -38,6 +39,8 @@ class CubePool {
       // recycle the oldest-ish slot
       const q = this.p[(Math.random() * this.max) | 0];
       q.life = 0;
+      q.sx = q.sy = q.sz = 1;
+      q.stretch = 0;
       return q;
     }
     const q = this.p[this.n++];
@@ -48,6 +51,7 @@ class CubePool {
     q.floor = 0;
     q.fadePow = 1;
     q.wx = q.wy = q.wz = 0;
+    q.sx = q.sy = q.sz = 1;
     return q;
   }
   update(dt) {
@@ -92,7 +96,7 @@ class CubePool {
       } else {
         _e.set(q.rx, q.ry, q.rz);
         _q.setFromEuler(_e);
-        _s.set(s, s, s);
+        _s.set(s * q.sx, s * q.sy, s * q.sz);
       }
       _m.compose(_p, _q, _s);
       mesh.setMatrixAt(i, _m);
@@ -166,6 +170,7 @@ export class FX {
     this.solid = new CubePool(scene, 1400, solidMat, { shadow: true });
     this.smoke = new CubePool(scene, 900, smokeMat);
     this.glow.mesh.renderOrder = 5;
+    for (const pool of [this.solid, this.smoke, this.fire]) lensClear(pool.mesh.material, 2);
 
     // shockwave rings
     this.rings = [];
@@ -406,6 +411,18 @@ export class FX {
     q.max = rand(0.08, 0.16); q.g = 0; q.drag = 5;
     q.s0 = rand(0.09, 0.16) * strength; q.s1 = 0.02; q.stretch = 0.02;
     q.c0.set(color).multiplyScalar(1.5); q.c1.set(0xffffff).multiplyScalar(0.25);
+  }
+
+  // Pixel star: two crossed needles flaring on a weapon (wind-up telegraph).
+  glint(pos, color) {
+    for (const [sx, sy, sz] of [[0.09, 1.3, 0.09], [1.3, 0.09, 0.09], [0.09, 0.09, 1.3]]) {
+      const q = this.glow.spawn();
+      q.x = pos.x; q.y = pos.y; q.z = pos.z; q.vx = q.vy = q.vz = 0;
+      q.max = 0.26; q.g = 0; q.drag = 0; q.s0 = 1; q.s1 = 0.2;
+      q.c0.set(color).multiplyScalar(3); q.c1.set(color).multiplyScalar(1.2);
+      q.rx = 0; q.ry = 0; q.rz = 0;
+      q.sx = sx; q.sy = sy; q.sz = sz;
+    }
   }
 
   // SP / musou aura motes rising around a point.

@@ -1,0 +1,6 @@
+{
+  "amuro": {
+    "file": "amuro.png", "cols": 3, "rows": 2, "gap": 1, "trimBottom": 10, "key": [32, 200, 248],
+    "frames": { "idle": 0, "talk": 1, "shout": 2, "blink": 3, "hurtTalk": 4, "hurt": 5 }
+  }
+}

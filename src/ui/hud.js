@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { portrait } from './portraits.js';
+import { portrait, loadPortraits, hasSheet } from './portraits.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -16,6 +16,15 @@ export class HUD {
     };
     this.el.portrait.src = portrait('amuro');
     this.el.cutinPortrait.src = portrait('amuro', null);
+    this.faceExpr = 'idle';
+    this.blinkT = 3;
+    this.hurtFaceT = 0;
+    loadPortraits().then((any) => {
+      if (!any) return;
+      this.faceExpr = '';
+      this.el.cutinPortrait.src = portrait('amuro', null, 'shout');
+      document.body.classList.toggle('sheet-portraits', hasSheet('amuro'));
+    });
     this.mapCtx = this.el.map.getContext('2d');
     this.lastKo = -1;
     this.lastCombo = 0;
@@ -44,6 +53,7 @@ export class HUD {
 
   hurt() {
     this.hurtT = 0.25;
+    this.hurtFaceT = 0.6;
   }
 
   whiteFlash(a = 0.8) {
@@ -145,11 +155,31 @@ export class HUD {
     this.flashT = Math.max(0, this.flashT - dt * 2.5);
     this.el.flash.style.opacity = this.flashT;
 
+    this.updateFace(dt);
     this.updateDialogue(dt);
     this.updateBosses();
     this.updateTags();
     this.mapT -= dt;
     if (this.mapT <= 0) { this.mapT = 1 / 20; this.drawMap(); }
+  }
+
+  // Player portrait: wince when hit, talk while Amuro speaks, blink now and then.
+  updateFace(dt) {
+    this.hurtFaceT = Math.max(0, this.hurtFaceT - dt);
+    this.blinkT -= dt;
+    if (this.blinkT < -0.12) this.blinkT = 2 + Math.random() * 3;
+    const d = this.dlgCur;
+    const talking = d && d.speaker === 'amuro' && this.dlgT * 55 < d.text.length;
+    const flap = Math.floor(this.dlgT / 0.11) % 2 === 1;
+    let expr = 'idle';
+    if (this.game.hero.state === 'musou') expr = 'shout';
+    else if (this.hurtFaceT > 0) expr = talking && flap ? 'hurtTalk' : 'hurt';
+    else if (talking && flap) expr = 'talk';
+    else if (this.blinkT < 0) expr = 'blink';
+    if (expr !== this.faceExpr) {
+      this.faceExpr = expr;
+      this.el.portrait.src = portrait('amuro', '#0b1424', expr);
+    }
   }
 
   updateDialogue(dt) {
@@ -161,6 +191,7 @@ export class HUD {
       if (d.speaker === 'char') this.el.dialogue.classList.add('char');
       else if (d.speaker === 'denim' || d.speaker === 'gene') this.el.dialogue.classList.add('zeon');
       this.el.dlgPortrait.src = portrait(d.speaker);
+      this.dlgExpr = 'idle';
       this.el.dlgName.textContent = d.name;
       this.el.dlgText.textContent = '';
       // restart slide-in animation
@@ -173,6 +204,9 @@ export class HUD {
       const d = this.dlgCur;
       const n = Math.min(d.text.length, Math.floor(this.dlgT * 55));
       this.el.dlgText.textContent = d.text.slice(0, n);
+      // mouth flaps while the line types out (sprite-sheet portraits only)
+      const expr = n < d.text.length && Math.floor(this.dlgT / 0.11) % 2 ? 'talk' : 'idle';
+      if (expr !== this.dlgExpr) { this.dlgExpr = expr; this.el.dlgPortrait.src = portrait(d.speaker, '#0b1424', expr); }
       if (this.dlgT > d.dur) {
         this.dlgCur = null;
         if (!this.dlgQueue.length) this.el.dialogue.classList.add('hidden');

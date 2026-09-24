@@ -12,22 +12,22 @@ window.st = () => ({
 const tick = () => { game.last = performance.now() - 1000 / 60; game.frame(); };
 
 window.step = (n, keys = [], press = [], render = true) => {
-  const cr = game.composer.render;
-  if (!render) game.composer.render = () => {};
+  const cr = game.post.render;
+  if (!render) game.post.render = () => {};
   for (let i = 0; i < n; i++) {
     if (i === 0) for (const k of press) game.input.pressed.add(k);
     for (const k of keys) game.input.down.add(k);
     tick();
   }
   for (const k of keys) game.input.down.delete(k);
-  game.composer.render = cr;
+  game.post.render = cr;
   return st();
 };
 
 // Autoplay: chase the nearest target, mash attacks, fire SP when full.
 window.bot = (frames, { render = false, stop = null, charge = 49 } = {}) => {
-  const cr = game.composer.render;
-  if (!render) game.composer.render = () => {};
+  const cr = game.post.render;
+  if (!render) game.post.render = () => {};
   let err = null;
   try {
     for (let i = 0; i < frames; i++) {
@@ -55,7 +55,7 @@ window.bot = (frames, { render = false, stop = null, charge = 49 } = {}) => {
       if (stop && stop()) break;
     }
   } catch (e) { err = e.stack; }
-  game.composer.render = cr;
+  game.post.render = cr;
   game.input.down.clear();
   return err ? { ...st(), err } : st();
 };
