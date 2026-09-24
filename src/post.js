@@ -20,7 +20,7 @@ const fs = /* glsl */`
   #include <packing>
   uniform sampler2D tColor, tDepth, tBloom;
   uniform vec2 uRes; uniform float uNear, uFar, uFocus, uBand, uNearBlur, uFarBlur, uTime, uFlash, uExposure, uSat;
-  uniform float uVignette, uBottom, uGrain, uLevels, uDither, uMusou, uBloomOn;
+  uniform float uVignette, uBottom, uGrain, uLevels, uDither, uMusou, uBloomOn, uRadial, uAberr;
   uniform vec3 uShadowTint, uHighTint;
   varying vec2 vUv;
 
@@ -50,6 +50,13 @@ const fs = /* glsl */`
     float d0 = viewDist(vUv);
     float c0 = coc(d0);
     vec3 col = texture2D(tColor, vUv).rgb;
+    vec2 dc = vUv - 0.5;
+    // heavy blows split the colour channels for a beat
+    if (uAberr > 0.001) {
+      vec2 o = dc * uAberr * 0.014;
+      col.r = texture2D(tColor, vUv + o).r;
+      col.b = texture2D(tColor, vUv - o).b;
+    }
     // gather bokeh on a golden-angle spiral stretched to a square, so out-of-focus voxels stay blocky
     if (c0 > 0.25) {
       vec3 acc = col; float tot = 1.0;
@@ -66,6 +73,12 @@ const fs = /* glsl */`
         r += 0.36;
       }
       col = acc / tot;
+    }
+    // boost dash / SP rush: zoom blur that leaves the centre of the frame sharp
+    if (uRadial > 0.001) {
+      vec3 acc = vec3(0.0);
+      for (int i = 1; i <= 8; i++) acc += texture2D(tColor, vUv - dc * (float(i) / 8.0) * 0.07 * uRadial).rgb;
+      col = mix(col, acc / 8.0, smoothstep(0.16, 0.5, length(dc * vec2(1.6, 1.0))) * min(1.0, uRadial * 1.2));
     }
     col += texture2D(tBloom, vUv).rgb * uBloomOn;
     col *= uExposure;
@@ -118,12 +131,15 @@ export class Post {
         uTime: { value: 0 }, uFlash: { value: 0 }, uExposure: { value: POST.exposure }, uSat: { value: POST.sat },
         uVignette: { value: POST.vignette }, uBottom: { value: POST.bottom }, uGrain: { value: POST.grain },
         uLevels: { value: POST.levels }, uDither: { value: POST.dither }, uMusou: { value: 0 }, uBloomOn: { value: 1 },
+        uRadial: { value: 0 }, uAberr: { value: 0 },
         uShadowTint: { value: new THREE.Vector3(...POST.shadowTint) }, uHighTint: { value: new THREE.Vector3(...POST.highTint) },
       },
       depthTest: false, depthWrite: false, toneMapped: false,
     }));
     this.flash = 0;
     this.musou = 0;
+    this.radial = 0;
+    this.aberr = 0;
     this.focus = 9;
   }
 
@@ -145,6 +161,8 @@ export class Post {
     u.uTime.value = time;
     u.uFlash.value = this.flash;
     u.uMusou.value = this.musou;
+    u.uRadial.value = this.radial;
+    u.uAberr.value = this.aberr;
     r.setRenderTarget(null);
     this.quad.render(r);
   }

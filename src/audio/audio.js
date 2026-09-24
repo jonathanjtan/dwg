@@ -1,11 +1,21 @@
 // Fully synthesized SFX; the score lives in music.js.
+// Positional sounds are panned against the camera and dulled with distance, big ones ring out through a
+// shared colony-hall reverb, and the beam saber hum and thruster roar run as continuous loops.
 import { Music } from './music.js';
+
+// reverb send per sound (positional sounds also get wetter with distance)
+const REV = {
+  boom: 0.3, bigboom: 0.5, slam: 0.35, land: 0.15, rifle: 0.3, mega: 0.45, clang: 0.35, hit: 0.06, hawk: 0.1,
+  mg: 0.12, alarm: 0.2, capture: 0.25, distant: 0.9, eye: 0.25, step: 0.06, sp: 0.35, skid: 0.1, hurt: 0.12, jet: 0.12,
+};
+
 export class Audio {
   constructor() {
     this.ctx = null;
     this.muted = false;
     this.musicOn = true;
     this.listener = null; // {x,z}
+    this.listenerYaw = 0; // camera yaw: sounds pan against the camera's right vector
     this.throttle = new Map();
   }
 
@@ -42,6 +52,103 @@ export class Audio {
     }
     this.score = new Music(ctx, this.music, this.noise);
     this.current = null;
+    // colony-hall reverb for the effects
+    this.revIn = ctx.createGain();
+    const conv = ctx.createConvolver();
+    conv.buffer = this.impulse(2.4);
+    const revLp = ctx.createBiquadFilter();
+    revLp.type = 'lowpass';
+    revLp.frequency.value = 4200;
+    const revOut = ctx.createGain();
+    revOut.gain.value = 0.6;
+    this.revIn.connect(conv).connect(revLp).connect(revOut).connect(this.master);
+    this.initLoops();
+  }
+
+  // Stereo impulse: a few early reflections off the buildings, then a long dark exponential tail.
+  impulse(dur) {
+    const ctx = this.ctx, rate = ctx.sampleRate, len = Math.floor(rate * dur);
+    const buf = ctx.createBuffer(2, len, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 3.4) * Math.min(1, i / (rate * 0.015)) * 0.6;
+      }
+      for (const [ms, a] of [[23, 0.7], [41, 0.5], [67, 0.4], [97, 0.3]]) {
+        const i = Math.floor(((ms + ch * 7) / 1000) * rate);
+        if (i < len) d[i] += a * (Math.random() < 0.5 ? -1 : 1);
+      }
+    }
+    return buf;
+  }
+
+  // Continuous voices: the beam saber hum and the backpack thruster roar.
+  initLoops() {
+    const ctx = this.ctx;
+    const hum = (this.hum = { gain: ctx.createGain(), lp: ctx.createBiquadFilter(), oscs: [] });
+    hum.gain.gain.value = 0;
+    hum.lp.type = 'lowpass';
+    hum.lp.frequency.value = 500;
+    hum.lp.Q.value = 4;
+    for (const [type, f, det] of [['sawtooth', 92, 0], ['sawtooth', 92, 13], ['square', 46, -7]]) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.value = f;
+      o.detune.value = det;
+      o.connect(hum.lp);
+      o.start();
+      hum.oscs.push(o);
+    }
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 8.5;
+    const lg = ctx.createGain();
+    lg.gain.value = 9;
+    lfo.connect(lg);
+    for (const o of hum.oscs) lg.connect(o.detune);
+    lfo.start();
+    hum.lp.connect(hum.gain).connect(this.sfx);
+
+    const jet = (this.jetLoop = { gain: ctx.createGain(), bp: ctx.createBiquadFilter(), lp: ctx.createBiquadFilter() });
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    jet.bp.type = 'bandpass';
+    jet.bp.frequency.value = 1300;
+    jet.bp.Q.value = 0.7;
+    jet.lp.type = 'lowpass';
+    jet.lp.frequency.value = 200;
+    const low = ctx.createGain();
+    low.gain.value = 1.8;
+    src.connect(jet.bp).connect(jet.gain);
+    src.connect(jet.lp).connect(low).connect(jet.gain);
+    jet.gain.gain.value = 0;
+    jet.gain.connect(this.sfx);
+    src.start();
+  }
+
+  // Per frame: saber 0..1 (blade lit), bladeSpeed in units/s, jet 0..1 (thruster output).
+  loops(saber, bladeSpeed, jet) {
+    if (!this.hum) return;
+    const t = this.ctx.currentTime, h = this.hum;
+    const sp = Math.min(1, bladeSpeed / 45);
+    h.gain.gain.setTargetAtTime(saber * (0.03 + sp * 0.15), t, 0.03);
+    h.lp.frequency.setTargetAtTime(420 + sp * 2600, t, 0.03);
+    const f = 92 * (1 + sp * 0.35);
+    h.oscs[0].frequency.setTargetAtTime(f, t, 0.04);
+    h.oscs[1].frequency.setTargetAtTime(f, t, 0.04);
+    h.oscs[2].frequency.setTargetAtTime(f / 2, t, 0.04);
+    const j = this.jetLoop;
+    j.gain.gain.setTargetAtTime(jet * 0.3, t, jet > 0.05 ? 0.05 : 0.12);
+    j.bp.frequency.setTargetAtTime(900 + jet * 1000, t, 0.1);
+  }
+
+  // Scattered debris ticks after a blast.
+  crackle(t, span, n, vol, out) {
+    for (let i = 0; i < n; i++) {
+      const tt = t + Math.random() * Math.random() * span;
+      this.noiseBurst(tt, 0.015 + Math.random() * 0.03, vol * (0.4 + Math.random() * 0.6), out, { type: 'bandpass', f0: 1500 + Math.random() * 3500, q: 1.5 });
+    }
   }
 
   resume() {
@@ -93,23 +200,51 @@ export class Audio {
     s.stop(t + dur + a + 0.05);
   }
 
-  play(name, { vol = 1, pitch = 1, at = null } = {}) {
+  play(name, { vol = 1, pitch = 1, at = null, pan = null } = {}) {
     if (!this.ctx || this.muted) return;
-    const now = this.ctx.currentTime;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
     // throttle identical sounds
     const last = this.throttle.get(name) || 0;
-    const minGap = { hit: 0.03, boom: 0.04, mg: 0.03, step: 0.08, swing: 0.04, jet: 0.12 }[name] ?? 0.015;
+    const minGap = { hit: 0.03, boom: 0.04, mg: 0.03, step: 0.08, swing: 0.04, jet: 0.12, eye: 0.25 }[name] ?? 0.015;
     if (now - last < minGap) return;
     this.throttle.set(name, now);
-    if (at && this.listener) {
-      const d = Math.hypot(at.x - this.listener.x, at.z - this.listener.z);
-      vol *= Math.max(0, 1 - d / 70);
+    let dist = 0;
+    const L = this.listener;
+    if (at && L) {
+      dist = Math.hypot(at.x - L.x, at.z - L.z);
+      vol *= Math.max(0, 1 - dist / 70);
       if (vol < 0.03) return;
     }
     const t = now + 0.005;
-    const out = this.ctx.createGain();
+    const out = ctx.createGain();
     out.gain.value = vol;
-    out.connect(this.sfx);
+    // far sounds lose their top end, then sit left or right of the camera
+    let node = out;
+    if (dist > 10) {
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 900 + 17000 * Math.pow(1 - Math.min(1, dist / 70), 2.2);
+      node.connect(lp);
+      node = lp;
+    }
+    if (pan === null && at && L && dist > 2) {
+      const rx = -Math.cos(this.listenerYaw), rz = Math.sin(this.listenerYaw);
+      pan = Math.max(-1, Math.min(1, ((at.x - L.x) * rx + (at.z - L.z) * rz) / dist)) * Math.min(1, dist / 8) * 0.85;
+    }
+    if (pan) {
+      const sp = ctx.createStereoPanner();
+      sp.pan.value = pan;
+      node.connect(sp);
+      node = sp;
+    }
+    node.connect(this.sfx);
+    const wet = (REV[name] || 0) + (at ? Math.min(0.35, dist / 120) : 0);
+    if (wet > 0.01) {
+      const send = ctx.createGain();
+      send.gain.value = wet;
+      node.connect(send).connect(this.revIn);
+    }
     const p = pitch;
     switch (name) {
       case 'ignite':
@@ -118,42 +253,55 @@ export class Audio {
         this.noiseBurst(t, 0.25, 0.25, out, { type: 'bandpass', f0: 800, f1: 3000, q: 2 });
         break;
       case 'swing': {
-        this.noiseBurst(t, 0.2, 0.55, out, { type: 'bandpass', f0: 500 * p, f1: 2600 * p, q: 1.6 });
-        this.osc('sawtooth', 150 * p, 70 * p, t, 0.22, 0.14, out);
-        this.osc('sawtooth', 152 * p, 71 * p, t, 0.22, 0.1, out);
+        // beam saber "vwom": an air rip over a dropping buzz and a low sub swell
+        this.noiseBurst(t, 0.2, 0.5, out, { type: 'bandpass', f0: 500 * p, f1: 2600 * p, q: 1.6 });
+        this.osc('sawtooth', 150 * p, 70 * p, t, 0.22, 0.12, out);
+        this.osc('sawtooth', 152 * p, 71 * p, t, 0.22, 0.08, out);
+        this.osc('sine', 120 * p, 68 * p, t, 0.26, 0.2, out, { a: 0.03 });
         break;
       }
       case 'hit': {
-        const ws = this.ctx.createWaveShaper();
+        // saber on armour: a crunch, a beam sizzle and a short inharmonic metal ring
+        const ws = ctx.createWaveShaper();
         ws.curve = this.curve;
-        const g = this.ctx.createGain();
-        g.gain.value = 0.7;
+        const g = ctx.createGain();
+        g.gain.value = 0.5;
         ws.connect(g).connect(out);
-        this.osc('square', 220 * p, 90 * p, t, 0.1, 0.35, ws);
-        this.noiseBurst(t, 0.12, 0.6, out, { type: 'highpass', f0: 1800 * p, q: 0.7 });
-        this.osc('sawtooth', 900 * p, 300 * p, t, 0.08, 0.12, out);
+        this.osc('square', 220 * p, 90 * p, t, 0.1, 0.3, ws);
+        this.noiseBurst(t, 0.1, 0.45, out, { type: 'highpass', f0: 1800 * p, q: 0.7 });
+        this.noiseBurst(t, 0.18, 0.4, out, { type: 'bandpass', f0: 4200 * p, f1: 2400 * p, q: 2.5 });
+        for (const [f, v] of [[610, 0.08], [1490, 0.055], [2870, 0.035]]) this.osc('sine', f * p, f * p * 0.97, t, 0.24, v, out);
+        this.osc('sine', 150 * p, 60, t, 0.12, 0.35, out);
         break;
       }
       case 'boom':
-        this.noiseBurst(t, 0.9, 0.9, out, { type: 'lowpass', f0: 1400 * p, f1: 90, q: 0.5 });
-        this.osc('sine', 90 * p, 32, t, 0.6, 0.8, out);
-        this.noiseBurst(t, 0.08, 0.5, out, { type: 'highpass', f0: 3000 });
+        // crack, fireball body, sub thump, then debris ticking down
+        this.noiseBurst(t, 0.05, 0.6, out, { type: 'highpass', f0: 2500 });
+        this.noiseBurst(t, 0.9, 0.95, out, { type: 'lowpass', f0: 1800 * p, f1: 110, q: 0.5 });
+        this.osc('sine', 82 * p, 28, t, 0.7, 0.95, out);
+        this.crackle(t + 0.08, 0.6, 6, 0.22, out);
         break;
       case 'bigboom':
-        this.noiseBurst(t, 1.8, 1.0, out, { type: 'lowpass', f0: 2200, f1: 60, q: 0.4 });
-        this.osc('sine', 70, 24, t, 1.2, 1.0, out);
-        this.osc('triangle', 140, 40, t, 0.8, 0.4, out);
-        this.noiseBurst(t + 0.15, 1.2, 0.5, out, { type: 'lowpass', f0: 900, f1: 80 });
+        this.noiseBurst(t, 0.06, 0.75, out, { type: 'highpass', f0: 2000 });
+        this.noiseBurst(t, 1.8, 1.0, out, { type: 'lowpass', f0: 2400, f1: 60, q: 0.4 });
+        this.osc('sine', 62, 20, t, 1.4, 1.0, out);
+        this.osc('triangle', 140, 40, t, 0.8, 0.35, out);
+        this.noiseBurst(t + 0.15, 2.2, 0.55, out, { type: 'lowpass', f0: 700, f1: 60 });
+        this.crackle(t + 0.1, 1.3, 14, 0.25, out);
         break;
       case 'rifle':
-        this.osc('sawtooth', 1800 * p, 220 * p, t, 0.28, 0.3, out);
-        this.osc('square', 900 * p, 110 * p, t, 0.3, 0.14, out);
-        this.noiseBurst(t, 0.3, 0.5, out, { type: 'bandpass', f0: 4000, f1: 600, q: 1.2 });
+        // beam rifle: a bright zap that falls away, a buzzing tail and a low recoil punch
+        this.osc('sine', 2600 * p, 320 * p, t, 0.2, 0.3, out);
+        this.osc('sawtooth', 1100 * p, 150 * p, t, 0.32, 0.16, out);
+        this.noiseBurst(t, 0.35, 0.45, out, { type: 'bandpass', f0: 5000, f1: 700, q: 1.1 });
+        this.osc('sine', 160, 45, t, 0.25, 0.55, out);
         break;
       case 'mega':
         for (let i = 0; i < 3; i++) this.osc('sawtooth', (400 + i * 7) * p, 60, t, 1.1, 0.22, out, { detune: i * 12 });
         this.noiseBurst(t, 1.1, 0.7, out, { type: 'bandpass', f0: 3000, f1: 300, q: 0.8 });
         this.osc('sine', 60, 30, t, 1.0, 0.6, out);
+        this.osc('sine', 3200, 500, t, 0.3, 0.2, out);
+        this.noiseBurst(t, 0.06, 0.6, out, { type: 'highpass', f0: 2500 });
         break;
       case 'mg':
         this.noiseBurst(t, 0.06, 0.6, out, { type: 'lowpass', f0: 3500, q: 0.6 });
@@ -169,6 +317,9 @@ export class Audio {
         this.osc('triangle', 150, 60, t, 0.12, 0.2, out);
         this.noiseBurst(t, 0.16, 0.3, out, { type: 'lowpass', f0: 600, f1: 140 });
         this.osc('square', 420, 300, t + 0.01, 0.05, 0.035, out);
+        // hydraulics: a hiss and, now and then, a servo whine as the knee reloads
+        this.noiseBurst(t + 0.03, 0.12, 0.05, out, { type: 'highpass', f0: 5000 });
+        if (Math.random() < 0.45) this.osc('triangle', 260, 540, t + 0.05, 0.14, 0.035, out, { a: 0.03 });
         break;
       case 'jet':
         this.noiseBurst(t, 0.42, 0.32, out, { type: 'bandpass', f0: 900, f1: 1500, q: 0.9, a: 0.05 });
@@ -185,20 +336,41 @@ export class Audio {
       case 'land':
         this.osc('sine', 90, 30, t, 0.35, 0.8, out);
         this.noiseBurst(t, 0.3, 0.4, out, { type: 'lowpass', f0: 700, f1: 120 });
+        this.osc('triangle', 260, 170, t + 0.02, 0.12, 0.12, out);
+        this.noiseBurst(t + 0.05, 0.2, 0.06, out, { type: 'highpass', f0: 4500 });
         break;
       case 'slam':
         this.osc('sine', 110, 28, t, 0.55, 0.9, out);
         this.noiseBurst(t, 0.5, 0.7, out, { type: 'lowpass', f0: 1800, f1: 100 });
         this.noiseBurst(t, 0.06, 0.4, out, { type: 'highpass', f0: 2500 });
+        this.crackle(t + 0.05, 0.4, 5, 0.18, out);
         break;
       case 'boost':
         this.noiseBurst(t, 0.45, 0.45, out, { type: 'highpass', f0: 600, f1: 2400, q: 0.7, a: 0.03 });
         this.noiseBurst(t, 0.4, 0.3, out, { type: 'lowpass', f0: 400, q: 1 });
         break;
       case 'hurt':
-        this.osc('square', 240, 120, t, 0.18, 0.3, out);
-        this.osc('square', 330, 160, t, 0.16, 0.2, out);
-        this.noiseBurst(t, 0.15, 0.5, out, { type: 'bandpass', f0: 1500, q: 1 });
+        // the Gundam's own armour taking a blow: a dull crunch and a ringing hull
+        this.noiseBurst(t, 0.2, 0.55, out, { type: 'bandpass', f0: 1100, q: 1.2 });
+        for (const [f, v] of [[420, 0.13], [1130, 0.08], [2210, 0.045]]) this.osc('sine', f, f * 0.96, t, 0.35, v, out);
+        this.osc('square', 200, 80, t, 0.12, 0.12, out);
+        this.osc('sine', 110, 45, t, 0.25, 0.55, out);
+        break;
+      case 'eye':
+        // a Zaku's mono-eye swinging onto you: "pyuiin"
+        this.osc('sine', 900, 2500, t, 0.16, 0.16, out, { a: 0.01 });
+        this.osc('sine', 2500, 2350, t + 0.15, 0.32, 0.09, out);
+        this.osc('triangle', 1800, 2200, t, 0.14, 0.05, out);
+        break;
+      case 'lowhp':
+        // cockpit warning
+        this.osc('square', 1320, 1320, t, 0.07, 0.05, out);
+        this.osc('square', 990, 990, t + 0.12, 0.07, 0.05, out);
+        break;
+      case 'distant':
+        // far-off fighting elsewhere in the colony
+        this.noiseBurst(t, 1.8, 0.8, out, { type: 'lowpass', f0: 420 * p, f1: 60, q: 0.6 });
+        this.osc('sine', 48 * p, 24, t, 1.3, 0.6, out);
         break;
       case 'clang':
         this.osc('triangle', 980, 940, t, 0.4, 0.3, out);

@@ -106,6 +106,22 @@ export class Hero {
     this.rifle.visible = false;
     this.trail = new Trail(scene, SABER_TRAIL, 16);
     this.giant = 1;
+    // backpack flame jets: a blue outer cone around a white core, shown while the thrusters fire
+    const cone = (r, h) => new THREE.ConeGeometry(r, h, 8, 1, true).rotateX(Math.PI).translate(0, -h / 2, 0).rotateX(Math.PI / 2);
+    const flameMat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+    this.flames = [-0.25, 0.25].map((sx) => {
+      const f = new THREE.Group();
+      f.position.set(sx, 0.1, -0.52);
+      f.add(new THREE.Mesh(cone(0.2, 1), flameMat(new THREE.Color(0.6, 1.4, 3.2), 0.75)));
+      f.add(new THREE.Mesh(cone(0.09, 0.7), flameMat(new THREE.Color(3, 3, 3.2), 1)));
+      f.visible = false;
+      this.rig.nodes.torso.add(f);
+      return f;
+    });
+    this.flameK = 0;
+    this.flameUp = 0;
+    this.tipSpeed = 0;
+    this._prevTip = new THREE.Vector3();
 
     this._v = new THREE.Vector3();
     this._w = new THREE.Vector3();
@@ -345,7 +361,6 @@ export class Hero {
       this.boost -= dt / (BOOST_TIME * 1.25);
       this.boostWait = 0.5;
       this.thrust(1.5, true);
-      if (Math.random() < 0.25) g.audio.play('jet', { vol: 0.25 });
     } else this.vel.y -= GRAV * dt;
     this.pos.addScaledVector(this.vel, dt);
     if (this.vel.y > 0) this.thrust(1.2, true);
@@ -581,8 +596,6 @@ export class Hero {
     if (!air) this.pos.y = damp(this.pos.y, 0.3, 8, dt); // skim just above the ground
     this.thrust(1.8, false);
     if (!air && Math.random() < 0.7) g.fx.dust(this._v.set(this.pos.x - Math.sin(this.heading) * 1.5, 0.1, this.pos.z - Math.cos(this.heading) * 1.5), 1, 1.0);
-    this.boostSfxT -= dt;
-    if (this.boostSfxT <= 0) { this.boostSfxT = 0.3; g.audio.play('jet', { vol: 0.45 }); }
     if (g.local === this) g.camera.kick(6);
     this.target.set(BOOST_POSE);
     this.target[RY] = -0.15 + Math.sin(this.stateT * 9) * 0.03;
@@ -598,6 +611,8 @@ export class Hero {
     g.fx.dust(c, huge ? 40 : 14, huge ? 2.5 : 1.3);
     g.fx.debris(c, huge ? 30 : 10, [0x8a867c, 0x6f6c64, 0x5a5750], huge ? 14 : 8, 0.2);
     g.fx.light(c, 0xff6fd0, huge ? 200 : 50, huge ? 30 : 14, huge ? 0.8 : 0.3);
+    g.fx.scorch(c.x, c.z, radius * (huge ? 0.7 : 0.45), huge ? 20 : 10);
+    if (g.local === this) g.aberr(huge ? 1.2 : 0.45);
     if (huge) g.fx.dome(this._v.set(c.x, 0, c.z), 1, radius, 0xff4fc0, 0.9);
     if (shake) g.camera.shake(huge ? 1.0 : 0.45);
     g.audio.play(huge ? 'bigboom' : 'slam');
@@ -622,6 +637,7 @@ export class Hero {
       g.projectiles.megaBeam(from, dir);
       g.camera.shake(0.6);
       g.camera.kick(6);
+      g.aberr(0.8);
       g.audio.play('mega');
       this.vel.x -= dir.x * 8;
       this.vel.z -= dir.z * 8;
@@ -630,13 +646,14 @@ export class Hero {
       g.audio.play('rifle');
       g.camera.shake(0.12);
     }
-    g.fx.hit(from, 0xffd0f0);
+    g.fx.muzzle(from, dir, 0xff8ad8, shot.kind === 'mega' ? 1.8 : 1);
   }
 
   thrust(strength, up) {
     const g = this.game;
     this.thrustAt = g.time;
     this.thrustUp = up;
+    this.thrustPow = strength;
     const torso = this.rig.nodes.torso;
     for (const sx of [-0.25, 0.25]) {
       const p = torso.localToWorld(this._v.set(sx, 0.1, -0.52));
@@ -663,6 +680,7 @@ export class Hero {
     if (kind !== 'bullet' || Math.random() < 0.3) g.fx.hit(this._v.set(this.pos.x, this.pos.y + 1.8, this.pos.z), 0xffa040);
     g.audio.play('hurt', { vol: kind === 'bullet' ? 0.35 : 1 });
     g.camera.shake(heavy ? 0.5 : kind === 'bullet' ? 0.05 : 0.2);
+    if (heavy && g.local === this) g.aberr(1);
     if (this.hp <= 0) {
       this.die(fromX, fromZ);
       return true;
@@ -897,12 +915,33 @@ export class Hero {
     const flick = 0.92 + Math.random() * 0.08;
     this.bladeOuter.material.color.copy(SABER_COLOR).multiplyScalar(flick);
 
+    this.updateFlames(dt);
     rig.root.updateMatrixWorld(true);
     const swinging = (this.state === 'attack' && this.move.saber) || this.state === 'musou';
     this.blade.localToWorld(this._base.set(0, 0, 0.18));
     this.blade.localToWorld(this._tip.set(0, 0, 1));
+    // blade tip speed drives the saber hum's swoosh
+    if (dt > 1e-4) this.tipSpeed = damp(this.tipSpeed, this._tip.distanceTo(this._prevTip) / dt, 20, dt);
+    this._prevTip.copy(this._tip);
     this.trail.push(this._base, this._tip, swinging && this.blade.visible);
     if (this.giant > 1.2) g.fx.aura(this._tip, 0xff5fd0, 2, 1.0);
+  }
+
+  // Flame length follows the most recent thrust() call; nozzles tilt down for lift, back for dashes.
+  updateFlames(dt) {
+    const g = this.game;
+    const on = this.thrustAt !== undefined && g.time - this.thrustAt < 0.07;
+    const want = on ? 0.55 + (this.thrustPow || 1) * 0.45 : 0;
+    this.flameK = damp(this.flameK, want, on ? 30 : 12, Math.max(dt, 1 / 240));
+    this.flameUp = damp(this.flameUp, this.thrustUp ? 1 : 0, 12, Math.max(dt, 1 / 240));
+    const vis = this.flameK > 0.04;
+    for (const f of this.flames) {
+      f.visible = vis;
+      if (!vis) continue;
+      const w = 0.75 + this.flameK * 0.35;
+      f.scale.set(w, w, this.flameK * (0.9 + Math.random() * 0.35));
+      f.rotation.x = -(0.28 + 0.95 * this.flameUp);
+    }
   }
 
   // ---------- co-op replication ----------
@@ -942,6 +981,7 @@ export class Hero {
     this.blade.localToWorld(this._tip.set(0, 0, 1));
     this.trail.push(this._base, this._tip, s.sw && this.blade.visible);
     if (s.thr) this.thrust(1.2, s.thr === 2);
+    this.updateFlames(dt);
     if (s.st === 'musou') g.fx.aura(this.pos, 0xff5fd0, 2, 1.4);
   }
 

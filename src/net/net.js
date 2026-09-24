@@ -25,7 +25,7 @@ const GF = 13; // int16 fields per grunt
 
 // Effects the guest regenerates locally from state instead of receiving (they fire every frame).
 const LOCAL_FX = new Set(['thruster', 'aura']);
-const FX_METHODS = ['explode', 'hit', 'sparks', 'debris', 'puff', 'dust', 'ring', 'dome', 'light', 'glint', 'thruster', 'aura'];
+const FX_METHODS = ['explode', 'hit', 'sparks', 'debris', 'puff', 'dust', 'ring', 'dome', 'light', 'glint', 'thruster', 'aura', 'star', 'muzzle', 'scorch'];
 const HUD_METHODS = ['announce', 'say', 'setObjective', 'toast', 'whiteFlash'];
 
 function code6() {

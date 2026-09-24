@@ -79,6 +79,8 @@ class Game {
     this.slowScale = 1;
     this.worldSlowT = 0;
     this.cutsceneT = 0;
+    this.lowHpT = 0;
+    this.ambT = 4;
     this.titleT = 0;
     this.frameTimes = [];
     this._focus = new THREE.Vector3();
@@ -278,6 +280,10 @@ class Game {
   // Hit-stop freezes the hero only; victims shudder a few frames and the world keeps moving.
   hitstop(d) {
     this.stopT = Math.max(this.stopT, d);
+  }
+  // chromatic aberration pulse (heavy blows, big impacts)
+  aberr(v) {
+    this.post.aberr = Math.max(this.post.aberr, v);
   }
   slowmo(scale, dur) {
     this.slowScale = scale;
@@ -595,6 +601,8 @@ class Game {
     this.world.follow(t.pos);
     this.world.fadeNear(this.cam.position);
     this.audio.listener = t.pos;
+    this.audio.listenerYaw = this.camera.yaw;
+    this.audio.loops(0, 0, 0);
     this.crowd.render(rdt);
     this.projectiles.render();
     this.hud.update(rdt);
@@ -613,6 +621,7 @@ class Game {
     if (this.mode === 'guest') return this.guestFrame(rdt, act);
     if (this.mode === 'title' || this.mode === 'lobby') {
       if (this.net.role === 'host') this.net.hostTick(rdt);
+      this.audio.loops(0, 0, 0);
       this.titleT += rdt;
       this.time += rdt;
       const a = this.titleT * 0.12;
@@ -651,6 +660,7 @@ class Game {
       this.input.endFrame();
       return;
     }
+    if (this.mode === 'results') this.audio.loops(0, 0, 0);
 
     // time scaling: hit-stop, slow-mo, SP cut-in freeze for the world
     let scale = 1, heroScale = 1;
@@ -697,6 +707,8 @@ class Game {
     this.world.follow(this.hero.pos);
     this.world.fadeNear(this.cam.position);
     this.audio.listener = this.hero.pos;
+    this.audio.listenerYaw = this.camera.yaw;
+    this.updateSoundscape(rdt, playable);
     this.crowd.render(wdt);
     this.projectiles.render();
     this.hud.update(rdt);
@@ -705,11 +717,37 @@ class Game {
     this.input.endFrame();
   }
 
+  // Continuous sounds and ambience: saber hum, thruster roar, low-armour warning, distant fighting.
+  updateSoundscape(rdt, playable) {
+    const h = this.hero;
+    const live = playable && h.alive;
+    const jet = h.state === 'boost' ? 1 : h.hovering ? 0.75 : Math.min(0.6, h.flameK * 0.5);
+    this.audio.loops(live ? h.saberScale : 0, h.tipSpeed, live ? jet : 0);
+    const L = this.local;
+    this.lowHpT -= rdt;
+    if (live && L.alive && L.hp < L.maxHp * 0.25 && this.lowHpT <= 0) { this.audio.play('lowhp'); this.lowHpT = 1.3; }
+    // somewhere else in Side 7 the fighting goes on: a flash on the horizon, then its rumble arrives
+    this.ambT -= rdt;
+    if (playable && this.ambT <= 0 && !['idle', 'win', 'lose'].includes(this.stage.phase)) {
+      this.ambT = rand(4, 9);
+      const a = rand(0, Math.PI * 2), d = rand(140, 220);
+      const p = new THREE.Vector3(h.pos.x + Math.sin(a) * d, rand(1, 6), h.pos.z + Math.cos(a) * d);
+      this.fx.explode(p, rand(2.2, 3.4), [0x6f6c64, 0x3a3532, 0x8a867c]);
+      const rx = -Math.cos(this.camera.yaw), rz = Math.sin(this.camera.yaw);
+      const pan = Math.max(-0.9, Math.min(0.9, Math.sin(a) * rx + Math.cos(a) * rz));
+      this.timers.push({ t: d / 340, fn: () => this.audio.play('distant', { vol: rand(0.3, 0.55), pitch: rand(0.8, 1.2), pan }) });
+    }
+  }
+
   render() {
     const h = this.local.pos;
     this.post.focus = Math.max(4, this.cam.position.distanceTo(this._focus.set(h.x, h.y + 2, h.z)));
     const sp = this.localSpT > 0 ? 1 : 0;
     this.post.musou += (sp - this.post.musou) * (sp ? 0.15 : 0.08);
+    const L = this.local;
+    const rad = this.mode === 'title' ? 0 : L.state === 'boost' ? 0.7 : L.state === 'musou' && L.spPhase === 1 ? 0.45 : 0;
+    this.post.radial += (rad - this.post.radial) * (rad > this.post.radial ? 0.18 : 0.1);
+    this.post.aberr *= 0.88;
     this.post.render(this.scene, this.cam, this.time);
   }
 

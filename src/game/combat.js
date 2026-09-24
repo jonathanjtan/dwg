@@ -101,7 +101,7 @@ export class Combat {
     // hero hit-stop: 2 frames per tick (+1 per 4 extra victims, max 5); heavy contact 10 frames with a zoom punch.
     // No camera shake on normal hits; only heavy blows kick the camera.
     g.hitstop(spec.big ? 10 / 60 : Math.min(5, 2 + Math.floor((n - 1) / 4)) / 60);
-    if (spec.big && g.local === g.hero) { g.camera.shake(0.35); g.camera.punch(3.5); }
+    if (spec.big && g.local === g.hero) { g.camera.shake(0.35); g.camera.punch(3.5); g.aberr(0.55); }
   }
 
   // Area blast (Guntank shells and missiles): damage falls off toward the edge.

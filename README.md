@@ -81,8 +81,8 @@ The boost gauge under the SP bar drains while you dash or hover and refills once
 - `src/core/rig.js`: a 13-part humanoid rig with keyframed pose clips. It drives both Object3D rigs (the Gundam and the commanders) and `InstancedMesh` crowds of up to 300 Zakus.
 - `src/game/`: the hero moveset (`moves.js`), the Guntank (`tank.js`), squad AI with attack tokens and a front-rank cap (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
 - `src/net/net.js`: co-op networking. The crowd is packed into an Int16Array per snapshot, and effect, sound and HUD events are replicated.
-- `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke and debris, plus shockwave rings and the saber ribbon trail.
-- `src/audio/audio.js`: WebAudio-synthesized sound effects.
+- `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke, embers and debris, anime impact stars, beam afterglow, ground scorch decals, shockwave rings and the Catmull-Rom smoothed saber ribbon trail.
+- `src/audio/audio.js`: WebAudio-synthesized sound effects, panned against the camera and dulled with distance, with a generated colony-hall reverb and continuous beam-saber hum and thruster loops.
 - `src/audio/music.js`: the score, synthesized live. It's original anime hard rock with double-tracked distorted guitars, bass, a rock kit, a gliding lead, pads and arps. There's a battle theme, a boss theme for Char, a title theme, and victory and defeat stingers.
 - `src/world/world.js`: the Side 7 town and the O'Neill cylinder shell curving up into the sky.
 - `src/post.js`: the MSAA HDR target, capped bloom, depth of field, grade and dither.

@@ -95,6 +95,7 @@ export class Projectiles {
     if (this.bullets.length > 250) return;
     this.bullets.push({ p: from.clone(), d: dir.clone(), life: 0, max: 1.7, speed: BULLET_SPEED, dmg: 4 * mul });
     this.game.fx.sparks(from, 3, 0xffc070, 5, 0.6, dir);
+    this.game.fx.star(from, 0xffa040, 0.4);
     if (Math.random() < 0.5) this.game.audio.play('mg', { vol: 0.3, at: from });
   }
 
@@ -107,6 +108,7 @@ export class Projectiles {
       b.life += dt;
       const ax = b.p.x, ay = b.p.y, az = b.p.z;
       b.p.addScaledVector(b.d, b.speed * dt);
+      g.fx.streak(this._v.set(ax, ay, az), b.p, 0xff6fd0);
       combat.beamSweep(ax, ay, az, b.p.x, b.p.y, b.p.z, 0.8, (t, boss) => {
         const ok = boss ? t.damage(b.dmg * 1.1, 7, 1.5, ax, az, b.id) : g.crowd.damage(t, b.dmg, 7, 1.5, ax, az, b.id);
         if (ok) {
@@ -119,8 +121,9 @@ export class Projectiles {
         }
       });
       if (b.life > b.max || g.world.blocked(b.p.x, b.p.z, 0) && b.p.y < 8) {
-        g.fx.hit(b.p, 0xff7ad0);
-        g.fx.puff(b.p, 3, 0.5, 0.8);
+        g.fx.hit(b.p, 0xff7ad0, true);
+        g.fx.puff(b.p, 4, 0.5, 0.9);
+        g.fx.debris(b.p, 5, [0x8a867c, 0x6f6c64], 7, 0.18);
         this.beams.splice(i, 1);
       }
     }
@@ -238,7 +241,11 @@ export class Projectiles {
   // Advance replicated projectiles kinematically between snapshots (no collisions on the guest).
   guestAdvance(dt) {
     const g = this.game;
-    for (const b of this.beams) b.p.addScaledVector(b.d, 120 * dt);
+    for (const b of this.beams) {
+      this._v.copy(b.p);
+      b.p.addScaledVector(b.d, 120 * dt);
+      g.fx.streak(this._v, b.p, 0xff6fd0);
+    }
     for (const b of this.bullets) b.p.addScaledVector(b.d, BULLET_SPEED * dt);
     for (const m of this.missiles) {
       m.p.addScaledVector(m.v, dt);
@@ -265,11 +272,11 @@ export class Projectiles {
     let n = 0;
     for (const b of this.beams) {
       _q.setFromUnitVectors(Zf, b.d);
-      _p.copy(b.p).addScaledVector(b.d, -1.8);
-      _s.set(0.34, 0.34, 3.6);
+      _p.copy(b.p).addScaledVector(b.d, -3.2);
+      _s.set(0.36, 0.36, 6.4);
       _m.compose(_p, _q, _s);
       this.beamMesh.setMatrixAt(n, _m);
-      _s.set(0.14, 0.14, 3.8);
+      _s.set(0.13, 0.13, 6.8);
       _m.compose(_p, _q, _s);
       this.beamCore.setMatrixAt(n, _m);
       n++;

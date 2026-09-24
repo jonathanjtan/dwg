@@ -304,7 +304,7 @@ export class Crowd {
           const sq = g.squad;
           // garrison: hold the post until a pilot comes close
           if (sq && !sq.engaged) {
-            if (heroTargetable && dist < AGGRO) sq.engaged = true;
+            if (heroTargetable && dist < AGGRO) { sq.engaged = true; this.alert(g); }
             else {
               const tx = sq.x + g.slotX, tz = sq.z + g.slotZ;
               let mx = tx - g.x, mz = tz - g.z;
@@ -523,6 +523,15 @@ export class Crowd {
         if (d < 2 && d > 1e-4) { g.x += (ox / d) * (2 - d) * 0.5; g.z += (oz / d) * (2 - d) * 0.5; }
       }
     }
+  }
+
+  // A garrison soldier spots a pilot: the mono-eye flares and swings on with its "pyuiin".
+  alert(g) {
+    const game = this.game;
+    const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw);
+    const p = this._v.set(g.x + fx * 0.55, 2.95 * g.scale, g.z + fz * 0.55);
+    game.fx.glint(p, 0xff2f6e);
+    game.audio.play('eye', { at: p });
   }
 
   // Only the nearest few engaged soldiers per pilot may close in and swing; the rest form a watching ring
