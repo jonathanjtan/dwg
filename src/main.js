@@ -3,7 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { Input } from './core/input.js';
+import { Input, lockPointer } from './core/input.js';
 import { World } from './world/world.js';
 import { FX } from './fx/fx.js';
 import { Hero } from './game/hero.js';
@@ -33,7 +33,7 @@ class Game {
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
 
@@ -78,6 +78,9 @@ class Game {
     document.addEventListener('pointerlockchange', () => {
       if (!this.input.locked && this.mode === 'play' && !this.ignoreUnlock) this.pause(true);
       this.ignoreUnlock = false;
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && this.mode === 'play') this.pause(true);
     });
     this.bindUI();
     this.setupTitle();
@@ -165,9 +168,7 @@ class Game {
     this.hud.show(true);
     this.stage.begin();
     this.canvas.focus();
-    if (this.canvas.requestPointerLock && !matchMedia('(pointer: coarse)').matches) {
-      try { this.canvas.requestPointerLock(); } catch (e) { /* needs gesture */ }
-    }
+    if (!matchMedia('(pointer: coarse)').matches) lockPointer(this.canvas);
   }
 
   toTitle() {
@@ -187,13 +188,14 @@ class Game {
     if (on && this.mode !== 'play') return;
     if (!on && this.mode !== 'paused') return;
     this.mode = on ? 'paused' : 'play';
+    this.pausedAt = performance.now();
     document.getElementById('pause').classList.toggle('hidden', !on);
     if (on) {
       this.audio.ctx?.suspend();
       if (this.input.locked) { this.ignoreUnlock = true; document.exitPointerLock(); }
     } else {
       this.audio.resume();
-      this.canvas.requestPointerLock?.();
+      lockPointer(this.canvas);
     }
   }
 
@@ -302,7 +304,8 @@ class Game {
       return;
     }
 
-    if (act.pause) {
+    // the Esc that releases pointer lock can also arrive as a key press; don't let it instantly unpause
+    if (act.pause && performance.now() - (this.pausedAt || 0) > 350) {
       if (this.mode === 'play') this.pause(true);
       else if (this.mode === 'paused') this.pause(false);
     }

@@ -196,7 +196,7 @@ export class Commander {
 
     switch (this.state) {
       case 'drop': {
-        this.vel.y = Math.min(this.vel.y + 22 * dt, -5);
+        this.vel.y = -Math.max(5, Math.min(24, this.pos.y * 1.5));
         this.pos.y += this.vel.y * dt;
         g.fx.thruster(this._v.set(this.pos.x, this.pos.y + 1.8, this.pos.z - 0.5), { x: 0, y: -1, z: -0.2 }, 0xffb070, 1.5);
         target.set(poseFrom({ thighR: [-0.8, 0, 0], shinR: [1.2, 0, 0], uArmR: [-0.3, 0, -0.6], uArmL: [-0.3, 0, 0.6] }, CSTANCE));

@@ -1,4 +1,12 @@
 // Keyboard + mouse + gamepad, normalised to game actions.
+
+// requestPointerLock returns a promise in modern browsers and rejects when not allowed (e.g. in iframes).
+export function lockPointer(el) {
+  try {
+    const p = el.requestPointerLock?.();
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) { /* ignore */ }
+}
 const KEYMAP = {
   attack: ['KeyJ'],
   charge: ['KeyK'],
@@ -40,7 +48,7 @@ export class Input {
     addEventListener('blur', () => this.down.clear());
     canvas.addEventListener('mousedown', (e) => {
       if (!this.enabled) return;
-      if (!this.locked && this.wantLock) canvas.requestPointerLock?.();
+      if (!this.locked && this.wantLock) lockPointer(canvas);
       const code = e.button === 0 ? 'Mouse0' : e.button === 2 ? 'Mouse2' : 'Mouse1';
       this.down.add(code);
       this.pressed.add(code);

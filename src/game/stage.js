@@ -157,8 +157,11 @@ export class Stage {
     g.hud.setObjective('Side 7 secured');
     g.audio.stopMusic();
     g.audio.play('victory');
-    // remaining Zaku retreat — blow up the stragglers for spectacle
-    setTimeoutGame(g, 4.5, () => g.finish(true));
+    g.hero.invuln = 99;
+    // with their ace gone the remaining Zaku go up in a chain of explosions
+    const left = [...g.crowd.list].sort((a, b) => Math.hypot(a.x - g.hero.pos.x, a.z - g.hero.pos.z) - Math.hypot(b.x - g.hero.pos.x, b.z - g.hero.pos.z));
+    left.forEach((e, i) => setTimeoutGame(g, 1.2 + i * 0.02, () => { if (e.alive && e.state !== 'dying') g.crowd.kill(e); }));
+    setTimeoutGame(g, 5.5, () => g.finish(true));
   }
 
   update(dt) {

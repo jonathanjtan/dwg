@@ -205,7 +205,7 @@ export class Crowd {
 
       switch (g.state) {
         case 'drop': {
-          g.vy = Math.min(g.vy + 14 * dt, -4);
+          g.vy = -Math.max(4, Math.min(20, g.y * 1.4));
           g.y += g.vy * dt;
           if (Math.random() < 0.6) {
             game.fx.thruster(this._v.set(g.x, g.y + 1.8, g.z - 0.4), { x: 0, y: -1, z: -0.3 }, 0xffb070, 1.1);

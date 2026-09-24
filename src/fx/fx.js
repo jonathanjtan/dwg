@@ -185,7 +185,7 @@ export class FX {
     const domeGeo = new THREE.IcosahedronGeometry(1, 1);
     for (let i = 0; i < 6; i++) {
       const m = new THREE.Mesh(domeGeo, new THREE.MeshBasicMaterial({
-        color: 0xffffff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false, flatShading: true,
+        color: 0xffffff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false,
       }));
       m.visible = false;
       m.frustumCulled = false;

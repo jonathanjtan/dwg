@@ -776,7 +776,7 @@ export class Hero {
     rig.applyPose(this.pose);
     const f = Math.max(this.flash, this.armorFlash);
     this.armorFlash = Math.max(0, this.armorFlash - dt * 4);
-    rig.setFlash(f * 0.9, this.armorFlash > 0 ? 0xffc040 : 0xff3030);
+    rig.setFlash(f * 0.45, this.armorFlash > 0 ? 0xffc040 : 0xff6040);
 
     // weapons
     const rifleMove = (this.state === 'attack' && this.move.rifle);
