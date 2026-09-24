@@ -15,6 +15,9 @@ export class HUD {
       toasts: $('toasts'), objective: $('objective'), keys: $('keys'), portrait: $('portrait'),
       ally: $('ally'), allyName: $('ally-name'), allyFill: $('ally-fill'), allyState: $('ally-state'),
       pilotJp: $('pilot-jp'), pilotEn: $('pilot-en'),
+      hpRed: $('hp-red'), boostBar: $('boost-bar'), boostFill: $('boost-fill'), speedlines: $('speedlines'),
+      letterbox: $('letterbox'), namecard: $('namecard'), ncJp: $('nc-jp'), ncEn: $('nc-en'), ncUnit: $('nc-unit'),
+      marker: $('objmarker'), omLabel: $('om-label'), omDist: $('om-dist'),
     };
     this.pilot = 'amuro';
     this.el.portrait.src = portrait('amuro');
@@ -41,6 +44,24 @@ export class HUD {
     this.flashT = 0;
     this._v = new THREE.Vector3();
     this.mapT = 0;
+    this.speedK = 0;
+    this.cineT = 0;
+  }
+
+  // Officer arrival: letterbox bars and a sliding name card.
+  nameCard(cfg, dur = 2.6) {
+    const [en, unit = ''] = cfg.title.split(' · ');
+    this.el.ncJp.textContent = cfg.jp;
+    this.el.ncEn.textContent = en;
+    this.el.ncUnit.textContent = unit;
+    this.el.namecard.querySelector('.nc-tag').textContent = cfg.kind === 'char' ? 'WARNING · THE RED COMET' : 'ENEMY COMMANDER';
+    const c = this.el.namecard;
+    c.classList.remove('hidden');
+    c.classList.toggle('char', cfg.kind === 'char');
+    for (const n of c.querySelectorAll('*')) { n.style.animation = 'none'; void n.offsetWidth; n.style.animation = ''; }
+    clearTimeout(this.ncTimer);
+    this.ncTimer = setTimeout(() => c.classList.add('hidden'), 2600);
+    this.cineT = dur;
   }
 
   portraitFor(name, expr = 'idle') {
@@ -135,6 +156,9 @@ export class HUD {
     this.tagEls.clear();
     this.lastKo = -1;
     this.el.combo.classList.add('hidden');
+    this.el.namecard.classList.add('hidden');
+    this.el.marker.classList.add('hidden');
+    this.cineT = 0;
   }
 
   update(dt) {
@@ -142,8 +166,22 @@ export class HUD {
     const h = g.local;
     // HP / SP
     const hpPct = Math.max(0, h.hp / h.maxHp);
+    const redPct = Math.min(1, (h.hp + (h.hpRed || 0)) / h.maxHp);
     this.el.hpFill.style.width = hpPct * 100 + '%';
-    this.el.hpLag.style.width = hpPct * 100 + '%';
+    this.el.hpRed.style.width = redPct * 100 + '%';
+    this.el.hpLag.style.width = redPct * 100 + '%';
+    this.el.hpRed.classList.toggle('regen', (h.hpRed || 0) > 1 && h.regenWait <= 0);
+    // boost gauge (the Gundam only)
+    const hasBoost = h.boost !== undefined;
+    this.el.boostBar.style.display = hasBoost ? '' : 'none';
+    if (hasBoost) {
+      this.el.boostFill.style.width = Math.max(0, h.boost) * 100 + '%';
+      this.el.boostBar.classList.toggle('low', h.boost < 0.25);
+    }
+    this.speedK += ((h.state === 'boost' ? 1 : 0) - this.speedK) * Math.min(1, dt * (h.state === 'boost' ? 8 : 5));
+    this.el.speedlines.style.opacity = (this.speedK * 0.75).toFixed(3);
+    this.cineT = Math.max(0, this.cineT - dt);
+    this.el.letterbox.classList.toggle('on', this.cineT > 0);
     this.el.hpFill.className = hpPct < 0.25 ? 'low' : hpPct < 0.5 ? 'mid' : '';
     this.el.hpText.textContent = Math.ceil(h.hp);
     this.el.spFill.style.width = (h.sp / h.maxSp) * 100 + '%';
@@ -184,6 +222,7 @@ export class HUD {
     this.updateDialogue(dt);
     this.updateBosses();
     this.updateTags();
+    this.updateMarker();
     this.mapT -= dt;
     if (this.mapT <= 0) { this.mapT = 1 / 20; this.drawMap(); }
   }
@@ -255,6 +294,7 @@ export class HUD {
   updateBosses() {
     const g = this.game;
     for (const c of g.commanders.list) {
+      if (c.kind === 'captain') continue; // squad leaders only get a floating tag
       let e = this.bossEls.get(c);
       const show = c.state !== 'dead' && c.state !== 'drop';
       if (!e && show) {
@@ -284,7 +324,7 @@ export class HUD {
       let e = this.tagEls.get(c);
       if (!e) {
         const root = document.createElement('div');
-        root.className = 'tag' + (c.kind === 'char' ? ' char' : '');
+        root.className = 'tag' + (c.kind === 'char' ? ' char' : c.kind === 'captain' ? ' captain' : '');
         root.innerHTML = `<span class="tjp">${c.cfg.jp}</span>${c.cfg.title}<div class="tbar"><div></div></div>`;
         this.el.tags.appendChild(root);
         e = { root, bar: root.querySelector('.tbar div') };
@@ -300,10 +340,52 @@ export class HUD {
     }
   }
 
+  // Points at the current objective: the nearest landing zone, else an officer who is off screen.
+  updateMarker() {
+    const g = this.game;
+    const h = g.local;
+    const el = this.el.marker;
+    let tx = 0, ty = 0, tz = 0, label = '', found = false, always = false, best = Infinity;
+    for (const lz of g.lz.list) {
+      if (lz.captured || lz.y > 0) continue;
+      const d = Math.hypot(lz.x - h.pos.x, lz.z - h.pos.z);
+      if (d < best) { best = d; tx = lz.x; ty = 9; tz = lz.z; label = 'LZ ' + lz.name; found = always = true; }
+    }
+    if (!found) {
+      for (const c of g.commanders.list) {
+        if (!c.alive || c.kind === 'captain' || c.state === 'drop') continue;
+        const d = Math.hypot(c.pos.x - h.pos.x, c.pos.z - h.pos.z);
+        if (d < best) { best = d; tx = c.pos.x; ty = c.pos.y + 5.2; tz = c.pos.z; label = c.cfg.title.split(' · ')[0]; found = true; }
+      }
+    }
+    // nothing to point at, a cut-scene, or already standing in the landing zone
+    if (!found || g.mode === 'title' || this.cineT > 0 || (always && best < 10)) { el.classList.add('hidden'); return; }
+    const cam = g.camera.cam;
+    const v = this._v.set(tx, ty, tz).applyMatrix4(cam.matrixWorldInverse);
+    const behind = v.z > 0;
+    let sx, sy;
+    if (behind) { sx = -v.x; sy = -v.y; if (Math.abs(sx) + Math.abs(sy) < 1e-3) sy = -1; }
+    else { v.applyMatrix4(cam.projectionMatrix); sx = v.x; sy = v.y; }
+    const onScreen = !behind && Math.abs(sx) < 0.92 && Math.abs(sy) < 0.8;
+    if (!onScreen) {
+      const m = Math.max(Math.abs(sx) / 0.9, Math.abs(sy) / 0.72, 1e-3);
+      sx /= m; sy /= m;
+    } else if (!always) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    el.classList.toggle('edge', !onScreen);
+    el.style.left = ((sx + 1) / 2) * innerWidth + 'px';
+    el.style.top = ((1 - sy) / 2) * innerHeight + 'px';
+    const arrow = el.firstElementChild;
+    arrow.style.transform = onScreen ? '' : `rotate(${Math.atan2(-sy, sx)}rad)`;
+    arrow.style.animation = onScreen ? '' : 'none';
+    this.el.omLabel.textContent = label;
+    this.el.omDist.textContent = Math.round(best) + 'm';
+  }
+
   drawMap() {
     const g = this.game;
     const ctx = this.mapCtx;
-    const W = 200, S = 200 / 110; // show ~110 units across
+    const W = 200, S = 200 / 150; // show ~150 units across
     const hero = g.local;
     const yaw = g.camera.yaw;
     ctx.clearRect(0, 0, W, W);
@@ -326,12 +408,31 @@ export class HUD {
     // arena bound
     ctx.strokeStyle = 'rgba(255,90,90,0.5)';
     ctx.strokeRect(tx(-104), tz(-104), 208 * S, 208 * S);
+    // landing zones: red while Zeon holds them, blue once taken
+    for (const lz of g.lz.list) {
+      if (lz.y > 0) continue;
+      const x = tx(lz.x), z = tz(lz.z), r = 9 * S;
+      ctx.fillStyle = lz.captured ? 'rgba(95,208,255,0.22)' : `rgba(255,60,70,${0.2 + 0.12 * Math.sin(performance.now() / 250)})`;
+      ctx.strokeStyle = lz.captured ? '#5fd0ff' : '#ff4a5a';
+      ctx.lineWidth = 2;
+      ctx.fillRect(x - r, z - r, r * 2, r * 2);
+      ctx.strokeRect(x - r, z - r, r * 2, r * 2);
+      ctx.save();
+      ctx.translate(x, z);
+      ctx.rotate(-(yaw + Math.PI));
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px Rajdhani, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(lz.name[0], 0, 0);
+      ctx.restore();
+    }
     // grunts
     ctx.fillStyle = '#ff5a4a';
     for (const e of g.crowd.list) {
       const x = tx(e.x), z = tz(e.z);
       if (Math.abs(x) > 150 || Math.abs(z) > 150) continue;
-      ctx.fillRect(x - 1.5, z - 1.5, 3, 3);
+      ctx.fillRect(x - 1.25, z - 1.25, 2.5, 2.5);
     }
     // items
     ctx.fillStyle = '#5dff7a';

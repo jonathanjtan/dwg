@@ -9,6 +9,7 @@ import { Commanders } from './game/commander.js';
 import { Combat } from './game/combat.js';
 import { Projectiles } from './game/projectiles.js';
 import { Items } from './game/items.js';
+import { LandingZones } from './game/bases.js';
 import { Stage, officerCfg } from './game/stage.js';
 import { Tank } from './game/tank.js';
 import { Net, GRUNT_STATES, GF, LOCALNET } from './net/net.js';
@@ -17,11 +18,15 @@ import { HUD } from './ui/hud.js';
 import { Audio } from './audio/audio.js';
 import { rand, wrapAngle } from './core/util.js';
 
+// maxPress: engaged Zaku allowed to close in and swing at once (the rest ring you from further out)
+// dropEvery: KOs per repair kit / E-cap (halved when hurt); recover: share of damage that heals back if you avoid hits
+// reinforce: multiplier on the time between reinforcement squads
 const DIFFICULTY = {
-  easy: { dmgTaken: 0.55, dmgDealt: 1.25, enemyHp: 0.85, aggression: 0.7, speed: 0.85, maxAlive: 130 },
-  normal: { dmgTaken: 1, dmgDealt: 1, enemyHp: 1, aggression: 1, speed: 1, maxAlive: 180 },
-  hard: { dmgTaken: 1.6, dmgDealt: 0.9, enemyHp: 1.3, aggression: 1.5, speed: 1.2, maxAlive: 230 },
+  easy: { dmgTaken: 0.6, dmgDealt: 1.2, enemyHp: 0.85, aggression: 0.7, speed: 0.9, maxAlive: 60, maxPress: 9, dropEvery: 14, recover: 0.65, reinforce: 1.3 },
+  normal: { dmgTaken: 1, dmgDealt: 1, enemyHp: 1, aggression: 1, speed: 1, maxAlive: 80, maxPress: 13, dropEvery: 20, recover: 0.5, reinforce: 1 },
+  hard: { dmgTaken: 1.5, dmgDealt: 0.9, enemyHp: 1.25, aggression: 1.4, speed: 1.15, maxAlive: 105, maxPress: 18, dropEvery: 30, recover: 0.3, reinforce: 0.75 },
 };
+const NO_INPUT = { move: { x: 0, y: 0 }, key: () => false };
 
 class Game {
   constructor() {
@@ -53,6 +58,7 @@ class Game {
     this.combat = new Combat(this);
     this.projectiles = new Projectiles(this);
     this.items = new Items(this);
+    this.lz = new LandingZones(this);
     this.commanders = new Commanders(this);
     this.crowd = new Crowd(this);
     this.hero = new Hero(this);
@@ -72,6 +78,7 @@ class Game {
     this.slowT = 0;
     this.slowScale = 1;
     this.worldSlowT = 0;
+    this.cutsceneT = 0;
     this.titleT = 0;
     this.frameTimes = [];
     this._focus = new THREE.Vector3();
@@ -176,14 +183,17 @@ class Game {
     this.commanders.clear();
     this.projectiles.clear();
     this.items.clear();
+    this.lz.clear();
     this.hud.reset();
     this.timers.length = 0;
+    this.cutsceneT = 0;
     this.stats = this.freshStats();
     this.combo = { count: 0, timer: 0, max: 0 };
     this.hero.reset();
     this.hero.startIntro();
     this.camera.yaw = 0;
-    this.camera.pitch = 0.3;
+    this.camera.pitch = 0.26;
+    this.camera.show = null;
     this.camera.target.set(0, 3, -14);
     this.mode = 'play';
     this.hud.show(true);
@@ -210,6 +220,7 @@ class Game {
     this.stage.reset();
     this.projectiles.clear();
     this.items.clear();
+    this.lz.clear();
     this.hud.reset();
     this.ignoreUnlock = true;
     document.exitPointerLock?.();
@@ -242,8 +253,8 @@ class Game {
     const s = this.stats;
     const $ = (id) => document.getElementById(id);
     $('res-title').textContent = win ? 'MISSION COMPLETE' : 'MISSION FAILED';
-    // rank from KOs, speed and damage taken
-    let score = s.kos * 2 + s.maxCombo * 1.5 + s.officers * 60 - s.damageTaken * 0.12 - Math.max(0, s.time - 240) * 0.8;
+    // rank from KOs, commanders, combo, speed and damage taken
+    let score = s.kos * 1.6 + s.maxCombo * 1.5 + s.officers * 50 - s.damageTaken * 0.1 - Math.max(0, s.time - 600) * 0.6;
     if (!win) score *= 0.4;
     const rank = score > 900 ? 'S' : score > 600 ? 'A' : score > 350 ? 'B' : score > 150 ? 'C' : 'D';
     $('res-rank').textContent = rank;
@@ -280,12 +291,20 @@ class Game {
   }
   onGruntKilled(g) {
     this.stats.kos++;
-    this.stage.onKill();
-    if (Math.random() < 0.012) this.items.drop(Math.random() < 0.6 ? 'hp' : 'sp', g.x, g.z);
+    this.stage.onKill(g);
   }
   onCommanderDefeated(c) {
     this.stats.officers++;
     this.stats.kos++;
+    if (c.kind === 'captain') {
+      // squad leader down: a beat of slow motion, a big kit, and the landing zone falls
+      this.slowmo(0.3, 0.55);
+      this.camera.shake(0.45);
+      this.hud.toast('SQUAD LEADER DEFEATED', '#ffd070');
+      this.items.drop('hpL', c.pos.x, c.pos.z);
+      this.stage.onCommanderDefeated(c);
+      return;
+    }
     this.hud.whiteFlash(0.5);
     this.slowmo(0.2, 0.9);
     this.camera.shake(0.6);
@@ -293,11 +312,32 @@ class Game {
     this.hud.announce(c.kind === 'char' ? 'CHAR REPELLED' : 'COMMANDER DEFEATED', c.cfg.title);
     this.stage.onCommanderDefeated(c);
     if (c.kind === 'char') this.stage.onCharRetreated();
-    else this.items.drop('hp', c.pos.x, c.pos.z);
+    else this.items.drop('hpL', c.pos.x, c.pos.z);
     if (c.kind !== 'char') this.items.drop('sp', c.pos.x + 1.5, c.pos.z);
   }
   onCommanderExploded(c) {
     this.stage.onCommanderExploded(c);
+  }
+  // Officer arrival: the camera finds them over the hero's shoulder while their name card slides in.
+  showcase(c, dur = 2.8) {
+    if (this.mode !== 'play') return;
+    this.cutsceneT = dur;
+    this.localShowcase(c, dur);
+    for (const p of this.players) p.invuln = Math.max(p.invuln, dur + 0.4);
+    this.netEvent('show', c.netId, dur);
+  }
+  localShowcase(c, dur) {
+    this.camera.showcase(c.pos, dur);
+    this.hud.nameCard(c.cfg, dur);
+  }
+  // Same camera move without a name card (a landing pod coming down).
+  showcasePoint(pos, dur) {
+    if (this.mode !== 'play') return;
+    this.cutsceneT = dur;
+    this.camera.showcase(pos, dur);
+    this.hud.cineT = dur;
+    for (const p of this.players) p.invuln = Math.max(p.invuln, dur + 0.4);
+    this.netEvent('showp', pos.x, pos.z, dur);
   }
   onHeroDeath() {
     this.hud.announce('MISSION FAILED', 'THE GUNDAM HAS FALLEN', true);
@@ -401,6 +441,7 @@ class Game {
     this.commanders.clear();
     this.projectiles.clear();
     this.items.clear();
+    this.lz.clear();
     this.hud.reset();
     this.audio.stopMusic();
     this.setupTitle();
@@ -421,7 +462,7 @@ class Game {
     this.hud.show(true);
     this.mode = 'guest';
     this.camera.yaw = 0;
-    this.camera.pitch = 0.3;
+    this.camera.pitch = 0.26;
     this.canvas.focus();
     if (!matchMedia('(pointer: coarse)').matches) lockPointer(this.canvas);
   }
@@ -472,6 +513,7 @@ class Game {
     this.crowd.applyNet(Net.decodeCrowd(d.crowd), GRUNT_STATES, GF);
     this.projectiles.applyNet(d.pj);
     this.items.applyNet(d.it);
+    this.lz.applyNet(d.bz || []);
     const st = d.st;
     this.stats.kos = st.kos;
     this.stats.time = st.time;
@@ -496,6 +538,13 @@ class Game {
         if (name === 'tank') this.localMusou('hayato');
         else this.hud.toast('AMURO: SP ATTACK!', '#ffd1f1');
       } else if (tag === 'stinger') this.audio.stinger(name);
+      else if (tag === 'show') {
+        const c = this.commanders.list.find((x) => x.netId === name);
+        if (c) this.localShowcase(c, args[0]);
+      } else if (tag === 'showp') {
+        this.camera.showcase({ x: name, y: 30, z: args[0] }, args[1]);
+        this.hud.cineT = args[1];
+      }
     } catch (err) { /* a malformed event shouldn't stop the guest */ }
   }
 
@@ -537,6 +586,7 @@ class Game {
     this.crowd.netInterp(rdt);
     this.projectiles.guestAdvance(rdt);
     this.items.netAnimate(rdt);
+    this.lz.guestAnimate(rdt);
     this.fx.update(rdt);
     const t = this.tank;
     const crowdN = this.crowd.grid.query(t.pos.x, t.pos.z, 12, this._near).length;
@@ -619,8 +669,9 @@ class Game {
     }
 
     const playable = this.mode === 'play';
-    const heroAct = playable ? act : {};
-    this.hero.update(dt * heroScale, heroAct, this.input);
+    this.cutsceneT = Math.max(0, this.cutsceneT - rdt);
+    const heroCtl = playable && this.cutsceneT <= 0;
+    this.hero.update(dt * heroScale, heroCtl ? act : {}, heroCtl ? this.input : NO_INPUT);
     if (this.players.length > 1) {
       const ri = this.remoteInput;
       const tAct = playable ? { attack: !!(ri.edges & 1), charge: !!(ri.edges & 2), jump: !!(ri.edges & 4), dodge: !!(ri.edges & 8), musou: !!(ri.edges & 16) } : {};
@@ -632,6 +683,7 @@ class Game {
     this.commanders.update(wdt);
     this.projectiles.update(wdt);
     this.items.update(dt);
+    this.lz.update(wdt, (lz) => this.stage.onZoneLanded(lz));
     this.combat.update(dt);
     this.stage.update(dt);
     this.fx.update(dt);

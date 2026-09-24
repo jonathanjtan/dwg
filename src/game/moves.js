@@ -100,6 +100,20 @@ export const MOVES = {
     swing: 0.22,
   },
 
+  // ---- boost dash attack: a thruster-driven slash out of the boost ----
+  DA: {
+    dur: 0.66, chain: 0.4, next: 'N2', charge: 'C2', saber: true, armor: true,
+    lunge: [[0, 0], [0.24, 5.2]],
+    clip: clip([
+      k(0, { torso: [0.55, -0.95, 0], uArmR: [-0.5, 0, -0.5], fArmR: [-1.2, 0, 0], hand: [1.4, 0, 0], uArmL: [-1.0, 0, 0.5], y: -0.35, ...LEGS_LUNGE_L }),
+      k(0.07, { torso: [0.6, -1.05, 0] }),
+      k(0.18, { torso: [0.35, 1.1, 0], uArmR: [0, 2.0, -1.35], fArmR: [-0.15, 0, 0], hand: [1.2, 0, 0], uArmL: [-0.2, 0, 0.9], y: -0.4, ...LEGS_LUNGE_R }, 'snap'),
+      k(0.66, { torso: [0.2, 0.6, 0], uArmR: [-0.3, 1.2, -1.0], hand: [0.8, 0, 0], y: -0.25 }),
+    ]),
+    hits: [{ t: 0.08, t1: 0.24, shape: 'arc', range: 4.8, arc: 200, dmg: 36, kb: 10, up: 4 }],
+    swing: 0.08,
+  },
+
   // ---- charge attacks ----
   C1: {
     dur: 0.5, chain: 0.3, rifle: true, next: null, charge: 'C1', maxRepeat: 3,

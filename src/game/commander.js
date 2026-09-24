@@ -39,6 +39,7 @@ const TAUNT = new Clip([
 ], CSTANCE);
 
 const COMBOS = {
+  captain: [['N1', 'N2'], ['N3'], ['N1']],
   officer: [['N1', 'N2'], ['N3'], ['N1', 'N3']],
   char: [['N1', 'N2', 'N3'], ['N2', 'N1', 'N4'], ['KICK'], ['N1', 'KICK'], ['N5']],
 };
@@ -79,6 +80,7 @@ export class Commander {
     this.fired = 0;
     this.hitDone = false;
     this.speed = cfg.speed;
+    this.home = cfg.home || null; // squad leaders guard their landing zone
     this.height = 3.2;
     this.x = this.pos.x;
     this.z = this.pos.z;
@@ -236,8 +238,19 @@ export class Commander {
       }
       case 'idle': {
         this.heading = angleDamp(this.heading, toHero, 8, dt);
+        if (this.home && Math.hypot(hero.pos.x - this.home.x, hero.pos.z - this.home.z) > (this.cfg.leash || 30)) {
+          // hold the post: walk back and wait
+          const hx = this.home.x - this.pos.x, hz = this.home.z - this.pos.z, hd = Math.hypot(hx, hz);
+          const s = hd > 1.5 ? sp * 0.6 : 0;
+          this.vel.x = damp(this.vel.x, hd > 0.01 ? (hx / hd) * s : 0, 5, dt);
+          this.vel.z = damp(this.vel.z, hd > 0.01 ? (hz / hd) * s : 0, 5, dt);
+          if (s > 0) this.heading = angleDamp(this.heading, Math.atan2(hx, hz), 5, dt);
+          this.cd = Math.max(this.cd, 0.8);
+          this.walkPose(target, dt);
+          break;
+        }
         // guard reaction to hero swings
-        if (heroOk && dist < 6 && hero.state === 'attack' && Math.random() < dt * (isChar ? 3 : 1.4)) {
+        if (heroOk && dist < 6 && hero.state === 'attack' && Math.random() < dt * (isChar ? 3 : this.kind === 'captain' ? 0.7 : 1.4)) {
           this.setState('guard');
           break;
         }
@@ -285,7 +298,7 @@ export class Commander {
       }
       case 'combo': {
         const name = this.combo[this.comboIdx];
-        const speedMul = isChar ? 1.0 : 0.8;
+        const speedMul = isChar ? 1.0 : this.kind === 'captain' ? 0.72 : 0.8;
         this.moveT += dt * speedMul;
         const t = this.moveT;
         trailOn = name !== 'KICK';
@@ -338,7 +351,7 @@ export class Commander {
         this.rig.nodes.gun.visible = true;
         this.rig.nodes.hawk.visible = false;
         lerpPose(target, CSTANCE, AIM, Math.min(1, this.t / 0.2));
-        const shots = isChar ? 8 : 6;
+        const shots = isChar ? 8 : this.kind === 'captain' ? 4 : 6;
         const start = isChar ? 0.35 : 0.55;
         if (this.t > start && this.fired < shots && this.t >= start + this.fired * 0.1) {
           this.fired++;
@@ -592,7 +605,7 @@ export class Commander {
     if (this.comboIdx >= this.combo.length) {
       this.setState('idle');
       this.pos.y = 0;
-      this.cd = rand(0.8, 1.8) * (this.kind === 'char' ? 0.55 : 1) / this.game.difficulty.speed;
+      this.cd = rand(0.8, 1.8) * (this.kind === 'char' ? 0.55 : this.kind === 'captain' ? 1.5 : 1) / this.game.difficulty.speed;
       return;
     }
     this.startComboStep();

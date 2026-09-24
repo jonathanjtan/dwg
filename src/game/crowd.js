@@ -7,7 +7,9 @@ import { lensClear } from '../core/lensclear.js';
 
 const MAX = 300;
 const GRAV = 30;
-const WALK = 4.6;
+const WALK = 3.7;
+const AGGRO = 19; // a garrison squad engages when a pilot comes this close
+const LEASH = 52; // ...and falls back to its post once every pilot is this far away
 
 const ZSTANCE = poseFrom({
   y: -0.05, torso: [0.06, 0, 0], head: [0, 0, 0],
@@ -73,9 +75,11 @@ export class Crowd {
     this.meleeTokens = 0;
     this.gunTokens = 0;
     this.maxMelee = 3;
-    this.maxGun = 3;
+    this.maxGun = 2;
     this.boomBudget = 0;
     this.feintUntil = 0;
+    this.pressT = 0;
+    this._cand = [];
     this.lensHid = new Uint8Array(MAX);
     this._v = new THREE.Vector3();
     this._r = [0, 0];
@@ -89,6 +93,7 @@ export class Crowd {
       hitIds: [0, 0, 0, 0], hitCursor: 0, ringA: 0, ringR: 6, spin: 0, pitch: 0, roll: 0,
       pose: makePose(), scale: 1, radius: 0.95, dieT: 0, spawnVy: 0, fired: 0, think: 0, lastHitT: -9,
       kind: 'grunt', height: 3.1, staggerAlt: false, aggro: rand(0.6, 1.2),
+      squad: null, slotX: 0, slotZ: 0, press: false, outerR: 13,
     };
   }
 
@@ -96,7 +101,8 @@ export class Crowd {
     return this.list.length;
   }
 
-  spawn(x, z, { gun = false, drop = false, yaw = 0, hp = 60 } = {}) {
+  // squad: { x, z, engaged, n, base?, hunt? } — garrisons hold their post around (x, z) until a pilot comes near.
+  spawn(x, z, { gun = false, drop = false, yaw = 0, hp = 50, squad = null } = {}) {
     const g = this.pool.pop();
     if (!g) return null;
     g.alive = true;
@@ -116,7 +122,15 @@ export class Crowd {
     g.pitchRate = 0; g.pitchTarget = 0; g.shudder = 0; g.hitKind = 0; g.feint = false; g.bounced = false;
     g.hitIds.fill(0);
     g.ringA = rand(0, Math.PI * 2);
-    g.ringR = gun ? rand(12, 17) : rand(4.2, 7.5);
+    g.ringR = gun ? rand(13, 18) : rand(4.8, 7.8);
+    g.outerR = rand(11, 16);
+    g.press = false;
+    g.squad = squad;
+    if (squad) {
+      squad.n++;
+      g.slotX = x - squad.x;
+      g.slotZ = z - squad.z;
+    }
     g.think = rand(0, 0.5);
     g.dieT = 0;
     g.scale = rand(0.97, 1.04);
@@ -128,6 +142,7 @@ export class Crowd {
   remove(g) {
     g.alive = false;
     this.releaseToken(g);
+    if (g.squad) { g.squad.n--; g.squad = null; }
     const idx = this.list.indexOf(g);
     if (idx >= 0) {
       this.list[idx] = this.list[this.list.length - 1];
@@ -167,6 +182,7 @@ export class Crowd {
     g.shudder = 0.05; // victims hold for ~3 frames, then the reaction carries the weight
     g.lastHitT = game.time;
     this.releaseToken(g);
+    if (g.squad) g.squad.engaged = true;
     let dx = g.x - fromX, dz = g.z - fromZ;
     const l = Math.hypot(dx, dz) || 1;
     dx /= l; dz /= l;
@@ -210,19 +226,21 @@ export class Crowd {
   }
 
   kill(g) {
-    const game = this.game;
     g.state = 'dying';
     g.t = 0;
-    g.dieT = rand(0.2, 0.45);
+    g.dieT = rand(0.35, 0.7);
   }
 
   explodeGrunt(g) {
     const game = this.game;
     const p = this._v.set(g.x, g.y + 1.7, g.z);
-    game.fx.explode(p, 1.05, EXPLODE_COLORS);
+    game.fx.explode(p, rand(1.35, 1.6), EXPLODE_COLORS);
     if (this.boomBudget > 0) {
       this.boomBudget--;
-      game.audio.play('boom', { vol: 0.55, pitch: rand(0.85, 1.15), at: p });
+      game.audio.play('boom', { vol: 0.7, pitch: rand(0.8, 1.05), at: p });
+      // a Zaku going up right next to you rocks the view a little
+      const h = game.local.pos, d = Math.hypot(g.x - h.x, g.z - h.z);
+      if (d < 10) game.camera.shake(0.07 * (1 - d / 10));
     }
     game.onGruntKilled(g);
     this.remove(g);
@@ -249,6 +267,7 @@ export class Crowd {
     this.grid.clear();
     for (const g of this.list) this.grid.insert(g, g.x, g.z);
     const tokenScale = game.difficulty.aggression * players.length;
+    this.assignPress(dt, players);
 
     for (let n = 0; n < this.list.length; n++) {
       const g = this.list[n];
@@ -282,16 +301,34 @@ export class Crowd {
         case 'idle':
         case 'approach': {
           g.think -= dt;
-          // decide on an attack when close and a token is free
+          const sq = g.squad;
+          // garrison: hold the post until a pilot comes close
+          if (sq && !sq.engaged) {
+            if (heroTargetable && dist < AGGRO) sq.engaged = true;
+            else {
+              const tx = sq.x + g.slotX, tz = sq.z + g.slotZ;
+              let mx = tx - g.x, mz = tz - g.z;
+              const ml = Math.hypot(mx, mz);
+              const speed = ml > 1.2 ? WALK * 0.8 : 0;
+              if (ml > 0.01) { mx /= ml; mz /= ml; }
+              g.vx = damp(g.vx, mx * speed, 4, dt);
+              g.vz = damp(g.vz, mz * speed, 4, dt);
+              g.state = speed > 0 ? 'approach' : 'idle';
+              const face = speed > 0 ? Math.atan2(g.vx, g.vz) : dist < 34 ? toHero : Math.atan2(g.slotX, g.slotZ);
+              g.yaw = angleDamp(g.yaw, face, 3, dt);
+              break;
+            }
+          }
+          // decide on an attack when close and a token is free (only the front rank presses in)
           if (heroTargetable && g.cd <= 0 && g.think <= 0) {
-            g.think = rand(0.15, 0.4);
-            if (!g.gun && dist < 11 && this.meleeTokens < this.maxMelee * tokenScale) {
+            g.think = rand(0.2, 0.5);
+            if (!g.gun && g.press && dist < 11 && this.meleeTokens < this.maxMelee * tokenScale) {
               g.token = 1;
               this.meleeTokens++;
               g.state = 'charge';
               g.t = 0;
               break;
-            } else if (g.gun && dist < 22 && dist > 5 && this.gunTokens < this.maxGun * tokenScale) {
+            } else if (g.gun && dist < 24 && dist > 5 && this.gunTokens < this.maxGun * tokenScale) {
               g.token = 2;
               this.gunTokens++;
               g.state = 'aim';
@@ -299,29 +336,34 @@ export class Crowd {
               break;
             }
           }
-          // steer toward ring slot around the hero
+          // steer toward a ring slot around the hero: the front rank close in, the rest watch from further out
           let tx, tz;
           if (dist > 34) { tx = hx; tz = hz; }
           else {
-            g.ringA += dt * 0.12 * (g.i % 2 ? 1 : -1);
-            tx = hx + Math.sin(g.ringA) * g.ringR;
-            tz = hz + Math.cos(g.ringA) * g.ringR;
+            // the slot follows each soldier's own bearing (with a slow sidestep) so they close in radially
+            // instead of cutting across the hero to a slot on the far side
+            g.ringA = angleDamp(g.ringA, Math.atan2(g.x - hx, g.z - hz), 1.5, dt) + dt * 0.08 * (g.i % 2 ? 1 : -1);
+            const R = g.gun || g.press ? g.ringR : g.outerR;
+            tx = hx + Math.sin(g.ringA) * R;
+            tz = hz + Math.cos(g.ringA) * R;
           }
           let mx = tx - g.x, mz = tz - g.z;
           const ml = Math.hypot(mx, mz);
-          const speed = ml > 1.2 ? WALK * (dist > 34 ? 1.25 : 1) : 0;
+          // close to the ring but never back away from an advancing pilot: gunners plant their feet and shoot
+          const inside = dist <= 34 && dist < (g.gun || g.press ? g.ringR : g.outerR) + 0.5;
+          const speed = ml > 1.2 && !inside ? WALK * (dist > 34 ? 1.3 : 1) : 0;
           if (ml > 0.01) { mx /= ml; mz /= ml; }
-          g.vx = damp(g.vx, mx * speed, 5, dt);
-          g.vz = damp(g.vz, mz * speed, 5, dt);
+          g.vx = damp(g.vx, mx * speed, 4, dt);
+          g.vz = damp(g.vz, mz * speed, 4, dt);
           g.state = speed > 0 ? 'approach' : 'idle';
           const face = dist < 20 ? toHero : Math.atan2(g.vx, g.vz);
-          g.yaw = angleDamp(g.yaw, face, 6, dt);
+          g.yaw = angleDamp(g.yaw, face, 5, dt);
           break;
         }
         case 'charge': {
           // close in for a heat hawk swing
           const want = 2.6;
-          const sp = dist > want ? WALK * 1.6 : 0;
+          const sp = dist > want ? WALK * 1.7 : 0;
           g.vx = damp(g.vx, (dx / (dist || 1)) * sp, 8, dt);
           g.vz = damp(g.vz, (dz / (dist || 1)) * sp, 8, dt);
           g.yaw = angleDamp(g.yaw, toHero, 10, dt);
@@ -334,13 +376,13 @@ export class Crowd {
           g.vz = damp(g.vz, 0, 10, dt);
           g.yaw = angleDamp(g.yaw, toHero, 5, dt);
           // telegraph: a star glints on the raised heat hawk; red means the blow will really land
-          const T = 0.65 / game.difficulty.speed;
-          if (g.t >= T - 0.24 && g.t - dt < T - 0.24) {
+          const T = 0.9 / game.difficulty.speed;
+          if (g.t >= T - 0.3 && g.t - dt < T - 0.3) {
             g.feint = game.time < this.feintUntil;
             const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw);
             game.fx.glint(this._v.set(g.x - fx * 0.5 - fz * 0.6, 4.4, g.z - fz * 0.5 + fx * 0.6), g.feint ? 0xffffff : 0xff3040);
           }
-          if (g.t >= 0.65 / game.difficulty.speed) { g.state = 'strike'; g.t = 0; game.audio.play('hawk', { vol: 0.45, at: this._v.set(g.x, 1, g.z) }); }
+          if (g.t >= T) { g.state = 'strike'; g.t = 0; game.audio.play('hawk', { vol: 0.45, at: this._v.set(g.x, 1, g.z) }); }
           break;
         }
         case 'strike': {
@@ -358,20 +400,20 @@ export class Crowd {
           }
           g.vx = damp(g.vx, 0, 6, dt);
           g.vz = damp(g.vz, 0, 6, dt);
-          if (g.t >= 0.75) { this.releaseToken(g); g.state = 'idle'; g.cd = rand(1.8, 3.8) / g.aggro; }
+          if (g.t >= 0.8) { this.releaseToken(g); g.state = 'idle'; g.cd = rand(2.6, 4.8) / g.aggro; }
           break;
         }
         case 'aim': {
           g.vx = damp(g.vx, 0, 8, dt);
           g.vz = damp(g.vz, 0, 8, dt);
           g.yaw = angleDamp(g.yaw, toHero, 8, dt);
-          if (g.t > 0.6) { g.state = 'fire'; g.t = 0; g.fired = 0; }
+          if (g.t > 0.8) { g.state = 'fire'; g.t = 0; g.fired = 0; }
           break;
         }
         case 'fire': {
           g.yaw = angleDamp(g.yaw, toHero, 3, dt);
-          const shots = 4;
-          if (g.fired < shots && g.t >= g.fired * 0.13) {
+          const shots = 3;
+          if (g.fired < shots && g.t >= g.fired * 0.17) {
             g.fired++;
             const s = this.rig; // muzzle approx: right hand forward
             const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw);
@@ -382,14 +424,14 @@ export class Crowd {
             const aimY = (hero.pos.y + 1.6 - 2.35) / Math.max(1, dist);
             game.projectiles.enemyBullet(from, new THREE.Vector3(Math.sin(a), aimY, Math.cos(a)).normalize());
           }
-          if (g.t > 0.9) { this.releaseToken(g); g.state = 'idle'; g.cd = rand(2.5, 4.5) / g.aggro; }
+          if (g.t > 0.9) { this.releaseToken(g); g.state = 'idle'; g.cd = rand(3.5, 6) / g.aggro; }
           break;
         }
         case 'stagger': {
           g.vx = damp(g.vx, 0, 7, dt);
           g.vz = damp(g.vz, 0, 7, dt);
           if (g.hp <= 0) this.kill(g);
-          else if (g.t > 0.42) { g.state = 'idle'; g.cd = Math.max(g.cd, 0.4); }
+          else if (g.t > 0.48) { g.state = 'idle'; g.cd = Math.max(g.cd, 0.6); }
           break;
         }
         case 'air': {
@@ -421,11 +463,11 @@ export class Crowd {
         case 'down': {
           g.vx = damp(g.vx, 0, 5, dt);
           g.vz = damp(g.vz, 0, 5, dt);
-          if (g.t > 0.9) { g.state = 'getup'; g.t = 0; }
+          if (g.t > 1.0) { g.state = 'getup'; g.t = 0; }
           break;
         }
         case 'getup': {
-          if (g.t > 0.45) { g.state = 'idle'; g.cd = rand(0.8, 2); }
+          if (g.t > 0.5) { g.state = 'idle'; g.cd = rand(1.2, 2.4); }
           break;
         }
         case 'dying': {
@@ -433,6 +475,7 @@ export class Crowd {
           g.vz = damp(g.vz, 0, 4, dt);
           if (g.y > 0) { g.vy -= GRAV * dt; g.y = Math.max(0, g.y + g.vy * dt); }
           g.flash = 0.5 + 0.5 * Math.sin(g.t * 50);
+          if (Math.random() < dt * 14) game.fx.sparks(this._v.set(g.x + rand(-0.6, 0.6), g.y + rand(1, 2.6), g.z + rand(-0.6, 0.6)), 4, 0xffc060, 7);
           if (g.t >= g.dieT) { this.explodeGrunt(g); n--; continue; }
           break;
         }
@@ -440,13 +483,13 @@ export class Crowd {
 
       // separation + hero push
       if (g.state !== 'air' && g.state !== 'drop') {
-        const near = this.grid.query(g.x, g.z, 2.2, this.tmp);
+        const near = this.grid.query(g.x, g.z, 2.6, this.tmp);
         for (let k = 0; k < near.length; k++) {
           const o = near[k];
           if (o === g) continue;
           const ox = g.x - o.x, oz = g.z - o.z;
           const d2 = ox * ox + oz * oz;
-          const min = 1.9;
+          const min = 2.3;
           if (d2 < min * min && d2 > 1e-6) {
             const d = Math.sqrt(d2);
             const push = (min - d) * 0.5;
@@ -479,6 +522,37 @@ export class Crowd {
         const d = Math.hypot(ox, oz);
         if (d < 2 && d > 1e-4) { g.x += (ox / d) * (2 - d) * 0.5; g.z += (oz / d) * (2 - d) * 0.5; }
       }
+    }
+  }
+
+  // Only the nearest few engaged soldiers per pilot may close in and swing; the rest form a watching ring
+  // further out, as in Dynasty Warriors. Re-ranked a few times a second.
+  assignPress(dt, players) {
+    this.pressT -= dt;
+    if (this.pressT > 0) return;
+    this.pressT = 0.3;
+    const cand = this._cand;
+    cand.length = 0;
+    for (const g of this.list) {
+      g.press = false;
+      if (g.gun || g.state === 'drop' || g.state === 'dying') continue;
+      if (g.squad && !g.squad.engaged) continue;
+      const p = players[g.target || 0] || players[0];
+      g.pd = Math.hypot(p.pos.x - g.x, p.pos.z - g.z);
+      cand.push(g);
+    }
+    cand.sort((a, b) => a.pd - b.pd);
+    const cap = Math.round(this.game.difficulty.maxPress * (players.length > 1 ? 1.6 : 1));
+    for (let i = 0; i < cand.length && i < cap; i++) cand[i].press = true;
+  }
+
+  // Garrison squads whose pilots have all wandered off return to their posts.
+  leash(squads, players) {
+    for (const sq of squads) {
+      if (!sq.engaged || sq.hunt) continue;
+      let near = Infinity;
+      for (const p of players) if (p.alive) near = Math.min(near, Math.hypot(p.pos.x - sq.x, p.pos.z - sq.z));
+      if (near > LEASH) sq.engaged = false;
     }
   }
 
@@ -571,7 +645,7 @@ export class Crowd {
         case 'approach':
         case 'charge': {
           const sp = Math.hypot(g.vx, g.vz);
-          g.phase += dt * sp * 0.75;
+          g.phase += dt * sp * 0.85;
           const w = clamp(sp / WALK, 0, 1);
           p.set(base);
           const s = Math.sin(g.phase), c = Math.cos(g.phase);
@@ -584,7 +658,7 @@ export class Crowd {
           p[P.shinL * 3] += 1.0 * Math.max(0, -c) * w;
           if (!g.gun) p[P.uArmR * 3] += 0.4 * s * w;
           p[P.uArmL * 3] -= 0.4 * s * w;
-          p[RY] = -0.05 - Math.abs(c) * 0.05 * w + Math.sin(g.phase * 0.5 + g.i) * 0.01;
+          p[RY] = -0.05 - Math.abs(c) * 0.09 * w + Math.sin(g.phase * 0.5 + g.i) * 0.01;
           p[RPITCH] = 0; p[RROLL] = 0; p[RYAW] = 0;
           break;
         }

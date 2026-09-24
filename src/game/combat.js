@@ -98,10 +98,10 @@ export class Combat {
     g.addCombo(n);
     if (who.state !== 'musou') who.sp = Math.min(who.maxSp, who.sp + n * (who.spRate || 0.9));
     if (who !== g.hero) return;
-    // hero hit-stop: 1 frame per tick (+1 per 5 extra victims, max 4); heavy contact 7 frames.
+    // hero hit-stop: 2 frames per tick (+1 per 4 extra victims, max 5); heavy contact 10 frames with a zoom punch.
     // No camera shake on normal hits; only heavy blows kick the camera.
-    g.hitstop(spec.big ? 7 / 60 : Math.min(4, 1 + Math.floor((n - 1) / 5)) / 60);
-    if (spec.big && g.local === g.hero) g.camera.shake(0.3);
+    g.hitstop(spec.big ? 10 / 60 : Math.min(5, 2 + Math.floor((n - 1) / 4)) / 60);
+    if (spec.big && g.local === g.hero) { g.camera.shake(0.35); g.camera.punch(3.5); }
   }
 
   // Area blast (Guntank shells and missiles): damage falls off toward the edge.

@@ -187,7 +187,8 @@ export class Net {
         sh: flat(pj.shells, (s) => [s.p.x, s.p.y, s.p.z, s.v.x, s.v.y, s.v.z]),
         mega: pj.megaState ? { p: plain(pj.megaState.p), d: plain(pj.megaState.d), t: pj.megaState.t, dur: pj.megaState.dur, len: pj.megaState.len } : null,
       },
-      it: g.items.list.map((it) => [it.id, it.type === 'hp' ? 0 : 1, it.x, it.y, it.z]),
+      it: g.items.netState(),
+      bz: g.lz.netState(),
       st: {
         kos: g.stats.kos, time: g.stats.time, combo: g.combo.count, timer: g.combo.timer, max: g.stats.maxCombo,
         music: g.audio.current, obj: g.hud.el.objective.textContent,

@@ -21,7 +21,9 @@
 <body>
 <div id="app">
   <canvas id="game"></canvas>
+  <div id="speedlines"></div>
   <div id="vignette"></div>
+  <div id="letterbox"><div class="lb top"></div><div class="lb bot"></div></div>
   <div id="flash"></div>
 
   <!-- in-game HUD -->
@@ -46,8 +48,9 @@
       <div id="portrait-frame"><img id="portrait" alt=""></div>
       <div id="bars">
         <div class="pilot"><span class="pilot-jp" id="pilot-jp">アムロ・レイ</span><span class="pilot-en" id="pilot-en">AMURO RAY · RX-78-2</span></div>
-        <div class="bar hp"><div id="hp-lag"></div><div id="hp-fill"></div><span id="hp-text">1200</span></div>
+        <div class="bar hp"><div id="hp-lag"></div><div id="hp-red"></div><div id="hp-fill"></div><span id="hp-text">1200</span></div>
         <div class="bar sp"><div id="sp-fill"></div><span id="sp-ready">SP READY · I</span></div>
+        <div class="bar boost" id="boost-bar"><div id="boost-fill"></div><span class="boost-label">BOOST</span></div>
       </div>
     </div>
     <div id="ally" class="hidden"><span id="ally-name">GUNTANK · HAYATO</span><div class="ally-bar"><div id="ally-fill"></div></div><span id="ally-state"></span></div>
@@ -57,12 +60,14 @@
       <div class="dlg-body"><div id="dlg-name"></div><div id="dlg-text"></div></div>
     </div>
 
+    <div id="objmarker" class="hidden"><div class="om-arrow"></div><div class="om-body"><span id="om-label"></span><span id="om-dist"></span></div></div>
+    <div id="namecard" class="hidden"><div class="nc-band"></div><div class="nc-text"><div class="nc-tag">ENEMY COMMANDER</div><div id="nc-jp"></div><div id="nc-en"></div><div id="nc-unit"></div></div></div>
     <div id="announce"></div>
     <div id="toasts"></div>
     <div id="tags"></div>
     <div id="keys">
       <span><b>WASD</b> move</span><span><b>J</b>/<b>LMB</b> attack</span><span><b>K</b>/<b>RMB</b> charge</span>
-      <span><b>Space</b> jump</span><span><b>L</b>/<b>Shift</b> boost</span><span><b>I</b>/<b>F</b> SP attack</span>
+      <span><b>Space</b> jump (hold: hover)</span><span><b>L</b>/<b>Shift</b> boost (hold: dash)</span><span><b>I</b>/<b>F</b> SP attack</span>
       <span><b>Q E</b>/mouse camera</span><span><b>H</b> hide</span>
     </div>
   </div>
@@ -82,7 +87,7 @@
       <div class="mission">
         <div class="mission-tag">MISSION 01</div>
         <div class="mission-name">Amuro vs. the Zaku raid</div>
-        <div class="mission-desc">Zeon has breached Side 7. Board the RX-78-2, cut through the Zaku squadrons, defeat their commanders, and drive off the Red Comet.</div>
+        <div class="mission-desc">Zeon has breached Side 7. Board the RX-78-2, clear the plaza, take the three Zeon landing zones, defeat their commanders, and drive off the Red Comet.</div>
       </div>
       <div class="diff" id="diff">
         <button data-d="easy">EASY</button><button data-d="normal" class="on">NORMAL</button><button data-d="hard">HARD</button>
@@ -99,8 +104,8 @@
       <div class="hint">Press <b>Enter</b> or click · Gamepad supported</div>
       <div class="controls">
         <div><b>WASD</b> Move</div><div><b>J / Left click</b> Attack</div>
-        <div><b>K / Right click</b> Charge attack</div><div><b>Space</b> Jump</div>
-        <div><b>L / Shift</b> Boost dodge</div><div><b>I / F</b> SP attack</div>
+        <div><b>K / Right click</b> Charge attack</div><div><b>Space</b> Jump · hold to hover</div>
+        <div><b>L / Shift</b> Boost · hold to dash</div><div><b>I / F</b> SP attack</div>
         <div><b>Mouse / Q E</b> Camera</div><div><b>Esc</b> Pause · <b>M</b> Mute</div>
       </div>
       <div class="combo-guide">Charge attacks change with how far into the combo you are: <b>K</b> fires the beam rifle, <b>J K</b> launches, <b>J J K</b> spins, <b>J J J K</b> fires a rifle spread, <b>J J J J K</b> rams with the shield, <b>J J J J J K</b> fires a charged mega beam.</div>

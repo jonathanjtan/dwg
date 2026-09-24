@@ -24,7 +24,8 @@ window.step = (n, keys = [], press = [], render = true) => {
   return st();
 };
 
-// Autoplay: chase the nearest target, mash attacks, fire SP when full.
+// Autoplay: chase the nearest target (or head for the nearest landing zone when the area is clear),
+// boost over long distances, mash attacks, fire SP when full.
 window.bot = (frames, { render = false, stop = null, charge = 49 } = {}) => {
   const cr = game.post.render;
   if (!render) game.post.render = () => {};
@@ -43,10 +44,22 @@ window.bot = (frames, { render = false, stop = null, charge = 49 } = {}) => {
         const d = Math.hypot(c.pos.x - h.pos.x, c.pos.z - h.pos.z);
         if (d < bd + 12) { bd = d; best = { x: c.pos.x, z: c.pos.z }; }
       }
+      if (bd > 25) {
+        for (const lz of game.lz.list) {
+          if (lz.captured || lz.y > 0) continue;
+          const d = Math.hypot(lz.x - h.pos.x, lz.z - h.pos.z);
+          if (d < bd) { bd = d; best = lz; }
+        }
+      }
+      const held = game.input.down.has('ShiftLeft');
       game.input.down.clear();
       if (best && bd > 3.8) {
         game.camera.yaw = Math.atan2(best.x - h.pos.x, best.z - h.pos.z);
         game.input.down.add('KeyW');
+        if (bd > 30 && h.boost > 0.3) {
+          if (!held) game.input.pressed.add('ShiftLeft');
+          game.input.down.add('ShiftLeft');
+        } else if (held && bd > 14 && h.boost > 0.05) game.input.down.add('ShiftLeft');
       } else if (best && i % 7 === 0) {
         game.input.pressed.add(i % charge === charge - 7 ? 'KeyK' : 'KeyJ');
       }

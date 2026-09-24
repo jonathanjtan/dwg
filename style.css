@@ -22,6 +22,17 @@ button { font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer;
 #vignette.low { opacity: 0.6; animation: pulse 1.1s infinite; }
 @keyframes pulse { 50% { opacity: 0.25; } }
 #flash { position: absolute; inset: 0; pointer-events: none; background: #fff; opacity: 0; }
+/* boost dash speed lines */
+#speedlines { position: absolute; inset: -20%; pointer-events: none; opacity: 0;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,0) 0deg 3.1deg, rgba(220,240,255,0.5) 3.3deg 3.5deg, rgba(255,255,255,0) 3.7deg 7.3deg);
+  -webkit-mask-image: radial-gradient(ellipse 60% 55% at 50% 50%, transparent 45%, #000 85%); mask-image: radial-gradient(ellipse 60% 55% at 50% 50%, transparent 45%, #000 85%);
+  animation: lines 0.12s steps(2) infinite; }
+@keyframes lines { 50% { transform: rotate(1.7deg) scale(1.02); } }
+/* officer arrival letterbox */
+#letterbox .lb { position: absolute; left: 0; right: 0; height: 11vh; background: #000; pointer-events: none; transition: transform 0.35s ease-out; }
+#letterbox .top { top: 0; transform: translateY(-100%); }
+#letterbox .bot { bottom: 0; transform: translateY(100%); }
+#letterbox.on .lb { transform: none; }
 
 /* ---------- HUD ---------- */
 #hud { position: absolute; inset: 0; pointer-events: none; }
@@ -57,6 +68,13 @@ button { font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer;
 .bar.sp { height: 11px; width: 78%; }
 #hp-fill, #hp-lag, #sp-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; }
 #hp-lag { background: #ff6a4a; transition: width 0.6s ease-out 0.25s; }
+#hp-red { background: repeating-linear-gradient(135deg, #b0303a 0 6px, #7a1c26 6px 12px); width: 100%; }
+#hp-red.regen { animation: regen 0.5s infinite alternate; }
+@keyframes regen { to { filter: brightness(1.7); } }
+.bar.boost { height: 6px; width: 62%; border-color: #2a5a7a; }
+#boost-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: linear-gradient(180deg, #d6f4ff, #5fd0ff 55%, #1f7fb0); }
+.bar.boost.low #boost-fill { background: linear-gradient(180deg, #ffe0b0, #ff9a3a 55%, #b0561f); }
+.boost-label { position: absolute; right: 14px; top: -5px; font-size: 9px; font-weight: 700; letter-spacing: 3px; color: #bfe9ff; opacity: 0.8; }
 #hp-fill { background: linear-gradient(180deg, #9dffae, var(--hp) 45%, #25b048); }
 #hp-fill.mid { background: linear-gradient(180deg, #fff1a0, #f3c11c 45%, #b88a0e); }
 #hp-fill.low { background: linear-gradient(180deg, #ffb0a0, #ff4a4a 45%, #a41d1d); }
@@ -82,6 +100,30 @@ button { font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer;
 .tag .tbar { width: 70px; height: 4px; background: rgba(0,0,0,0.6); margin: 3px auto 0; }
 .tag .tbar div { height: 100%; background: #ff5a4a; }
 .tag.char .tjp { color: #ff6a7a; }
+.tag.captain { font-size: 11px; color: #d8e4a8; }
+.tag.captain .tjp { font-size: 13px; }
+.tag.captain .tbar { width: 54px; }
+
+/* objective marker: sits on the target, or pinned to the screen edge pointing at it */
+#objmarker { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; text-shadow: 0 1px 3px #000, 0 0 6px #000; }
+.om-arrow { width: 18px; height: 18px; background: #ff4a5a; clip-path: polygon(50% 100%, 0 0, 100% 0); filter: drop-shadow(0 0 6px #ff4a5a); animation: om 0.9s infinite alternate; }
+#objmarker.edge .om-arrow { clip-path: polygon(100% 50%, 0 0, 0 100%); }
+@keyframes om { to { transform: translateY(-4px); } }
+.om-body { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+#om-label { font-weight: 700; font-size: 12px; letter-spacing: 3px; color: #ffb0b8; }
+#om-dist { font-family: 'Russo One', sans-serif; font-size: 13px; color: #fff; }
+
+/* officer name card */
+#namecard { position: absolute; right: 0; top: 58%; width: min(560px, 70vw); height: 120px; pointer-events: none; }
+.nc-band { position: absolute; inset: 0; background: linear-gradient(270deg, rgba(160,20,30,0.9), rgba(60,10,20,0.85) 60%, rgba(60,10,20,0)); transform-origin: right; animation: ncband 2.6s forwards; }
+.nc-text { position: absolute; right: 40px; top: 10px; text-align: right; animation: nctext 2.6s forwards; }
+.nc-tag { font-weight: 700; font-size: 12px; letter-spacing: 6px; color: #ffb0b8; }
+#nc-jp { font-family: 'Noto Sans JP', sans-serif; font-weight: 900; font-size: 44px; line-height: 1.05; color: #fff; text-shadow: 0 0 18px rgba(255, 60, 60, 0.7); }
+#nc-en { font-family: 'Russo One', sans-serif; font-size: 20px; letter-spacing: 8px; color: #fff; }
+#nc-unit { font-weight: 700; font-size: 13px; letter-spacing: 4px; color: var(--gold); }
+#namecard.char .nc-band { background: linear-gradient(270deg, rgba(220,30,50,0.95), rgba(90,10,20,0.9) 60%, rgba(90,10,20,0)); }
+@keyframes ncband { 0% { transform: scaleX(0); } 12% { transform: scaleX(1); } 85% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes nctext { 0% { transform: translateX(50vw); opacity: 0; } 14% { transform: translateX(0); opacity: 1; } 82% { transform: translateX(-1.5vw); opacity: 1; } 100% { transform: translateX(-10vw); opacity: 0; } }
 
 #dialogue { position: absolute; left: 22px; bottom: 138px; display: flex; gap: 12px; align-items: center; background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 10px 18px 10px 10px; width: min(520px, 90vw); animation: slideup 0.2s ease-out; }
 #dialogue.zeon { border-left-color: #6fa04a; }

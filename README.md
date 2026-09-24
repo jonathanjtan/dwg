@@ -1,6 +1,6 @@
 # Gundam Musou: Side 7
 
-A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. You pilot Amuro's RX-78-2 through a Zeon raid on Side 7: cut through hundreds of Zaku IIs, defeat the squad leaders Denim and Gene, then drive off Char's red Zaku.
+A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. You pilot Amuro's RX-78-2 through a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
 
 Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Models, animation, effects, audio and music are procedural and written from scratch. The only image assets are the pilot portrait sheets.
 
@@ -34,6 +34,21 @@ If the Guntank is destroyed it redeploys after 8 seconds. The mission fails only
 
 Connectivity: players connect directly, which works on most home networks. There's no TURN relay, so two players who are both behind strict or symmetric NATs (some corporate or mobile networks) may not be able to connect. For local testing, add `?localnet` to the URL to use a same-browser BroadcastChannel transport between two tabs.
 
+## The mission
+
+Zeon comes in squads, as in Dynasty Warriors: Gundam. Garrisons hold their posts until you come close. Only the front rank presses in to swing at you, while the rest form a watching ring further out.
+
+1. **The plaza.** Four squads meet the Gundam as it lands. Clear 30 Zaku.
+2. **Landing zones.** Three supply pods drop out of the colony sky, each with a garrison and a squad leader. Pods keep dropping reinforcements until you defeat the squad leader and take the zone. An on-screen marker and the minimap point to the nearest one.
+3. **Denim, then Gene.** Commander-type Zaku arrive with a camera cut and name card.
+4. **Char.** Drive off the Red Comet.
+
+Staying alive:
+
+- **Armor recovery:** part of every hit (the striped red segment of the HP bar) repairs itself if you avoid damage for a few seconds.
+- **Repair kits** drop every 20 KOs or so, and sooner when you're hurt. Squad leaders and commanders drop large kits. Kits drift toward you when you're close.
+- Zaku telegraph their heat hawk swings with a glint. A red glint means the blow is real.
+
 ## Controls
 
 | Action | Keyboard / mouse | Gamepad |
@@ -42,8 +57,8 @@ Connectivity: players connect directly, which works on most home networks. There
 | Camera | Mouse (click to lock), Q / E, wheel to zoom, R to recenter | Right stick |
 | Attack (beam saber) | J / left click | X / Square |
 | Charge attack | K / right click | Y / Triangle |
-| Jump | Space | A / Cross |
-| Boost dodge | L / Shift | B / Circle |
+| Jump (hold to hover on the thrusters) | Space | A / Cross |
+| Boost dodge (hold to boost dash) | L / Shift | B / Circle |
 | SP attack | I / F | RB / R1 |
 | Pause, mute, hide keys | Esc, M, H | Start |
 
@@ -56,12 +71,15 @@ Charge attacks change with how far into the combo you are, as in Dynasty Warrior
 - **J J J J K**: shield rush
 - **J J J J J K**: charged mega beam
 - In the air: **J** aerial slash, **K** plunging slam
+- During a boost dash: **J** dash slash, **K** beam rifle, **Space** boost jump
+
+The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest.
 
 ## How it's built
 
 - `src/core/voxel.js`: voxel models authored with box, ellipsoid and mirror operations, then meshed with face culling, baked ambient occlusion, and greedy merging for the static town.
 - `src/core/rig.js`: a 13-part humanoid rig with keyframed pose clips. It drives both Object3D rigs (the Gundam and the commanders) and `InstancedMesh` crowds of up to 300 Zakus.
-- `src/game/`: the hero moveset (`moves.js`), the Guntank (`tank.js`), crowd AI with attack tokens, officers and Char, combat, projectiles and the stage script.
+- `src/game/`: the hero moveset (`moves.js`), the Guntank (`tank.js`), squad AI with attack tokens and a front-rank cap (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
 - `src/net/net.js`: co-op networking. The crowd is packed into an Int16Array per snapshot, and effect, sound and HUD events are replicated.
 - `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke and debris, plus shockwave rings and the saber ribbon trail.
 - `src/audio/audio.js`: WebAudio-synthesized sound effects.

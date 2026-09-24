@@ -7,6 +7,7 @@ const _q = new THREE.Quaternion();
 const _s = new THREE.Vector3();
 const _p = new THREE.Vector3();
 const Zf = new THREE.Vector3(0, 0, 1);
+const BULLET_SPEED = 34; // slow enough to read the tracers and step out of a burst
 
 function glowInstanced(scene, max, color) {
   const geo = new THREE.BoxGeometry(1, 1, 1);
@@ -92,7 +93,7 @@ export class Projectiles {
 
   enemyBullet(from, dir, mul = 1) {
     if (this.bullets.length > 250) return;
-    this.bullets.push({ p: from.clone(), d: dir.clone(), life: 0, max: 1.4, speed: 42, dmg: 4 * mul });
+    this.bullets.push({ p: from.clone(), d: dir.clone(), life: 0, max: 1.7, speed: BULLET_SPEED, dmg: 4 * mul });
     this.game.fx.sparks(from, 3, 0xffc070, 5, 0.6, dir);
     if (Math.random() < 0.5) this.game.audio.play('mg', { vol: 0.3, at: from });
   }
@@ -238,7 +239,7 @@ export class Projectiles {
   guestAdvance(dt) {
     const g = this.game;
     for (const b of this.beams) b.p.addScaledVector(b.d, 120 * dt);
-    for (const b of this.bullets) b.p.addScaledVector(b.d, 42 * dt);
+    for (const b of this.bullets) b.p.addScaledVector(b.d, BULLET_SPEED * dt);
     for (const m of this.missiles) {
       m.p.addScaledVector(m.v, dt);
       if (Math.random() < 0.7) g.fx.thruster(m.p, { x: -m.v.x / 40, y: -m.v.y / 40, z: -m.v.z / 40 }, 0xffc070, 0.6);
@@ -279,7 +280,7 @@ export class Projectiles {
     for (const b of this.bullets) {
       _q.setFromUnitVectors(Zf, b.d);
       _p.copy(b.p);
-      _s.set(0.12, 0.12, 1.4);
+      _s.set(0.16, 0.16, 1.8);
       _m.compose(_p, _q, _s);
       this.bulletMesh.setMatrixAt(n++, _m);
     }

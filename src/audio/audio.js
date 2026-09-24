@@ -98,7 +98,7 @@ export class Audio {
     const now = this.ctx.currentTime;
     // throttle identical sounds
     const last = this.throttle.get(name) || 0;
-    const minGap = { hit: 0.03, boom: 0.04, mg: 0.03, step: 0.08, swing: 0.04 }[name] ?? 0.015;
+    const minGap = { hit: 0.03, boom: 0.04, mg: 0.03, step: 0.08, swing: 0.04, jet: 0.12 }[name] ?? 0.015;
     if (now - last < minGap) return;
     this.throttle.set(name, now);
     if (at && this.listener) {
@@ -164,8 +164,23 @@ export class Audio {
         this.noiseBurst(t, 0.3, 0.18, out, { type: 'highpass', f0: 5000 });
         break;
       case 'step':
-        this.osc('sine', 80, 38, t, 0.16, 0.5, out);
-        this.noiseBurst(t, 0.1, 0.18, out, { type: 'lowpass', f0: 500 });
+        // heavy footfall: a low thump, a gritty scrape and a short metal clank from the joint
+        this.osc('sine', 72, 30, t, 0.26, 0.7, out);
+        this.osc('triangle', 150, 60, t, 0.12, 0.2, out);
+        this.noiseBurst(t, 0.16, 0.3, out, { type: 'lowpass', f0: 600, f1: 140 });
+        this.osc('square', 420, 300, t + 0.01, 0.05, 0.035, out);
+        break;
+      case 'jet':
+        this.noiseBurst(t, 0.42, 0.32, out, { type: 'bandpass', f0: 900, f1: 1500, q: 0.9, a: 0.05 });
+        this.noiseBurst(t, 0.42, 0.28, out, { type: 'lowpass', f0: 320, q: 1, a: 0.05 });
+        break;
+      case 'skid':
+        this.noiseBurst(t, 0.45, 0.45, out, { type: 'bandpass', f0: 1800, f1: 400, q: 1.4 });
+        this.osc('sine', 90, 40, t, 0.3, 0.4, out);
+        break;
+      case 'capture':
+        [392, 523, 659, 784].forEach((f, i) => this.osc('square', f, f, t + i * 0.09, 0.3, 0.09, out));
+        this.osc('sawtooth', 196, 196, t, 0.7, 0.08, out, { a: 0.02 });
         break;
       case 'land':
         this.osc('sine', 90, 30, t, 0.35, 0.8, out);

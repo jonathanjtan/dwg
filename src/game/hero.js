@@ -7,10 +7,20 @@ import { MOVES, STANCE } from './moves.js';
 import { clamp, damp, angleDamp, wrapAngle, lerp } from '../core/util.js';
 import { Trail } from '../fx/fx.js';
 
-const RUN = 11.5;
-const GRAV = 34;
+const RUN = 9.4;
+const GRAV = 28;
+const BOOST_SPEED = 23;
+const BOOST_TIME = 1.9; // seconds of boost dash (or ~2.4 s of hover) on a full gauge
+const ATK_RATE = 0.86; // swings play a touch under keyframed speed: heavier, more deliberate
+const REGEN_DELAY = 3.5; // seconds unhit before damaged armor starts to recover
 const SABER_COLOR = new THREE.Color(3.2, 0.55, 1.9);
 const SABER_TRAIL = 0xff4fb8;
+
+const BOOST_POSE = poseFrom({
+  torso: [0.6, 0, 0], head: [-0.4, 0, 0], y: -0.15,
+  thighR: [0.45, 0, -0.1], shinR: [0.8, 0, 0], thighL: [0.15, 0, 0.1], shinL: [0.6, 0, 0],
+  uArmR: [0.6, 0, -0.45], fArmR: [-0.5, 0, 0], hand: [0.8, 0, 0], uArmL: [0.45, 0, 0.45], fArmL: [-0.8, 0, 0],
+}, STANCE);
 
 function curve(keys, t) {
   if (t <= keys[0][0]) return keys[0][1];
@@ -69,6 +79,11 @@ export class Hero {
     this.spRushT = 0;
     this.spRushIdx = 0;
     this.armorFlash = 0;
+    this.boost = 1;
+    this.boostWait = 0;
+    this.hovering = false;
+    this.hpRed = 0; // damage that recovers if the Gundam avoids being hit for a while
+    this.regenWait = 0;
 
     // weapons
     const w = gundamWeapons();
@@ -107,7 +122,9 @@ export class Hero {
     this.pos.set(0, 0, -6);
     this.vel.set(0, 0, 0);
     this.hp = this.maxHp;
+    this.hpRed = 0;
     this.sp = 30;
+    this.boost = 1;
     this.state = 'move';
     this.heading = 0;
     this.lie = 0;
@@ -142,7 +159,7 @@ export class Hero {
     const m = MOVES[name];
     const g = this.game;
     this.snapshotPose();
-    this.blendDur = name.startsWith('SP_RUSH') ? 0.04 : 0.07;
+    this.blendDur = name.startsWith('SP_RUSH') ? 0.04 : 0.08;
     // aim: input direction, then soft lock to nearest enemy in that cone
     let want = dir ? Math.atan2(dir.x, dir.z) : this.heading;
     if (!name.startsWith('SP')) {
@@ -158,6 +175,7 @@ export class Hero {
     this.firedShots = 0;
     this.lastSwing = -1;
     this.lungePrev = 0;
+    if (!m.isAir && this.pos.y < 0.6) this.pos.y = 0; // out of a ground-skimming boost
     this.airBase = this.pos.y;
     this.moveHitIds = (m.hits || []).map(() => ++this.hitSerial);
     this.landed = false;
@@ -183,12 +201,23 @@ export class Hero {
     this.rifleVis -= dt;
     const camFwd = g.camera.forward();
     const dir = this.inputDir(input, camFwd);
+    // boost gauge refills once the thrusters have rested
+    this.boostWait -= dt;
+    if (this.state !== 'boost' && !this.hovering && this.boostWait <= 0) this.boost = Math.min(1, this.boost + dt * (this.pos.y < 0.3 ? 0.62 : 0.2));
+    // damaged armor recovers when left alone (red part of the HP bar)
+    this.regenWait -= dt;
+    if (this.regenWait <= 0 && this.hpRed > 0 && this.alive) {
+      const r = Math.min(this.hpRed, this.maxHp * 0.04 * dt);
+      this.hp += r;
+      this.hpRed -= r;
+    }
 
     switch (this.state) {
       case 'move': this.updateMove(dt, act, dir); break;
-      case 'air': this.updateAir(dt, act, dir); break;
+      case 'air': this.updateAir(dt, act, dir, input); break;
       case 'attack': this.updateAttack(dt, act, dir); break;
-      case 'dodge': this.updateDodge(dt, act, dir); break;
+      case 'dodge': this.updateDodge(dt, act, dir, input); break;
+      case 'boost': this.updateBoost(dt, act, dir, input); break;
       case 'hurt': this.updateHurt(dt); break;
       case 'down': this.updateDown(dt, act); break;
       case 'musou': this.updateMusou(dt, act, dir); break;
@@ -208,7 +237,8 @@ export class Hero {
   groundMove(dt, dir, speedMul = 1) {
     const want = dir ? RUN * dir.mag * speedMul : 0;
     const tx = dir ? dir.x * want : 0, tz = dir ? dir.z * want : 0;
-    const acc = dir ? 70 : 55;
+    // a mobile suit has mass: it builds up to a run and plants its feet to stop
+    const acc = dir ? 32 : 28;
     const dx = tx - this.vel.x, dz = tz - this.vel.z;
     const dl = Math.hypot(dx, dz);
     const step = Math.min(dl, acc * dt);
@@ -216,7 +246,7 @@ export class Hero {
       this.vel.x += (dx / dl) * step;
       this.vel.z += (dz / dl) * step;
     }
-    if (dir) this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 14, dt);
+    if (dir) this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 8, dt);
     this.pos.x += this.vel.x * dt;
     this.pos.z += this.vel.z * dt;
   }
@@ -232,11 +262,14 @@ export class Hero {
     const sp = Math.hypot(this.vel.x, this.vel.z);
     const prev = this.phase;
     this.phase += dt * sp * 0.62;
-    // footsteps
+    // footsteps: every footfall lands with a thud
     if (Math.floor(prev / Math.PI) !== Math.floor(this.phase / Math.PI) && sp > 3) {
-      g.audio.play('step', { vol: 0.5 });
-      g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), 2, 0.5);
+      const w = Math.min(1, sp / RUN);
+      g.audio.play('step', { vol: 0.45 + 0.4 * w });
+      g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), 3, 0.7);
+      if (g.local === this) g.camera.thud(0.07 * w);
     }
+    if (this.pos.y > 0) this.pos.y = Math.max(0, this.pos.y - dt * 4);
     this.locomotion(dt, sp);
   }
 
@@ -275,14 +308,18 @@ export class Hero {
     else this.pose.set(this.target);
   }
 
-  jump(dir) {
+  jump(dir, boosted = false) {
     const g = this.game;
     this.setState('air');
     this.blendDur = 0.1;
-    this.vel.y = 13.5;
+    this.vel.y = boosted ? 15.5 : 14.5;
     this.onGround = false;
     this.airAttacks = 0;
-    if (dir) {
+    if (boosted) {
+      const a = dir ? Math.atan2(dir.x, dir.z) : this.heading;
+      this.vel.x = Math.sin(a) * BOOST_SPEED * 0.7;
+      this.vel.z = Math.cos(a) * BOOST_SPEED * 0.7;
+    } else if (dir) {
       this.vel.x = dir.x * RUN * 1.05;
       this.vel.z = dir.z * RUN * 1.05;
     }
@@ -290,17 +327,26 @@ export class Hero {
     g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), 8, 1);
   }
 
-  updateAir(dt, act, dir) {
+  updateAir(dt, act, dir, input) {
     const g = this.game;
+    this.hovering = false;
     if (act.attack && this.airAttacks < 2) return this.startMove('JA', dir);
     if (act.charge) return this.startMove('JC', dir);
     if (act.dodge) return this.dodge(dir);
     if (dir) {
-      this.vel.x = damp(this.vel.x, dir.x * RUN, 3, dt);
-      this.vel.z = damp(this.vel.z, dir.z * RUN, 3, dt);
-      this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 6, dt);
+      this.vel.x = damp(this.vel.x, dir.x * RUN, 2.2, dt);
+      this.vel.z = damp(this.vel.z, dir.z * RUN, 2.2, dt);
+      this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 5, dt);
     }
-    this.vel.y -= GRAV * dt;
+    // hold jump past the apex to hover on the backpack thrusters
+    if (input?.key('jump') && this.stateT > 0.3 && this.vel.y < 1.5 && this.boost > 0.02) {
+      this.hovering = true;
+      this.vel.y = damp(this.vel.y, -0.8, 7, dt);
+      this.boost -= dt / (BOOST_TIME * 1.25);
+      this.boostWait = 0.5;
+      this.thrust(1.5, true);
+      if (Math.random() < 0.25) g.audio.play('jet', { vol: 0.25 });
+    } else this.vel.y -= GRAV * dt;
     this.pos.addScaledVector(this.vel, dt);
     if (this.vel.y > 0) this.thrust(1.2, true);
     const t = this.target;
@@ -322,10 +368,14 @@ export class Hero {
     this.pos.y = 0;
     this.vel.y = 0;
     this.onGround = true;
+    this.hovering = false;
     this.setState('move');
     this.blendDur = 0.12;
-    g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), hard ? 14 : 7, hard ? 1.4 : 0.9);
-    g.audio.play('land', { vol: hard ? 1 : 0.6 });
+    this.vel.x *= 0.5;
+    this.vel.z *= 0.5;
+    g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), hard ? 16 : 10, hard ? 1.5 : 1.1);
+    g.audio.play('land', { vol: hard ? 1 : 0.75 });
+    if (g.local === this) g.camera.thud(hard ? 0.3 : 0.18);
   }
 
   dodge(dir) {
@@ -344,8 +394,10 @@ export class Hero {
     g.camera.kick(4);
   }
 
-  updateDodge(dt, act, dir) {
+  updateDodge(dt, act, dir, input) {
     const g = this.game;
+    // keep holding boost to carry the dash into a sustained thruster run
+    if (this.stateT > 0.16 && input?.key('dodge') && this.boost > 0.08) return this.startBoost();
     const T = 0.36;
     const u = this.stateT / T;
     const sp = 30 * Math.pow(1 - Math.min(1, u), 1.5) + 2;
@@ -380,7 +432,7 @@ export class Hero {
     const g = this.game;
     const m = this.move;
     const prevT = this.moveT;
-    this.moveT += dt;
+    this.moveT += dt * (m.rate ?? ATK_RATE);
     let t = this.moveT;
 
     if (act.attack) this.buffer = 'attack';
@@ -489,6 +541,54 @@ export class Hero {
     }
   }
 
+  // ---------- boost dash ----------
+  startBoost() {
+    const g = this.game;
+    this.setState('boost');
+    this.blendDur = 0.14;
+    this.boostSfxT = 0;
+    this.hovering = false;
+    g.audio.play('jet', { vol: 0.7 });
+  }
+
+  updateBoost(dt, act, dir, input) {
+    const g = this.game;
+    this.boost -= dt / BOOST_TIME;
+    this.boostWait = 0.6;
+    if (act.musou && this.sp >= this.maxSp) return this.startMusou();
+    if (act.attack) { this.comboStep = 1; return this.startMove('DA', dir); }
+    if (act.charge) { this.comboStep = 0; this.repeat = 1; return this.startMove('C1', dir); }
+    if (act.jump && this.pos.y < 1) return this.jump(dir, true);
+    const air = this.pos.y > 1;
+    if (!input?.key('dodge') || this.boost <= 0) {
+      // cut the thrusters: skid to a stop (or fall, if airborne)
+      if (air) { this.setState('air'); this.vel.y = 0; this.stateT = 0.3; return; }
+      this.setState('move');
+      this.blendDur = 0.18;
+      this.vel.x *= 0.6;
+      this.vel.z *= 0.6;
+      g.fx.dust(this._v.set(this.pos.x + Math.sin(this.heading) * 1.2, 0.1, this.pos.z + Math.cos(this.heading) * 1.2), 10, 1.1);
+      g.audio.play('skid', { vol: 0.6 });
+      return;
+    }
+    if (dir) this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 3.2, dt);
+    const sp = BOOST_SPEED * Math.min(1, 0.65 + this.stateT * 2.5);
+    this.vel.x = Math.sin(this.heading) * sp;
+    this.vel.z = Math.cos(this.heading) * sp;
+    this.vel.y = 0;
+    this.pos.x += this.vel.x * dt;
+    this.pos.z += this.vel.z * dt;
+    if (!air) this.pos.y = damp(this.pos.y, 0.3, 8, dt); // skim just above the ground
+    this.thrust(1.8, false);
+    if (!air && Math.random() < 0.7) g.fx.dust(this._v.set(this.pos.x - Math.sin(this.heading) * 1.5, 0.1, this.pos.z - Math.cos(this.heading) * 1.5), 1, 1.0);
+    this.boostSfxT -= dt;
+    if (this.boostSfxT <= 0) { this.boostSfxT = 0.3; g.audio.play('jet', { vol: 0.45 }); }
+    if (g.local === this) g.camera.kick(6);
+    this.target.set(BOOST_POSE);
+    this.target[RY] = -0.15 + Math.sin(this.stateT * 9) * 0.03;
+    this.blendPose(dt);
+  }
+
   impact(radius, shake, huge = false) {
     const g = this.game;
     const fwd = huge ? 0 : 2.2;
@@ -554,6 +654,8 @@ export class Hero {
     if (this.state === 'dodge') return false;
     dmg = Math.round(dmg * g.difficulty.dmgTaken);
     this.hp = Math.max(0, this.hp - dmg);
+    this.hpRed = Math.min(this.maxHp - this.hp, this.hpRed + dmg * g.difficulty.recover);
+    this.regenWait = REGEN_DELAY;
     this.sp = Math.min(this.maxSp, this.sp + dmg * 0.08);
     this.flash = kind === 'bullet' ? 0.35 : 1;
     g.stats.damageTaken += dmg;
@@ -645,6 +747,7 @@ export class Hero {
     const g = this.game;
     this.setState('dead');
     this.hp = 0;
+    this.hpRed = 0;
     this.downPhase = 'fly';
     this.vel.set(-Math.sin(this.heading) * 6, 9, -Math.cos(this.heading) * 6);
     g.onHeroDeath();
@@ -807,7 +910,7 @@ export class Hero {
     const swinging = (this.state === 'attack' && this.move.saber) || this.state === 'musou';
     return {
       x: this.pos.x, y: this.pos.y + this.lie * 0.45, z: this.pos.z, h: this.heading, st: this.state,
-      hp: this.hp, mhp: this.maxHp, sp: this.sp, fl: Math.max(this.flash, this.armorFlash),
+      hp: this.hp, hr: this.hpRed, mhp: this.maxHp, sp: this.sp, fl: Math.max(this.flash, this.armorFlash),
       pose: Array.from(this.pose), sab: this.saberScale, gi: this.giant, rf: this.rifle.visible, sw: swinging,
       thr: this.thrustAt && this.game.time - this.thrustAt < 0.06 ? (this.thrustUp ? 2 : 1) : 0,
     };
@@ -818,6 +921,7 @@ export class Hero {
     const g = this.game;
     this.state = s.st;
     this.hp = s.hp;
+    this.hpRed = s.hr || 0;
     this.maxHp = s.mhp;
     this.sp = s.sp;
     this.heading = s.h;

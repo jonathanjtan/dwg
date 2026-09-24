@@ -375,6 +375,10 @@ export function charDef() {
 export function commanderDef() {
   return zakuDef(CMD_COLORS, 'cmd');
 }
+export const CAPT_COLORS = { ...Z, DG: 0x5a6440, LG: 0x9fae6c, J: 0x4a4a3e };
+export function captainDef() {
+  return zakuDef(CAPT_COLORS, 'cmd');
+}
 
 // ---------------- RX-75 Guntank ----------------
 // Tread base (hips), blue upper body with twin 120mm shoulder cannons, glass dome cockpit, 4-tube missile forearms.

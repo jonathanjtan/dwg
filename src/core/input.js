@@ -35,6 +35,7 @@ export class Input {
     this.move = { x: 0, y: 0 };
     this.look = { x: 0, y: 0 };
     this.usingPad = false;
+    this.padHeld = {};
     this.enabled = true;
 
     addEventListener('keydown', (e) => {
@@ -70,8 +71,9 @@ export class Input {
     this.wantLock = true;
   }
 
+  // held: keyboard, or the gamepad buttons for boost / jump (hold to dash / hover)
   key(action) {
-    return KEYMAP[action].some((k) => this.down.has(k));
+    return KEYMAP[action].some((k) => this.down.has(k)) || !!this.padHeld[action];
   }
   hit(action) {
     return KEYMAP[action].some((k) => this.pressed.has(k));
@@ -125,12 +127,14 @@ export class Input {
       act.recenter ||= edge(6) || edge(11);
       act.attackHeld ||= b(2);
       act.chargeHeld ||= b(3);
+      this.padHeld = { dodge: b(1) || b(4), jump: b(0) };
       if (b(12)) my += 1;
       if (b(13)) my -= 1;
       if (b(14)) mx -= 1;
       if (b(15)) mx += 1;
       this.padPrev = pad.buttons.map((x) => x.pressed);
     }
+    if (!pad) this.padHeld = {};
     const len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }
     this.move.x = mx;
