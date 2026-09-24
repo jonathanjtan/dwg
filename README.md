@@ -6,7 +6,9 @@ Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yu
 
 ## Play
 
-Open `index.html` through any static file server, or use the GitHub Pages deployment.
+**https://jonathanjtan.github.io/dwg/** (desktop browser with keyboard, mouse or gamepad)
+
+To run it locally, serve the folder with any static file server:
 
 ```bash
 python3 tools/serve.py 8766
