@@ -355,6 +355,7 @@ class Game {
     this.camera.yFollow = this.hero.state === 'intro' ? 0.95 : 0.7;
     this.camera.update(dt, rdt, this.hero.pos, this.hero.heading, playable ? this.input : null, moving);
     this.world.follow(this.hero.pos);
+    this.world.fadeNear(this.cam.position);
     this.audio.listener = this.hero.pos;
     this.crowd.render(wdt);
     this.projectiles.render();

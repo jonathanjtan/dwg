@@ -32,64 +32,77 @@ function hazeMaterial(map) {
         vec3 c = texture2D(map, vUv).rgb;
         c = pow(c, vec3(2.2));
         float d = length(vWorld - cameraPosition);
-        float h = 1.0 - exp(-d * 0.0021);
-        h = clamp(h * 1.02, 0.0, 0.93);
+        float h = 1.0 - exp(-d * 0.0013);
+        h = clamp(h, 0.0, 0.82);
         vec3 col = mix(c * sunTint, pow(haze, vec3(2.2)), h);
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
       }`,
-    side: THREE.BackSide,
+    side: THREE.DoubleSide,
     fog: false,
   });
 }
 
-// Texture for the colony shell: u runs around the perimeter, v along the axis.
+// Texture for the colony shell: u maps to angle around the axis (0.5 = floor), v runs along the axis.
+// Wide land bands (floor strip and two far strips overhead) separated by glass windows.
+const DEG = Math.PI / 180;
+const BANDS = [
+  { a0: -55, a1: 55, land: true },
+  { a0: 55, a1: 85, land: false }, { a0: -85, a1: -55, land: false },
+  { a0: 85, a1: 155, land: true }, { a0: -155, a1: -85, land: true },
+  { a0: 155, a1: 180, land: false }, { a0: -180, a1: -155, land: false },
+];
 function colonyTexture() {
-  const w = 1024, h = 1024;
+  const w = 2048, h = 1024;
   const cv = document.createElement('canvas');
   cv.width = w;
   cv.height = h;
   const g = cv.getContext('2d');
   const rnd = mulberry32(7);
-  const strip = w / 6;
-  for (let s = 0; s < 6; s++) {
-    const x0 = s * strip;
-    // strips 0,2,4 are land ( strip 0 is centred on the floor via uv offset ), 1,3,5 are windows
-    if (s % 2 === 0) {
-      g.fillStyle = '#7d8a5e';
-      g.fillRect(x0, 0, strip, h);
-      // farmland + town blocks
-      for (let i = 0; i < 520; i++) {
-        const bw = 4 + rnd() * 22, bh = 4 + rnd() * 30;
-        const bx = x0 + rnd() * (strip - bw), by = rnd() * h;
-        const t = rnd();
-        g.fillStyle = t < 0.35 ? `hsl(${80 + rnd() * 30},${25 + rnd() * 20}%,${35 + rnd() * 15}%)`
-          : t < 0.55 ? `hsl(${35 + rnd() * 15},${20 + rnd() * 20}%,${40 + rnd() * 15}%)`
-          : t < 0.85 ? `hsl(${200 + rnd() * 40},${5 + rnd() * 8}%,${55 + rnd() * 25}%)`
-          : `hsl(${15 + rnd() * 20},${30 + rnd() * 20}%,${45 + rnd() * 10}%)`;
-        g.fillRect(bx | 0, by | 0, bw | 0, bh | 0);
+  const ux = (deg) => (0.5 + (deg * DEG) / (Math.PI * 2)) * w;
+  for (const b of BANDS) {
+    const x0 = ux(b.a0), x1 = ux(b.a1), bw = x1 - x0;
+    if (b.land) {
+      g.fillStyle = '#7f8b5c';
+      g.fillRect(x0, 0, bw, h);
+      // fields and parks
+      for (let i = 0; i < bw * 3; i++) {
+        const fw = 6 + rnd() * 26, fh = 6 + rnd() * 40;
+        g.fillStyle = rnd() < 0.6
+          ? `hsl(${78 + rnd() * 35},${22 + rnd() * 22}%,${32 + rnd() * 16}%)`
+          : `hsl(${34 + rnd() * 16},${18 + rnd() * 20}%,${40 + rnd() * 14}%)`;
+        g.fillRect(x0 + rnd() * (bw - fw), rnd() * h, fw, fh);
       }
-      g.fillStyle = 'rgba(70,70,74,0.9)';
-      for (let i = 0; i < 6; i++) g.fillRect(x0 + rnd() * strip, 0, 2, h);
-      for (let i = 0; i < 40; i++) g.fillRect(x0, rnd() * h, strip, 2);
-      // river
-      g.fillStyle = '#5d7f93';
-      const rx = x0 + strip * (0.3 + rnd() * 0.4);
-      for (let y = 0; y < h; y += 4) g.fillRect(rx + Math.sin(y * 0.02) * 10, y, 5, 4);
+      // towns: clusters of light blocks
+      for (let t = 0; t < bw / 18; t++) {
+        const cx = x0 + rnd() * bw, cy = rnd() * h, r = 12 + rnd() * 30;
+        for (let i = 0; i < r * 5; i++) {
+          const a = rnd() * Math.PI * 2, d = rnd() * r;
+          g.fillStyle = `hsl(${30 + rnd() * 190},${4 + rnd() * 8}%,${58 + rnd() * 30}%)`;
+          g.fillRect(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 1.6, 2 + rnd() * 4, 2 + rnd() * 5);
+        }
+      }
+      // roads + river
+      g.fillStyle = 'rgba(80,80,84,0.85)';
+      for (let i = 0; i < bw / 40; i++) g.fillRect(x0 + rnd() * bw, 0, 2, h);
+      for (let i = 0; i < 30; i++) g.fillRect(x0, rnd() * h, bw, 2);
+      g.fillStyle = '#5b8196';
+      const rx = x0 + bw * (0.25 + rnd() * 0.5);
+      for (let y = 0; y < h; y += 3) g.fillRect(rx + Math.sin(y * 0.015) * 14 + Math.sin(y * 0.05) * 4, y, 6, 3);
     } else {
-      // window: dark space with the mirror light glinting through
-      const grad = g.createLinearGradient(x0, 0, x0 + strip, 0);
-      grad.addColorStop(0, '#2c3446');
-      grad.addColorStop(0.5, '#141a28');
-      grad.addColorStop(1, '#2c3446');
+      // window: bright glass panels lit by the mirrors, with mullions
+      const grad = g.createLinearGradient(x0, 0, x1, 0);
+      grad.addColorStop(0, '#8fa4bd');
+      grad.addColorStop(0.5, '#b9cbe0');
+      grad.addColorStop(1, '#8fa4bd');
       g.fillStyle = grad;
-      g.fillRect(x0, 0, strip, h);
-      g.fillStyle = 'rgba(160,170,190,0.35)';
-      for (let y = 0; y < h; y += 32) g.fillRect(x0, y, strip, 2);
-      g.fillStyle = '#9aa3b5';
-      for (let x = x0; x < x0 + strip; x += strip / 8) g.fillRect(x, 0, 1, h);
-      g.fillStyle = 'rgba(255,255,255,0.8)';
-      for (let i = 0; i < 90; i++) g.fillRect(x0 + rnd() * strip, rnd() * h, 1, 1);
+      g.fillRect(x0, 0, bw, h);
+      g.fillStyle = 'rgba(70,82,100,0.55)';
+      for (let y = 0; y < h; y += 24) g.fillRect(x0, y, bw, 2);
+      for (let x = x0; x < x1; x += bw / 6) g.fillRect(x, 0, 2, h);
+      g.fillStyle = '#5a5e66';
+      g.fillRect(x0, 0, 3, h);
+      g.fillRect(x1 - 3, 0, 3, h);
     }
   }
   const tex = new THREE.CanvasTexture(cv);
@@ -129,7 +142,9 @@ function colonyShell() {
     for (let i = 0; i <= seg; i++) {
       const p = pts[i];
       pos.push(p[0], p[1], z);
-      uv.push(p[2] + 0.25, (j / zSeg) * 3);
+      // angle around the tube centre (0 at the floor) keeps the land bands where the eye expects them
+      const ang = Math.atan2(p[0], R - p[1]);
+      uv.push(0.5 + ang / (Math.PI * 2), (j / zSeg) * 3);
     }
   }
   const row = seg + 1;
@@ -374,6 +389,7 @@ export class World {
   constructor(scene) {
     this.scene = scene;
     this.colliders = []; // AABBs {x0,z0,x1,z1,h}
+    this.trees = [];
     this.smokeSources = [];
     this.fireSources = [];
     const rnd = mulberry32(1979);
@@ -464,13 +480,13 @@ export class World {
       } else if (lot.kind === 'park') {
         for (let i = 0; i < 12; i++) {
           const x = lot.x0 + 2 + rnd() * (lw - 4), z = lot.z0 + 2 + rnd() * (ld - 4);
-          addVoxel(props, treeModel(rnd), x, 0, z, 0.3);
+          this.trees.push(addVoxel(props, treeModel(rnd), x, 0, z, 0.3));
         }
       } else if (lot.kind === 'plaza') {
         // a few trees ringing the plaza
         for (let i = 0; i < 10; i++) {
           const a = (i / 10) * Math.PI * 2;
-          addVoxel(props, treeModel(rnd), Math.sin(a) * 17, 0, Math.cos(a) * 17, 0.3);
+          this.trees.push(addVoxel(props, treeModel(rnd), Math.sin(a) * 17, 0, Math.cos(a) * 17, 0.3));
         }
       }
     }
@@ -511,6 +527,14 @@ export class World {
 
     scene.fog = new THREE.Fog(HAZE, 60, 420);
     scene.background = HAZE.clone();
+  }
+
+  // Hide trees that would fill the screen when the camera passes through them.
+  fadeNear(cam) {
+    for (const t of this.trees) {
+      const dx = t.position.x - cam.x, dz = t.position.z - cam.z;
+      t.visible = dx * dx + dz * dz > 9 || cam.y > 4;
+    }
   }
 
   follow(target) {

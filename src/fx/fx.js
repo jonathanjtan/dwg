@@ -159,7 +159,7 @@ export class FX {
     this.scene = scene;
     const glowMat = new THREE.MeshBasicMaterial({ blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, transparent: true });
     const solidMat = new THREE.MeshStandardMaterial({ roughness: 0.7, metalness: 0.1 });
-    const smokeMat = new THREE.MeshLambertMaterial({});
+    const smokeMat = new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.78, depthWrite: false });
     this.glow = new CubePool(scene, 2400, glowMat);
     // opaque emissive cubes for fireballs: they bloom but don't stack into white-out
     this.fire = new CubePool(scene, 900, new THREE.MeshBasicMaterial({ toneMapped: false }));
@@ -352,7 +352,7 @@ export class FX {
   }
 
   dust(pos, n = 6, size = 0.8) {
-    this.puff(pos, n, 0.62, size, 0.8, 3.2);
+    this.puff(pos, Math.ceil(n * 1.3), 0.66, size * 0.55, 0.9, 3.6);
   }
 
   // Full voxel explosion.
