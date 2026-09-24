@@ -181,7 +181,14 @@ export class Commander {
 
   update(dt) {
     const g = this.game;
-    const hero = g.hero;
+    // duel whichever pilot is closer (switch only for a clearly closer one, and not mid-combo)
+    let hero = g.players[this.targetIdx || 0] || g.hero;
+    if (g.players.length > 1 && this.state !== 'combo') {
+      const dc = hero.alive ? Math.hypot(hero.pos.x - this.pos.x, hero.pos.z - this.pos.z) : 1e9;
+      g.players.forEach((p, i) => {
+        if (p !== hero && p.alive && Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z) < dc * 0.65) { this.targetIdx = i; hero = p; }
+      });
+    }
     if (this.shudder > 0 && this.state !== 'dead') {
       this.shudder -= dt;
       this.flash = Math.max(0, this.flash - dt * 5);
@@ -494,8 +501,45 @@ export class Commander {
     const hand = rig.nodes.hand;
     hand.localToWorld(this._a.set(0, -0.3, 0.45));
     hand.localToWorld(this._b.set(0, -0.3, 0.75));
+    this.trailOn = trailOn;
     this.trail.push(this._a, this._b, trailOn && this.rig.nodes.hawk.visible);
     if (isChar && this.state !== 'dead' && Math.random() < dt * 6) g.fx.aura(this.pos, 0xff3040, 1, 1.2);
+  }
+
+  // ---------- co-op replication ----------
+  netState() {
+    return {
+      id: this.netId, n: this.name, st: this.state, x: this.pos.x, y: this.pos.y + this.lie * 0.45, z: this.pos.z,
+      h: this.heading, hp: this.hp, mhp: this.maxHp, fl: this.flash, pose: Array.from(this.pose),
+      gun: this.rig.nodes.gun.visible, vis: this.rig.root.visible, tr: this.trailOn, al: this.alive,
+      thr: this.thrustAt && this.game.time - this.thrustAt < 0.06 ? 1 : 0,
+    };
+  }
+
+  applyNet(s, dt) {
+    this.state = s.st;
+    this.hp = s.hp;
+    this.maxHp = s.mhp;
+    this.alive = s.al;
+    this.heading = s.h;
+    this.x = this.pos.x; this.y = this.pos.y; this.z = this.pos.z;
+    this.pose.set(s.pose);
+    const rig = this.rig;
+    rig.root.visible = s.vis;
+    rig.nodes.gun.visible = s.gun;
+    rig.nodes.hawk.visible = !s.gun;
+    rig.root.position.copy(this.pos);
+    rig.root.rotation.y = this.heading;
+    rig.applyPose(this.pose);
+    rig.setFlash(s.fl, 0xffffff);
+    rig.root.updateMatrixWorld(true);
+    const hand = rig.nodes.hand;
+    hand.localToWorld(this._a.set(0, -0.3, 0.45));
+    hand.localToWorld(this._b.set(0, -0.3, 0.75));
+    this.trail.push(this._a, this._b, s.tr && !s.gun);
+    this.trail.mesh.visible = this.trail.mesh.visible && s.vis;
+    if (s.thr) this.thrust(1.4);
+    if (this.kind === 'char' && s.st !== 'dead' && Math.random() < dt * 6) this.game.fx.aura(this.pos, 0xff3040, 1, 1.2);
   }
 
   airCurve(keys, t) {
@@ -555,6 +599,7 @@ export class Commander {
   }
 
   thrust(strength) {
+    this.thrustAt = this.game.time;
     const torso = this.rig.nodes.torso;
     this.rig.root.updateMatrixWorld(true);
     const p = torso.localToWorld(this._v.set(0, 0.2, -0.6));
@@ -577,11 +622,30 @@ export class Commanders {
   constructor(game) {
     this.game = game;
     this.list = [];
+    this.serial = 0;
   }
   add(cfg) {
     const c = new Commander(this.game, cfg);
+    c.netId = cfg.netId ?? ++this.serial;
     this.list.push(c);
     return c;
+  }
+
+  // Guest: create / update / drop commander puppets to match the host.
+  applyNet(arr, makeCfg, dt, alpha) {
+    const seen = new Set();
+    for (const s of arr) {
+      seen.add(s.id);
+      let c = this.list.find((x) => x.netId === s.id);
+      if (!c) {
+        c = this.add({ ...makeCfg(s.n), x: s.x, z: s.z, netId: s.id });
+        c.pos.set(s.x, s.y, s.z);
+      }
+      c.netTarget = s;
+    }
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      if (!seen.has(this.list[i].netId)) { this.list[i].dispose(); this.list.splice(i, 1); }
+    }
   }
   update(dt) {
     for (const c of this.list) c.update(dt);

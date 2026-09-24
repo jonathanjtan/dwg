@@ -173,7 +173,7 @@ export class Crowd {
     if (opts.pull) { dx = -dx * 0.5; dz = -dz * 0.5; kb = opts.pull; }
     g.yaw = Math.atan2(-dx, -dz);
     // lens cut: bodies blown straight at the camera swing ~75 degrees sideways
-    const cam = game.camera.cam.position, h = game.hero.pos;
+    const cam = game.camera.cam.position, h = game.local.pos;
     let cx = cam.x - h.x, cz = cam.z - h.z;
     const cl = Math.hypot(cx, cz) || 1;
     cx /= cl; cz /= cl;
@@ -228,14 +228,27 @@ export class Crowd {
     this.remove(g);
   }
 
+  // Each grunt chases the nearest pilot, sticking with its current one unless the other is much closer.
+  targetFor(g, players) {
+    if (players.length === 1) return players[0];
+    let cur = players[g.target || 0];
+    if (!cur) cur = players[0];
+    const dc = cur.alive ? Math.hypot(cur.pos.x - g.x, cur.pos.z - g.z) : 1e9;
+    for (let i = 0; i < players.length; i++) {
+      const p = players[i];
+      if (p === cur || !p.alive || p.state === 'intro') continue;
+      if (Math.hypot(p.pos.x - g.x, p.pos.z - g.z) < dc * 0.7) { g.target = i; return p; }
+    }
+    return cur;
+  }
+
   update(dt) {
     const game = this.game;
-    const hero = game.hero;
-    const hx = hero.pos.x, hz = hero.pos.z;
+    const players = game.players;
     this.boomBudget = Math.min(6, this.boomBudget + dt * 18);
     this.grid.clear();
     for (const g of this.list) this.grid.insert(g, g.x, g.z);
-    const heroTargetable = hero.alive && hero.state !== 'intro';
+    const tokenScale = game.difficulty.aggression * players.length;
 
     for (let n = 0; n < this.list.length; n++) {
       const g = this.list[n];
@@ -243,6 +256,9 @@ export class Crowd {
       if (g.shudder > 0) { g.shudder -= dt; continue; }
       g.t += dt;
       g.cd -= dt;
+      const hero = this.targetFor(g, players);
+      const hx = hero.pos.x, hz = hero.pos.z;
+      const heroTargetable = hero.alive && hero.state !== 'intro';
       const dx = hx - g.x, dz = hz - g.z;
       const dist = Math.hypot(dx, dz);
       const toHero = Math.atan2(dx, dz);
@@ -269,13 +285,13 @@ export class Crowd {
           // decide on an attack when close and a token is free
           if (heroTargetable && g.cd <= 0 && g.think <= 0) {
             g.think = rand(0.15, 0.4);
-            if (!g.gun && dist < 11 && this.meleeTokens < this.maxMelee * game.difficulty.aggression) {
+            if (!g.gun && dist < 11 && this.meleeTokens < this.maxMelee * tokenScale) {
               g.token = 1;
               this.meleeTokens++;
               g.state = 'charge';
               g.t = 0;
               break;
-            } else if (g.gun && dist < 22 && dist > 5 && this.gunTokens < this.maxGun * game.difficulty.aggression) {
+            } else if (g.gun && dist < 22 && dist > 5 && this.gunTokens < this.maxGun * tokenScale) {
               g.token = 2;
               this.gunTokens++;
               g.state = 'aim';
@@ -438,10 +454,14 @@ export class Crowd {
             g.z += (oz / d) * push;
           }
         }
-        if (dist < g.radius + hero.radius && hero.pos.y < 2.5 && dist > 1e-4) {
-          const push = g.radius + hero.radius - dist;
-          g.x -= (dx / dist) * push;
-          g.z -= (dz / dist) * push;
+        for (const pl of players) {
+          if (!pl.alive || pl.pos.y > 2.5) continue;
+          const px = pl.pos.x - g.x, pz = pl.pos.z - g.z;
+          const pd = Math.hypot(px, pz), min = g.radius + pl.radius;
+          if (pd < min && pd > 1e-4) {
+            g.x -= (px / pd) * (min - pd);
+            g.z -= (pz / pd) * (min - pd);
+          }
         }
       }
       g.x += g.vx * dt;
@@ -462,12 +482,75 @@ export class Crowd {
     }
   }
 
+  // ---------- co-op guest: puppets driven by host snapshots ----------
+  applyNet(a, states, GF) {
+    const byId = this.netMap || (this.netMap = new Map());
+    const seen = new Set();
+    for (let o = 0; o < a.length; o += GF) {
+      const id = a[o];
+      seen.add(id);
+      let g = byId.get(id);
+      const x = a[o + 1] / 100, y = a[o + 2] / 100, z = a[o + 3] / 100, yaw = a[o + 4] / 1000;
+      if (!g) {
+        g = this.pool.pop();
+        if (!g) continue;
+        g.alive = true;
+        g.x = x; g.y = y; g.z = z; g.yaw = yaw;
+        g.phase = Math.random() * 6;
+        g.scale = 0.97 + ((id * 7919) % 70) / 1000;
+        g.netId = id;
+        this.list.push(g);
+        byId.set(id, g);
+      }
+      g.px = g.x; g.py = g.y; g.pz = g.z; g.pyaw = g.yaw;
+      g.nx = x; g.ny = y; g.nz = z; g.nyaw = yaw;
+      g.state = states[a[o + 5]];
+      g.t0 = a[o + 6] / 1000;
+      g.vx = a[o + 7] / 100;
+      g.vz = a[o + 8] / 100;
+      g.flash = a[o + 9] / 1000;
+      g.pitch = a[o + 10] / 1000;
+      const f = a[o + 11];
+      g.gun = !!(f & 1);
+      g.staggerAlt = !!(f & 2);
+      g.hp = f & 4 ? 0 : 1;
+      g.hitKind = (f >> 3) & 3;
+      g.shudder = f & 32 ? 0.03 : 0;
+      g.i = a[o + 12];
+    }
+    for (let n = this.list.length - 1; n >= 0; n--) {
+      const g = this.list[n];
+      if (!seen.has(g.netId)) {
+        byId.delete(g.netId);
+        g.alive = false;
+        this.list[n] = this.list[this.list.length - 1];
+        this.list.pop();
+        this.pool.push(g);
+      }
+    }
+    this.netAge = 0;
+  }
+
+  netInterp(dt) {
+    this.netAge = (this.netAge || 0) + dt;
+    const k = Math.min(1, this.netAge / 0.05);
+    for (const g of this.list) {
+      if (g.nx === undefined) continue;
+      g.x = g.px + (g.nx - g.px) * k;
+      g.y = g.py + (g.ny - g.py) * k;
+      g.z = g.pz + (g.nz - g.pz) * k;
+      g.yaw = g.pyaw + wrapAngle(g.nyaw - g.pyaw) * k;
+      g.t = g.t0 + this.netAge;
+      if (g.state === 'drop' && Math.random() < 0.6) this.game.fx.thruster(this._v.set(g.x, g.y + 1.8, g.z - 0.4), { x: 0, y: -1, z: -0.3 }, 0xffb070, 1.1);
+    }
+  }
+
   render(dt) {
     const rig = this.rig;
     const list = this.list;
     // lens-side clear (DW-style): soldiers standing between the camera and the hero aren't drawn,
     // except those about to hit him, so the near crowd never walls off the frame
-    const cam = this.game.camera.cam.position, hp = this.game.hero.pos;
+    const cam = this.game.camera.cam.position, hp = this.game.local.pos;
     const ax = cam.x, az = cam.z, abx = hp.x - ax, abz = hp.z - az;
     const L = Math.hypot(abx, abz) || 1;
     const lensOn = this.game.mode !== 'title';

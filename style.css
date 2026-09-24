@@ -169,3 +169,26 @@ button.big:hover { transform: translateX(4px); filter: brightness(1.1); }
   #map-wrap { width: 120px; }
   #boss-bars { top: 80px; width: 70vw; }
 }
+
+/* ---------- co-op ---------- */
+.title-inner .row { gap: 12px; flex-wrap: wrap; }
+.coop-btn { background: rgba(47, 85, 176, 0.25); border: 1px solid #5f86d8; color: #fff; font-family: 'Russo One', sans-serif; font-size: 16px; letter-spacing: 3px; padding: 8px 18px; clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.coop-btn small { font-family: 'Rajdhani', sans-serif; font-size: 11px; letter-spacing: 2px; color: #9fc0ff; }
+.coop-btn:hover { background: rgba(47, 85, 176, 0.45); }
+#coop-panel { margin-top: 12px; background: var(--panel); border: 1px solid #5f86d8; padding: 10px 12px; max-width: 520px; }
+#coop-status { font-weight: 700; letter-spacing: 1px; color: #9fc0ff; }
+#coop-status.ok { color: var(--hp); }
+.coop-link { display: flex; gap: 6px; margin: 8px 0 4px; }
+.coop-link input { flex: 1; min-width: 0; background: rgba(0,0,0,0.4); border: 1px solid var(--line); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 14px; padding: 6px 8px; }
+.coop-link button { background: #2f55b0; border: none; color: #fff; padding: 6px 12px; letter-spacing: 2px; }
+.coop-note { font-size: 13px; color: var(--muted); }
+#lobby { background: rgba(5, 10, 20, 0.88); }
+#lobby-portrait { width: 96px; height: 96px; image-rendering: pixelated; border: 3px solid #5f86d8; border-radius: 50%; background: #0b1424; }
+.lobby-unit { font-family: 'Russo One', sans-serif; letter-spacing: 3px; color: #9fc0ff; }
+#lobby-status { font-weight: 700; font-size: 18px; }
+.lobby-controls { margin: 6px 0 10px; }
+#ally { position: absolute; left: 130px; bottom: 112px; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 12px; letter-spacing: 2px; color: #9fc0ff; text-shadow: 0 1px 3px #000; }
+.ally-bar { width: 160px; height: 6px; background: rgba(0,0,0,0.6); border: 1px solid var(--line); }
+#ally-fill { height: 100%; background: linear-gradient(90deg, #5fd0ff, #9fe6ff); width: 100%; }
+#ally-state { color: var(--warn); }
+#res-wait { color: var(--muted); letter-spacing: 1px; }

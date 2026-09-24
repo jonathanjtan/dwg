@@ -535,6 +535,8 @@ export class Hero {
 
   thrust(strength, up) {
     const g = this.game;
+    this.thrustAt = g.time;
+    this.thrustUp = up;
     const torso = this.rig.nodes.torso;
     for (const sx of [-0.25, 0.25]) {
       const p = torso.localToWorld(this._v.set(sx, 0.1, -0.52));
@@ -798,6 +800,45 @@ export class Hero {
     this.blade.localToWorld(this._tip.set(0, 0, 1));
     this.trail.push(this._base, this._tip, swinging && this.blade.visible);
     if (this.giant > 1.2) g.fx.aura(this._tip, 0xff5fd0, 2, 1.0);
+  }
+
+  // ---------- co-op replication ----------
+  netState() {
+    const swinging = (this.state === 'attack' && this.move.saber) || this.state === 'musou';
+    return {
+      x: this.pos.x, y: this.pos.y + this.lie * 0.45, z: this.pos.z, h: this.heading, st: this.state,
+      hp: this.hp, mhp: this.maxHp, sp: this.sp, fl: Math.max(this.flash, this.armorFlash),
+      pose: Array.from(this.pose), sab: this.saberScale, gi: this.giant, rf: this.rifle.visible, sw: swinging,
+      thr: this.thrustAt && this.game.time - this.thrustAt < 0.06 ? (this.thrustUp ? 2 : 1) : 0,
+    };
+  }
+
+  // Guest: pose the puppet Gundam from the host's snapshot (interpolated position).
+  applyNet(s, dt) {
+    const g = this.game;
+    this.state = s.st;
+    this.hp = s.hp;
+    this.maxHp = s.mhp;
+    this.sp = s.sp;
+    this.heading = s.h;
+    this.pose.set(s.pose);
+    const rig = this.rig;
+    rig.root.position.copy(this.pos);
+    rig.root.rotation.y = this.heading;
+    rig.applyPose(this.pose);
+    rig.setFlash(s.fl * 0.35, 0xff5030);
+    rig.root.visible = true;
+    this.rifle.visible = s.rf;
+    this.hilt.visible = !s.rf;
+    this.blade.visible = s.sab > 0.02;
+    const len = 2.1 * s.sab * s.gi, thick = 1 + (s.gi - 1) * 0.45;
+    this.blade.scale.set(thick, thick, Math.max(0.001, len));
+    rig.root.updateMatrixWorld(true);
+    this.blade.localToWorld(this._base.set(0, 0, 0.18));
+    this.blade.localToWorld(this._tip.set(0, 0, 1));
+    this.trail.push(this._base, this._tip, s.sw && this.blade.visible);
+    if (s.thr) this.thrust(1.2, s.thr === 2);
+    if (s.st === 'musou') g.fx.aura(this.pos, 0xff5fd0, 2, 1.4);
   }
 
   // world position of blade tip (for hit sparks)

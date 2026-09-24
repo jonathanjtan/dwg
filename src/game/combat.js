@@ -78,7 +78,7 @@ export class Combat {
       hits++;
       this.hitFx(c.pos.x, c.pos.y + 1.9, c.pos.z, spec, hits, true);
     }
-    if (hits) this.registerHits(hits, spec);
+    if (hits) this.registerHits(hits, spec, hero);
     return hits;
   }
 
@@ -93,15 +93,39 @@ export class Combat {
     }
   }
 
-  registerHits(n, spec) {
+  registerHits(n, spec, who = this.game.hero) {
     const g = this.game;
-    const hero = g.hero;
     g.addCombo(n);
-    if (hero.state !== 'musou') hero.sp = Math.min(hero.maxSp, hero.sp + n * 0.9);
+    if (who.state !== 'musou') who.sp = Math.min(who.maxSp, who.sp + n * (who.spRate || 0.9));
+    if (who !== g.hero) return;
     // hero hit-stop: 1 frame per tick (+1 per 5 extra victims, max 4); heavy contact 7 frames.
     // No camera shake on normal hits; only heavy blows kick the camera.
     g.hitstop(spec.big ? 7 / 60 : Math.min(4, 1 + Math.floor((n - 1) / 5)) / 60);
-    if (spec.big) g.camera.shake(0.3);
+    if (spec.big && g.local === g.hero) g.camera.shake(0.3);
+  }
+
+  // Area blast (Guntank shells and missiles): damage falls off toward the edge.
+  aoe(who, x, y, z, r, dmg, kb, up, id, big = false) {
+    const g = this.game;
+    const near = g.crowd.grid.query(x, z, r + 1, this.tmp);
+    let hits = 0;
+    const mul = g.difficulty.dmgDealt;
+    for (const e of near) {
+      if (!e.alive || e.state === 'dying' || e.state === 'drop') continue;
+      const d = Math.hypot(e.x - x, e.z - z);
+      if (d > r + e.radius * 0.5 || Math.abs(e.y - y) > r + 2) continue;
+      const f = 1 - 0.5 * Math.min(1, d / r);
+      if (g.crowd.damage(e, dmg * f * mul, kb * f, up * f, x, z, id, { big, radial: true })) {
+        hits++;
+        if (hits <= 8) g.fx.sparks(this._v.set(e.x, e.y + 1.8, e.z), 4, 0xffb060, 9);
+      }
+    }
+    for (const c of g.commanders.list) {
+      if (!c.alive || Math.hypot(c.pos.x - x, c.pos.z - z) > r + 1) continue;
+      if (c.damage(dmg * 0.8 * mul, kb, up, x, z, id)) hits++;
+    }
+    if (hits) this.registerHits(hits, { big }, who);
+    return hits;
   }
 
   // Projectile (beam) vs targets along a segment.

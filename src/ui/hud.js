@@ -13,7 +13,10 @@ export class HUD {
       dlgPortrait: $('dlg-portrait'), dlgName: $('dlg-name'), dlgText: $('dlg-text'), bossBars: $('boss-bars'),
       tags: $('tags'), vignette: $('vignette'), flash: $('flash'), cutin: $('cutin'), cutinPortrait: $('cutin-portrait'),
       toasts: $('toasts'), objective: $('objective'), keys: $('keys'), portrait: $('portrait'),
+      ally: $('ally'), allyName: $('ally-name'), allyFill: $('ally-fill'), allyState: $('ally-state'),
+      pilotJp: $('pilot-jp'), pilotEn: $('pilot-en'),
     };
+    this.pilot = 'amuro';
     this.el.portrait.src = portrait('amuro');
     this.el.cutinPortrait.src = portrait('amuro', null);
     this.faceExpr = 'idle';
@@ -21,9 +24,9 @@ export class HUD {
     this.hurtFaceT = 0;
     loadPortraits().then((any) => {
       if (!any) return;
-      this.faceExpr = '';
-      this.el.cutinPortrait.src = portrait('amuro', null, 'shout');
-      this.el.portrait.style.imageRendering = this.el.cutinPortrait.style.imageRendering = renderingFor('amuro');
+      this.setPilot(this.pilot);
+      const lobby = document.getElementById('lobby-portrait');
+      if (lobby) { lobby.src = portrait('hayato'); lobby.style.imageRendering = renderingFor('hayato'); }
       document.body.classList.toggle('sheet-portraits', hasSheet('amuro'));
     });
     this.mapCtx = this.el.map.getContext('2d');
@@ -38,6 +41,24 @@ export class HUD {
     this.flashT = 0;
     this._v = new THREE.Vector3();
     this.mapT = 0;
+  }
+
+  portraitFor(name, expr = 'idle') {
+    return portrait(name, '#0b1424', expr);
+  }
+
+  setPilot(name) {
+    this.pilot = name;
+    const labels = {
+      amuro: ['アムロ・レイ', 'AMURO RAY · RX-78-2'],
+      hayato: ['ハヤト・コバヤシ', 'HAYATO KOBAYASHI · RX-75'],
+    };
+    this.el.pilotJp.textContent = labels[name][0];
+    this.el.pilotEn.textContent = labels[name][1];
+    this.faceExpr = '';
+    this.el.portrait.style.imageRendering = renderingFor(name);
+    this.el.cutinPortrait.src = portrait(name, null, 'shout');
+    this.el.cutinPortrait.style.imageRendering = renderingFor(name);
   }
 
   show(on) {
@@ -89,7 +110,9 @@ export class HUD {
     this.el.dialogue.classList.add('hidden');
   }
 
-  cutin() {
+  cutin(pilot = this.pilot) {
+    this.el.cutinPortrait.src = portrait(pilot, null, 'shout');
+    this.el.cutinPortrait.style.imageRendering = renderingFor(pilot);
     const c = this.el.cutin;
     c.classList.remove('hidden');
     // restart animations
@@ -116,7 +139,7 @@ export class HUD {
 
   update(dt) {
     const g = this.game;
-    const h = g.hero;
+    const h = g.local;
     // HP / SP
     const hpPct = Math.max(0, h.hp / h.maxHp);
     this.el.hpFill.style.width = hpPct * 100 + '%';
@@ -152,10 +175,11 @@ export class HUD {
     this.lastCombo = g.combo.count;
     // vignette
     this.hurtT = Math.max(0, this.hurtT - dt);
-    this.el.vignette.className = this.hurtT > 0 ? 'on' : hpPct < 0.25 && h.alive ? 'low' : '';
+    this.el.vignette.className = this.hurtT > 0 ? 'on' : hpPct < 0.25 && h.alive && h.state !== 'off' ? 'low' : '';
     this.flashT = Math.max(0, this.flashT - dt * 2.5);
     this.el.flash.style.opacity = this.flashT;
 
+    this.updateAlly();
     this.updateFace(dt);
     this.updateDialogue(dt);
     this.updateBosses();
@@ -164,22 +188,34 @@ export class HUD {
     if (this.mapT <= 0) { this.mapT = 1 / 20; this.drawMap(); }
   }
 
-  // Player portrait: wince when hit, talk while Amuro speaks, blink now and then.
+  // Teammate's health under your own bars in co-op.
+  updateAlly() {
+    const g = this.game;
+    const coop = g.players.length > 1 && g.mode !== 'title';
+    this.el.ally.classList.toggle('hidden', !coop);
+    if (!coop) return;
+    const a = g.local === g.hero ? g.tank : g.hero;
+    this.el.allyName.textContent = a === g.tank ? 'GUNTANK · HAYATO' : 'GUNDAM · AMURO';
+    this.el.allyFill.style.width = Math.max(0, a.hp / a.maxHp) * 100 + '%';
+    this.el.allyState.textContent = a.state === 'dead' ? `REDEPLOY ${Math.max(0, Math.ceil(a.respawnT || 0))}` : '';
+  }
+
+  // Player portrait: wince when hit, talk while the local pilot speaks, blink now and then.
   updateFace(dt) {
     this.hurtFaceT = Math.max(0, this.hurtFaceT - dt);
     this.blinkT -= dt;
     if (this.blinkT < -0.12) this.blinkT = 2 + Math.random() * 3;
     const d = this.dlgCur;
-    const talking = d && d.speaker === 'amuro' && this.dlgT * 55 < d.text.length;
+    const talking = d && d.speaker === this.pilot && this.dlgT * 55 < d.text.length;
     const flap = Math.floor(this.dlgT / 0.11) % 2 === 1;
     let expr = 'idle';
-    if (this.game.hero.state === 'musou') expr = 'shout';
+    if (this.game.local.state === 'musou') expr = 'shout';
     else if (this.hurtFaceT > 0) expr = talking && flap ? 'hurtTalk' : 'hurt';
-    else if (talking && flap) expr = 'talk';
+    else if (talking && (flap || holdsTalk(this.pilot))) expr = 'talk';
     else if (this.blinkT < 0) expr = 'blink';
     if (expr !== this.faceExpr) {
       this.faceExpr = expr;
-      this.el.portrait.src = portrait('amuro', '#0b1424', expr);
+      this.el.portrait.src = portrait(this.pilot, '#0b1424', expr);
     }
   }
 
@@ -268,7 +304,7 @@ export class HUD {
     const g = this.game;
     const ctx = this.mapCtx;
     const W = 200, S = 200 / 110; // show ~110 units across
-    const hero = g.hero;
+    const hero = g.local;
     const yaw = g.camera.yaw;
     ctx.clearRect(0, 0, W, W);
     ctx.save();
@@ -300,6 +336,19 @@ export class HUD {
     // items
     ctx.fillStyle = '#5dff7a';
     for (const it of g.items.list) ctx.fillRect(tx(it.x) - 2.5, tz(it.z) - 2.5, 5, 5);
+    // teammate
+    if (g.players.length > 1) {
+      const a = g.local === g.hero ? g.tank : g.hero;
+      if (a.alive) {
+        ctx.fillStyle = '#9fe6ff';
+        ctx.beginPath();
+        ctx.arc(tx(a.pos.x), tz(a.pos.z), 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#0b1424';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
     // commanders
     for (const c of g.commanders.list) {
       if (!c.alive) continue;

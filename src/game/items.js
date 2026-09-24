@@ -33,15 +33,41 @@ export class Items {
     const mesh = this.templates[type].clone();
     mesh.position.set(x, 3, z);
     this.game.scene.add(mesh);
-    this.list.push({ type, mesh, x, z, vy: 6, y: 3, t: 0 });
+    this.list.push({ id: (this.serial = (this.serial || 0) + 1), type, mesh, x, z, vy: 6, y: 3, t: 0 });
   }
+  // Guest: mirror the host's pickups.
+  applyNet(arr) {
+    const seen = new Set();
+    for (const [id, type, x, y, z] of arr) {
+      seen.add(id);
+      let it = this.list.find((i) => i.id === id);
+      if (!it) {
+        const mesh = this.templates[type === 0 ? 'hp' : 'sp'].clone();
+        this.game.scene.add(mesh);
+        it = { id, type: type === 0 ? 'hp' : 'sp', mesh, t: 0 };
+        this.list.push(it);
+      }
+      it.x = x; it.y = y; it.z = z;
+    }
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      if (!seen.has(this.list[i].id)) { this.game.scene.remove(this.list[i].mesh); this.list.splice(i, 1); }
+    }
+  }
+
+  netAnimate(dt) {
+    for (const it of this.list) {
+      it.t += dt;
+      it.mesh.position.set(it.x, it.y + Math.sin(it.t * 3) * 0.15, it.z);
+      it.mesh.rotation.y += dt * 2;
+    }
+  }
+
   clear() {
     for (const it of this.list) this.game.scene.remove(it.mesh);
     this.list.length = 0;
   }
   update(dt) {
     const g = this.game;
-    const hero = g.hero;
     for (let i = this.list.length - 1; i >= 0; i--) {
       const it = this.list[i];
       it.t += dt;
@@ -52,12 +78,14 @@ export class Items {
       }
       it.mesh.position.set(it.x, it.y + Math.sin(it.t * 3) * 0.15, it.z);
       it.mesh.rotation.y += dt * 2;
-      if (it.t > 0.4 && Math.hypot(hero.pos.x - it.x, hero.pos.z - it.z) < 2.2 && hero.alive) {
+      const hero = it.t > 0.4 && g.players.find((p) => p.alive && Math.hypot(p.pos.x - it.x, p.pos.z - it.z) < 2.2);
+      if (hero) {
         if (it.type === 'hp') hero.hp = Math.min(hero.maxHp, hero.hp + hero.maxHp * 0.3);
         if (it.type === 'sp') hero.sp = hero.maxSp;
         g.fx.aura(hero.pos, it.type === 'hp' ? 0x5dff7a : 0xff5fd0, 30, 1.6);
         g.audio.play('pickup');
-        g.hud.toast(TYPES[it.type].label, TYPES[it.type].color);
+        if (hero === g.local) g.hud.toast(TYPES[it.type].label, TYPES[it.type].color);
+        else g.netEvent('toast', TYPES[it.type].label, TYPES[it.type].color);
         g.scene.remove(it.mesh);
         this.list.splice(i, 1);
       } else if (it.t > 30) {

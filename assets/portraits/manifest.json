@@ -6,5 +6,9 @@
   "bright": {
     "file": "bright.png", "holdTalk": true,
     "frames": { "idle": [420, 0, 260, 260], "talk": [915, 0, 265, 265], "shout": [10, 440, 400, 400] }
+  },
+  "hayato": {
+    "file": "hayato.png", "holdTalk": true,
+    "frames": { "idle": [535, 0, 230, 230], "talk": [856, 60, 300, 300], "shout": [110, 470, 420, 420] }
   }
 }

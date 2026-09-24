@@ -45,11 +45,12 @@
     <div id="player">
       <div id="portrait-frame"><img id="portrait" alt=""></div>
       <div id="bars">
-        <div class="pilot"><span class="pilot-jp">アムロ・レイ</span><span class="pilot-en">AMURO RAY · RX-78-2</span></div>
+        <div class="pilot"><span class="pilot-jp" id="pilot-jp">アムロ・レイ</span><span class="pilot-en" id="pilot-en">AMURO RAY · RX-78-2</span></div>
         <div class="bar hp"><div id="hp-lag"></div><div id="hp-fill"></div><span id="hp-text">1200</span></div>
         <div class="bar sp"><div id="sp-fill"></div><span id="sp-ready">SP READY · I</span></div>
       </div>
     </div>
+    <div id="ally" class="hidden"><span id="ally-name">GUNTANK · HAYATO</span><div class="ally-bar"><div id="ally-fill"></div></div><span id="ally-state"></span></div>
 
     <div id="dialogue" class="hidden">
       <img id="dlg-portrait" alt="">
@@ -86,7 +87,15 @@
       <div class="diff" id="diff">
         <button data-d="easy">EASY</button><button data-d="normal" class="on">NORMAL</button><button data-d="hard">HARD</button>
       </div>
-      <button id="launch" class="big">LAUNCH</button>
+      <div class="row">
+        <button id="launch" class="big">LAUNCH</button>
+        <button id="host-btn" class="coop-btn">HOST CO-OP<small>+ RX-75 GUNTANK</small></button>
+      </div>
+      <div id="coop-panel" class="hidden">
+        <div id="coop-status">Opening a room…</div>
+        <div class="coop-link"><input id="coop-link" readonly><button id="coop-copy">COPY LINK</button></div>
+        <div class="coop-note">Send the link to a friend. They drop in as Hayato's Guntank, even mid-mission.</div>
+      </div>
       <div class="hint">Press <b>Enter</b> or click · Gamepad supported</div>
       <div class="controls">
         <div><b>WASD</b> Move</div><div><b>J / Left click</b> Attack</div>
@@ -97,6 +106,22 @@
       <div class="combo-guide">Charge attacks change with how far into the combo you are: <b>K</b> fires the beam rifle, <b>J K</b> launches, <b>J J K</b> spins, <b>J J J K</b> fires a rifle spread, <b>J J J J K</b> rams with the shield, <b>J J J J J K</b> fires a charged mega beam.</div>
     </div>
     <div class="credit">Fan-made tribute. Not affiliated with Sotsu, Sunrise or Bandai Namco. Inspired by <a href="https://github.com/mike007jd/voxel-musou" target="_blank" rel="noopener">voxel-musou</a>.</div>
+  </div>
+
+  <div id="lobby" class="screen hidden">
+    <div class="panel wide">
+      <div class="panel-title">CO-OP</div>
+      <img id="lobby-portrait" alt="">
+      <div class="lobby-unit">RX-75 GUNTANK · HAYATO KOBAYASHI</div>
+      <div id="lobby-status">Connecting…</div>
+      <div class="controls lobby-controls">
+        <div><b>WASD</b> Drive</div><div><b>J / Left click</b> Missile burst</div>
+        <div><b>K / Right click</b> 120mm cannons</div><div><b>J J K</b> Cannon barrage</div>
+        <div><b>Space</b> Thruster hop</div><div><b>L / Shift</b> Tread boost</div>
+        <div><b>I / F</b> Full-burst SP</div><div><b>Mouse / Q E</b> Camera</div>
+      </div>
+      <button id="lobby-leave">LEAVE</button>
+    </div>
   </div>
 
   <div id="pause" class="screen hidden">
@@ -114,10 +139,11 @@
       <div id="res-title" class="panel-title">MISSION COMPLETE</div>
       <div id="res-rank">S</div>
       <div id="res-stats"></div>
-      <div class="row">
+      <div class="row" id="res-buttons">
         <button id="retry" class="big">SORTIE AGAIN</button>
         <button id="res-title-btn">TITLE</button>
       </div>
+      <div id="res-wait" class="hidden">Waiting for the host to sortie again…</div>
     </div>
   </div>
 

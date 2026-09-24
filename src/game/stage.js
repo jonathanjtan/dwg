@@ -4,6 +4,17 @@ import { commanderDef, charDef, CMD_COLORS, CHAR_COLORS } from '../models/suits.
 import { rand, pick } from '../core/util.js';
 import { ARENA } from '../world/world.js';
 
+// Officer loadouts, shared with co-op guests (who rebuild commander puppets by name).
+export function officerCfg(which) {
+  const cfgs = {
+    denim: { name: 'denim', kind: 'officer', title: 'DENIM · ZAKU II', jp: 'デニム', def: commanderDef, colors: CMD_COLORS, hp: 900, speed: 6.2, dmg: 44, strafe: 1 },
+    gene: { name: 'gene', kind: 'officer', title: 'GENE · ZAKU II', jp: 'ジーン', def: commanderDef, colors: CMD_COLORS, hp: 1050, speed: 6.8, dmg: 48, strafe: -1 },
+    char: { name: 'char', kind: 'char', title: 'CHAR AZNABLE · ZAKU II S', jp: 'シャア・アズナブル', def: charDef, colors: CHAR_COLORS, hp: 3000, speed: 11, dmg: 46, trail: 0xff4a3a, strafe: 1 },
+  };
+  const c = cfgs[which];
+  return { ...c, def: c.def() };
+}
+
 export class Stage {
   constructor(game) {
     this.game = game;
@@ -63,12 +74,7 @@ export class Stage {
     let x = hero.x + Math.sin(a) * 14, z = hero.z + Math.cos(a) * 14;
     x = Math.max(-ARENA + 6, Math.min(ARENA - 6, x));
     z = Math.max(-ARENA + 6, Math.min(ARENA - 6, z));
-    const cfgs = {
-      denim: { name: 'denim', kind: 'officer', title: 'DENIM · ZAKU II', jp: 'デニム', def: commanderDef(), colors: CMD_COLORS, hp: 900, speed: 6.2, dmg: 44, strafe: 1 },
-      gene: { name: 'gene', kind: 'officer', title: 'GENE · ZAKU II', jp: 'ジーン', def: commanderDef(), colors: CMD_COLORS, hp: 1050, speed: 6.8, dmg: 48, strafe: -1 },
-      char: { name: 'char', kind: 'char', title: 'CHAR AZNABLE · ZAKU II S', jp: 'シャア・アズナブル', def: charDef(), colors: CHAR_COLORS, hp: 3000, speed: 11, dmg: 46, trail: 0xff4a3a, strafe: 1 },
-    };
-    const cfg = { ...cfgs[which], x, z, drop: true, yaw: Math.atan2(hero.x - x, hero.z - z) };
+    const cfg = { ...officerCfg(which), x, z, drop: true, yaw: Math.atan2(hero.x - x, hero.z - z) };
     const c = g.commanders.add(cfg);
     return c;
   }
@@ -76,6 +82,7 @@ export class Stage {
   onHeroLanded() {
     const g = this.game;
     if (this.phase !== 'launch') return;
+    if (g.players.length > 1) g.hud.say('hayato', 'HAYATO KOBAYASHI', "Guntank's rolling out too! I'll cover you from the back, Amuro!", 3.2);
     this.phase = 'wave1';
     this.t = 0;
     g.hud.announce('MISSION START', 'REPEL THE ZEON RAID');
@@ -156,6 +163,8 @@ export class Stage {
     g.hud.announce('MISSION COMPLETE', 'THE RED COMET WITHDRAWS');
     g.hud.setObjective('Side 7 secured');
     g.audio.stinger('victory');
+    g.netEvent('stinger', 'victory');
+    g.tank.invuln = 99;
     g.hero.invuln = 99;
     // with their ace gone the remaining Zaku go up in a chain of explosions
     const left = [...g.crowd.list].sort((a, b) => Math.hypot(a.x - g.hero.pos.x, a.z - g.hero.pos.z) - Math.hypot(b.x - g.hero.pos.x, b.z - g.hero.pos.z));

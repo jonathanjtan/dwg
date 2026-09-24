@@ -9,11 +9,13 @@ import { Commanders } from './game/commander.js';
 import { Combat } from './game/combat.js';
 import { Projectiles } from './game/projectiles.js';
 import { Items } from './game/items.js';
-import { Stage } from './game/stage.js';
+import { Stage, officerCfg } from './game/stage.js';
+import { Tank } from './game/tank.js';
+import { Net, GRUNT_STATES, GF, LOCALNET } from './net/net.js';
 import { CameraRig } from './camera.js';
 import { HUD } from './ui/hud.js';
 import { Audio } from './audio/audio.js';
-import { rand } from './core/util.js';
+import { rand, wrapAngle } from './core/util.js';
 
 const DIFFICULTY = {
   easy: { dmgTaken: 0.55, dmgDealt: 1.25, enemyHp: 0.85, aggression: 0.7, speed: 0.85, maxAlive: 130 },
@@ -54,6 +56,13 @@ class Game {
     this.commanders = new Commanders(this);
     this.crowd = new Crowd(this);
     this.hero = new Hero(this);
+    this.tank = new Tank(this);
+    this.players = [this.hero];
+    this.local = this.hero;
+    this.remoteInput = { x: 0, z: 0, mag: 0, edges: 0 };
+    this.net = new Net(this);
+    this.netEvent = (...e) => this.net.event(...e);
+    this.localSpT = 0;
     this.hud = new HUD(this);
     this.stage = new Stage(this);
     this.stats = this.freshStats();
@@ -78,6 +87,8 @@ class Game {
     });
     this.bindUI();
     this.setupTitle();
+    const join = new URLSearchParams(location.search).get('join');
+    if (join) this.startGuest(join);
     document.getElementById('loading').classList.add('hidden');
     if (matchMedia('(pointer: coarse)').matches) document.getElementById('touch-warn').classList.remove('hidden');
     this.last = performance.now();
@@ -113,6 +124,13 @@ class Game {
     $('to-title').addEventListener('click', () => this.toTitle());
     $('retry').addEventListener('click', () => this.start());
     $('res-title-btn').addEventListener('click', () => this.toTitle());
+    $('host-btn').addEventListener('click', () => this.hostCoop());
+    $('coop-copy').addEventListener('click', () => {
+      navigator.clipboard?.writeText($('coop-link').value);
+      $('coop-copy').textContent = 'COPIED';
+      setTimeout(() => ($('coop-copy').textContent = 'COPY LINK'), 1500);
+    });
+    $('lobby-leave').addEventListener('click', () => this.leaveCoop());
     $('mute-btn').addEventListener('click', () => {
       const m = this.audio.toggleMute();
       $('mute-btn').textContent = m ? 'SOUND: OFF' : 'SOUND: ON';
@@ -169,6 +187,16 @@ class Game {
     this.camera.target.set(0, 3, -14);
     this.mode = 'play';
     this.hud.show(true);
+    this.tank.hp = this.tank.maxHp;
+    this.tank.sp = 30;
+    if (this.net.role === 'host' && this.net.connected) {
+      this.players = [this.hero, this.tank];
+      this.tank.spawn(5, -20);
+      this.net.send({ y: 'start' });
+    } else {
+      this.tank.remove();
+      this.players = [this.hero];
+    }
     this.stage.begin();
     this.canvas.focus();
     if (!matchMedia('(pointer: coarse)').matches) lockPointer(this.canvas);
@@ -186,6 +214,9 @@ class Game {
     this.ignoreUnlock = true;
     document.exitPointerLock?.();
     this.setupTitle();
+    if (this.net.role === 'guest') this.leaveCoop();
+    this.tank.remove();
+    if (this.net.role === 'host') this.net.send({ y: 'title' });
   }
 
   pause(on) {
@@ -226,7 +257,10 @@ class Game {
       ['DIFFICULTY', this.difficultyName.toUpperCase()],
     ];
     $('res-stats').innerHTML = rows.map(([k, v]) => `<div class="k">${k}</div><div class="v">${v}</div>`).join('');
+    $('res-buttons').classList.remove('hidden');
+    $('res-wait').classList.add('hidden');
     $('results').classList.remove('hidden');
+    if (this.net.role === 'host') this.net.send({ y: 'res', title: $('res-title').textContent, rank, rows });
   }
 
   // ---------- events ----------
@@ -268,6 +302,7 @@ class Game {
   onHeroDeath() {
     this.hud.announce('MISSION FAILED', 'THE GUNDAM HAS FALLEN', true);
     this.audio.stinger('defeat');
+    this.netEvent('stinger', 'defeat');
     this.slowmo(0.25, 1.5);
     this.stage.phase = 'lose';
     this.timers.push({ t: 3.5, fn: () => this.finish(false) });
@@ -275,12 +310,246 @@ class Game {
   onHeroLanded() {
     this.stage.onHeroLanded();
   }
-  onMusou() {
-    this.audio.duckMusic(0.25, 1.0);
-    this.hud.cutin();
+  onMusou(who = this.hero) {
+    if (who === this.local) this.localMusou(who === this.tank ? 'hayato' : 'amuro');
+    else this.hud.toast(who === this.tank ? 'HAYATO: FULL BURST!' : 'AMURO: SP ATTACK!', '#ffd1f1');
+    // freezing the world only makes sense solo
+    if (who === this.hero && this.players.length === 1) this.worldSlowT = 1.0;
+    this.audio.duckMusic(0.35, 0.8);
+    this.netEvent('sp', who === this.tank ? 'tank' : 'hero');
+  }
+
+  localMusou(pilot) {
+    this.hud.cutin(pilot);
     this.hud.whiteFlash(0.35);
-    this.worldSlowT = 1.0;
+    this.localSpT = 1.0;
     this.camera.cinematic({ dur: 1.1, yaw: 2.3, pitch: 0.22, dist: 7.5, fov: 46 });
+  }
+
+  // ---------- co-op ----------
+  async hostCoop() {
+    const $ = (id) => document.getElementById(id);
+    this.audio.resume();
+    $('coop-panel').classList.remove('hidden');
+    $('host-btn').disabled = true;
+    $('coop-status').className = '';
+    $('coop-status').textContent = 'Opening a room…';
+    try {
+      const code = await this.net.host();
+      $('coop-link').value = `${location.origin}${location.pathname}?join=${code}${LOCALNET ? '&localnet' : ''}`;
+      $('coop-status').textContent = `Room ${code} is open. Waiting for the Guntank pilot…`;
+    } catch (e) {
+      $('coop-status').textContent = `Couldn't open a room (${e.type || e.message}). Try again.`;
+      $('host-btn').disabled = false;
+    }
+  }
+
+  onGuestJoined() {
+    const $ = (id) => document.getElementById(id);
+    $('coop-status').textContent = 'Hayato is in the Guntank. Press LAUNCH when ready.';
+    $('coop-status').className = 'ok';
+    this.players = [this.hero, this.tank];
+    this.audio.play('pickup');
+    if (this.mode === 'play' || this.mode === 'paused') {
+      const h = this.hero.pos;
+      this.tank.hp = this.tank.maxHp;
+      this.tank.spawn(h.x + 5, h.z - 4);
+      this.hud.announce('REINFORCEMENTS', 'RX-75 GUNTANK INBOUND');
+      this.net.send({ y: 'start' });
+    }
+  }
+
+  onGuestLeft() {
+    const $ = (id) => document.getElementById(id);
+    this.tank.remove();
+    this.players = [this.hero];
+    $('coop-status').textContent = 'The Guntank pilot left. Waiting for someone to join…';
+    $('coop-status').className = '';
+    if (this.mode !== 'title') this.hud.toast('GUNTANK DISCONNECTED', '#ff8a8a');
+  }
+
+  async startGuest(code) {
+    const $ = (id) => document.getElementById(id);
+    this.mode = 'lobby';
+    this.local = this.tank;
+    this.players = [this.hero, this.tank];
+    this.crowd.clear();
+    $('title').classList.add('hidden');
+    $('lobby').classList.remove('hidden');
+    $('lobby-portrait').src = this.hud.portraitFor('hayato');
+    $('lobby-status').textContent = `Joining room ${code.toUpperCase()}…`;
+    this.hud.setPilot('hayato');
+    try {
+      await this.net.join(code);
+      $('lobby-status').textContent = 'Connected. Waiting for the host to launch…';
+    } catch (e) {
+      $('lobby-status').textContent = e.type === 'peer-unavailable' ? "That room doesn't exist (or the host closed it)." : `Couldn't connect (${e.type || e.message}).`;
+    }
+  }
+
+  leaveCoop() {
+    this.net.close();
+    this.local = this.hero;
+    this.players = [this.hero];
+    this.tank.remove();
+    this.hud.setPilot('amuro');
+    history.replaceState(null, '', location.pathname);
+    document.getElementById('lobby').classList.add('hidden');
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('pause').classList.add('hidden');
+    this.crowd.clear();
+    this.commanders.clear();
+    this.projectiles.clear();
+    this.items.clear();
+    this.hud.reset();
+    this.audio.stopMusic();
+    this.setupTitle();
+  }
+
+  onHostLeft() {
+    if (this.net.role !== 'guest') return;
+    this.leaveCoop();
+    this.hud.toast('HOST DISCONNECTED', '#ff8a8a');
+  }
+
+  enterGuestPlay() {
+    const $ = (id) => document.getElementById(id);
+    this.audio.resume();
+    $('lobby').classList.add('hidden');
+    $('results').classList.add('hidden');
+    this.hud.reset();
+    this.hud.show(true);
+    this.mode = 'guest';
+    this.camera.yaw = 0;
+    this.camera.pitch = 0.3;
+    this.canvas.focus();
+    if (!matchMedia('(pointer: coarse)').matches) lockPointer(this.canvas);
+  }
+
+  // Guest: messages from the host.
+  onNet(d) {
+    const $ = (id) => document.getElementById(id);
+    switch (d.y) {
+      case 'hello': this.difficultyName = d.difficulty; break;
+      case 'full': $('lobby-status').textContent = 'That room already has a Guntank pilot.'; break;
+      case 'start': this.enterGuestPlay(); break;
+      case 'title':
+        this.mode = 'lobby';
+        this.hud.show(false);
+        this.audio.stopMusic();
+        $('results').classList.add('hidden');
+        $('lobby').classList.remove('hidden');
+        $('lobby-status').textContent = 'The host is back at the title screen. Waiting for launch…';
+        break;
+      case 'res':
+        $('res-title').textContent = d.title;
+        $('res-rank').textContent = d.rank;
+        $('res-stats').innerHTML = d.rows.map(([k, v]) => `<div class="k">${k}</div><div class="v">${v}</div>`).join('');
+        $('res-buttons').classList.add('hidden');
+        $('res-wait').classList.remove('hidden');
+        $('results').classList.remove('hidden');
+        this.ignoreUnlock = true;
+        document.exitPointerLock?.();
+        break;
+      case 's': this.applySnapshot(d); break;
+    }
+  }
+
+  applySnapshot(d) {
+    if (d.mode === 'play' && this.mode === 'lobby') this.enterGuestPlay();
+    this.netAge = 0;
+    const stash = (obj, s) => {
+      obj.net = obj.net || { pose: new Float32Array(s.pose.length), npose: new Float32Array(s.pose.length) };
+      const n = obj.net;
+      if (n.init) { n.px = obj.pos.x; n.py = obj.pos.y; n.pz = obj.pos.z; n.ph = n.h; n.pose.set(n.cur || s.pose); }
+      else { n.px = s.x; n.py = s.y; n.pz = s.z; n.ph = s.h; n.pose.set(s.pose); n.init = true; }
+      n.nx = s.x; n.ny = s.y; n.nz = s.z; n.h = s.h; n.npose.set(s.pose); n.s = s;
+    };
+    stash(this.hero, d.hero);
+    stash(this.tank, d.tank);
+    this.commanders.applyNet(d.cmd, (n) => officerCfg(n));
+    for (const c of this.commanders.list) if (c.netTarget) stash(c, c.netTarget);
+    this.crowd.applyNet(Net.decodeCrowd(d.crowd), GRUNT_STATES, GF);
+    this.projectiles.applyNet(d.pj);
+    this.items.applyNet(d.it);
+    const st = d.st;
+    this.stats.kos = st.kos;
+    this.stats.time = st.time;
+    this.stats.maxCombo = st.max;
+    this.combo.count = st.combo;
+    this.combo.timer = st.timer;
+    if (st.obj && this.hud.el.objective.textContent !== st.obj) this.hud.setObjective(st.obj);
+    if (st.music && st.music !== this.audio.current) this.audio.playMusic(st.music);
+    for (const e of d.ev) this.replay(e);
+  }
+
+  replay(e) {
+    const [tag, name, ...args] = e;
+    try {
+      if (tag === 'f') this.fx[name](...args);
+      else if (tag === 'h') this.hud[name](...args);
+      else if (tag === 'a') this.audio.play(name, { vol: args[0], pitch: args[1], at: args[2] !== null ? { x: args[2], z: args[3] } : null });
+      else if (tag === 'toast') this.hud.toast(name, args[0]);
+      else if (tag === 'hurt') this.hud.hurt();
+      else if (tag === 'shake') this.camera.shake(name);
+      else if (tag === 'sp') {
+        if (name === 'tank') this.localMusou('hayato');
+        else this.hud.toast('AMURO: SP ATTACK!', '#ffd1f1');
+      } else if (tag === 'stinger') this.audio.stinger(name);
+    } catch (err) { /* a malformed event shouldn't stop the guest */ }
+  }
+
+  // Guest frame: no simulation, just interpolate the host's world and send input.
+  guestFrame(rdt, act) {
+    if (act.pause && performance.now() - (this.pausedAt || 0) > 350) {
+      const p = document.getElementById('pause');
+      const open = p.classList.contains('hidden');
+      p.classList.toggle('hidden', !open);
+      document.getElementById('restart').classList.add('hidden');
+      this.pausedAt = performance.now();
+      if (open) { this.ignoreUnlock = true; document.exitPointerLock?.(); } else lockPointer(this.canvas);
+    }
+    if (act.mute) this.audio.toggleMute();
+    if (act.recenter) this.camera.recenter(this.tank.heading);
+    this.time += rdt;
+    this.localSpT = Math.max(0, this.localSpT - rdt);
+    const menuOpen = !document.getElementById('pause').classList.contains('hidden');
+    const dir = menuOpen ? null : this.hero.inputDir(this.input, this.camera.forward());
+    this.net.guestTick(rdt, menuOpen ? {} : act, dir);
+    this.netAge = (this.netAge || 0) + rdt;
+    const k = Math.min(1, this.netAge / 0.05);
+    const place = (obj) => {
+      const n = obj.net;
+      if (!n) return null;
+      obj.pos.set(n.px + (n.nx - n.px) * k, n.py + (n.ny - n.py) * k, n.pz + (n.nz - n.pz) * k);
+      n.cur = n.cur || new Float32Array(n.pose.length);
+      for (let i = 0; i < n.cur.length; i++) n.cur[i] = n.pose[i] + (n.npose[i] - n.pose[i]) * k;
+      return { ...n.s, h: n.ph + wrapAngle(n.h - n.ph) * k, pose: n.cur };
+    };
+    const hs = place(this.hero);
+    if (hs) this.hero.applyNet(hs, rdt);
+    const ts = place(this.tank);
+    if (ts) this.tank.applyNet(ts, rdt);
+    for (const c of this.commanders.list) {
+      const cs = place(c);
+      if (cs) c.applyNet(cs, rdt);
+    }
+    this.crowd.netInterp(rdt);
+    this.projectiles.guestAdvance(rdt);
+    this.items.netAnimate(rdt);
+    this.fx.update(rdt);
+    const t = this.tank;
+    const crowdN = this.crowd.grid.query(t.pos.x, t.pos.z, 12, this._near).length;
+    this.camera.yFollow = 0.7;
+    this.camera.update(rdt, rdt, t.pos, t.heading, menuOpen ? null : this.input, Math.hypot(t.vel.x, t.vel.z) > 2, crowdN);
+    this.world.follow(t.pos);
+    this.world.fadeNear(this.cam.position);
+    this.audio.listener = t.pos;
+    this.crowd.render(rdt);
+    this.projectiles.render();
+    this.hud.update(rdt);
+    this.render();
+    this.input.endFrame();
   }
 
   // ---------- loop ----------
@@ -291,7 +560,9 @@ class Game {
     this.adaptQuality(rdt);
     const act = this.input.poll();
 
-    if (this.mode === 'title') {
+    if (this.mode === 'guest') return this.guestFrame(rdt, act);
+    if (this.mode === 'title' || this.mode === 'lobby') {
+      if (this.net.role === 'host') this.net.hostTick(rdt);
       this.titleT += rdt;
       this.time += rdt;
       const a = this.titleT * 0.12;
@@ -320,8 +591,11 @@ class Game {
       document.getElementById('mute-btn').textContent = m ? 'SOUND: OFF' : 'SOUND: ON';
     }
     if (act.help) this.hud.toggleKeys();
-    if (act.recenter) this.camera.recenter(this.hero.heading);
+    if (act.recenter) this.camera.recenter(this.local.heading);
 
+    if (this.mode === 'paused' || this.mode === 'results') {
+      if (this.net.role === 'host') this.net.hostTick(rdt);
+    }
     if (this.mode === 'paused') {
       this.render();
       this.input.endFrame();
@@ -347,6 +621,13 @@ class Game {
     const playable = this.mode === 'play';
     const heroAct = playable ? act : {};
     this.hero.update(dt * heroScale, heroAct, this.input);
+    if (this.players.length > 1) {
+      const ri = this.remoteInput;
+      const tAct = playable ? { attack: !!(ri.edges & 1), charge: !!(ri.edges & 2), jump: !!(ri.edges & 4), dodge: !!(ri.edges & 8), musou: !!(ri.edges & 16) } : {};
+      ri.edges = 0;
+      this.tank.update(dt, tAct, playable && ri.mag > 0.05 ? { x: ri.x, z: ri.z, mag: ri.mag } : null);
+    }
+    this.localSpT = Math.max(0, this.localSpT - rdt);
     this.crowd.update(wdt);
     this.commanders.update(wdt);
     this.projectiles.update(wdt);
@@ -368,13 +649,14 @@ class Game {
     this.projectiles.render();
     this.hud.update(rdt);
     this.render();
+    if (this.net.role === 'host') this.net.hostTick(rdt);
     this.input.endFrame();
   }
 
   render() {
-    const h = this.hero.pos;
+    const h = this.local.pos;
     this.post.focus = Math.max(4, this.cam.position.distanceTo(this._focus.set(h.x, h.y + 2, h.z)));
-    const sp = this.hero.state === 'musou' && this.hero.spPhase === 0 ? 1 : 0;
+    const sp = this.localSpT > 0 ? 1 : 0;
     this.post.musou += (sp - this.post.musou) * (sp ? 0.15 : 0.08);
     this.post.render(this.scene, this.cam, this.time);
   }

@@ -28,6 +28,15 @@ export class Projectiles {
     this.beamMesh = glowInstanced(scene, 64, new THREE.Color(3.2, 1.1, 2.4));
     this.beamCore = glowInstanced(scene, 64, new THREE.Color(3, 3, 2.6));
     this.bulletMesh = glowInstanced(scene, 256, new THREE.Color(3, 1.6, 0.5));
+    // Guntank ordnance
+    this.missiles = [];
+    this.shells = [];
+    this.missileMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0xe8ecf2, roughness: 0.5 }), 128);
+    this.missileMesh.frustumCulled = false;
+    this.missileMesh.count = 0;
+    this.missileMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(this.missileMesh);
+    this.shellMesh = glowInstanced(scene, 64, new THREE.Color(3, 1.9, 0.7));
     // mega beam
     const cyl = new THREE.CylinderGeometry(1, 1, 1, 16, 1, true).rotateX(Math.PI / 2).translate(0, 0, 0.5);
     this.mega = new THREE.Mesh(cyl, new THREE.MeshBasicMaterial({ color: new THREE.Color(2.8, 0.9, 2.2), toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, side: THREE.DoubleSide }));
@@ -43,6 +52,8 @@ export class Projectiles {
   clear() {
     this.beams.length = 0;
     this.bullets.length = 0;
+    this.missiles.length = 0;
+    this.shells.length = 0;
     this.megaState = null;
     this.mega.visible = this.megaCore.visible = false;
   }
@@ -56,6 +67,27 @@ export class Projectiles {
     const g = this.game;
     g.fx.ring(from, 0.3, 4, 0xff7ad0, 0.4, from.y);
     g.fx.light(from, 0xff6fd0, 220, 40, 0.7);
+  }
+
+  tankMissile(owner, from, dir, target) {
+    if (this.missiles.length > 120) return;
+    this.missiles.push({ p: from.clone(), v: dir.clone().multiplyScalar(26), target, life: 0, owner, id: ++this.serial });
+  }
+
+  // Lob a shell so it lands on `point` after a fixed flight time.
+  tankShell(owner, from, point) {
+    const T = 0.85, G = 30;
+    const v = new THREE.Vector3((point.x - from.x) / T, (0 - from.y + 0.5 * G * T * T) / T, (point.z - from.z) / T);
+    this.shells.push({ p: from.clone(), v, life: 0, owner, id: ++this.serial });
+  }
+
+  blast(owner, p, r, dmg, kb, up, big) {
+    const g = this.game;
+    const s = r / 4.5;
+    g.fx.explode(this._v.set(p.x, Math.max(0.6, p.y), p.z), s, [0x8a867c, 0x6f6c64, 0x3a3532]);
+    g.combat.aoe(owner, p.x, 0, p.z, r, dmg, kb, up, ++this.serial, big);
+    g.audio.play(big ? 'boom' : 'hit', { vol: big ? 0.8 : 0.4, pitch: big ? 0.8 : 1.4, at: p });
+    if (big && g.local === owner) g.camera.shake(0.15);
   }
 
   enemyBullet(from, dir, mul = 1) {
@@ -128,23 +160,103 @@ export class Projectiles {
       }
       if (M.t >= M.dur) { this.megaState = null; this.mega.visible = this.megaCore.visible = false; }
     }
+    // Guntank missiles: accelerate, curl onto their target, burst on contact
+    for (let i = this.missiles.length - 1; i >= 0; i--) {
+      const m = this.missiles[i];
+      m.life += dt;
+      const t = m.target;
+      if (t && t.alive && t.state !== 'dying' && m.life > 0.08) {
+        const tx = (t.x ?? t.pos.x) - m.p.x, ty = (t.y ?? t.pos.y) + 1.6 - m.p.y, tz = (t.z ?? t.pos.z) - m.p.z;
+        const tl = Math.hypot(tx, ty, tz) || 1;
+        const sp = m.v.length();
+        const turn = Math.min(1, dt * 7);
+        m.v.x += ((tx / tl) * sp - m.v.x) * turn;
+        m.v.y += ((ty / tl) * sp - m.v.y) * turn;
+        m.v.z += ((tz / tl) * sp - m.v.z) * turn;
+        if (tl < 1.4) { this.blast(m.owner, m.p, 2.4, 22, 4, 3, false); this.missiles.splice(i, 1); continue; }
+      } else m.v.y -= 6 * dt;
+      m.v.multiplyScalar(Math.min(1.8, 1 + dt * 1.6)); // rocket motor
+      if (m.v.length() > 48) m.v.setLength(48);
+      m.p.addScaledVector(m.v, dt);
+      if (Math.random() < 0.7) g.fx.thruster(m.p, { x: -m.v.x / 40, y: -m.v.y / 40, z: -m.v.z / 40 }, 0xffc070, 0.6);
+      if (m.p.y <= 0.2 || m.life > 2.2 || (g.world.blocked(m.p.x, m.p.z, 0) && m.p.y < 6)) {
+        this.blast(m.owner, m.p, 2.4, 22, 4, 3, false);
+        this.missiles.splice(i, 1);
+      }
+    }
+    // Guntank 120mm shells: ballistic, big blast on landing
+    for (let i = this.shells.length - 1; i >= 0; i--) {
+      const s = this.shells[i];
+      s.life += dt;
+      s.v.y -= 30 * dt;
+      s.p.addScaledVector(s.v, dt);
+      if (Math.random() < 0.8) { g.fx.noNet = true; g.fx.sparks(s.p, 1, 0xffa040, 2); g.fx.noNet = false; }
+      if (s.p.y <= 0.3 || s.life > 3) {
+        s.p.y = 0.3;
+        this.blast(s.owner, s.p, 5, 58, 9, 8, true);
+        g.fx.ring(s.p, 0.5, 6, 0xffb060, 0.5);
+        this.shells.splice(i, 1);
+      }
+    }
+
     // enemy bullets
-    const hero = g.hero;
-    for (let i = this.bullets.length - 1; i >= 0; i--) {
+    outer: for (let i = this.bullets.length - 1; i >= 0; i--) {
       const b = this.bullets[i];
       b.life += dt;
       b.p.addScaledVector(b.d, b.speed * dt);
-      const dx = b.p.x - hero.pos.x, dy = b.p.y - (hero.pos.y + 1.6), dz = b.p.z - hero.pos.z;
-      if (dx * dx + dy * dy * 0.4 + dz * dz < 1.3 && hero.alive) {
-        hero.takeHit(b.dmg, b.p.x - b.d.x * 5, b.p.z - b.d.z * 5, false, 'bullet');
-        this.bullets.splice(i, 1);
-        continue;
+      for (const pl of g.players) {
+        const dx = b.p.x - pl.pos.x, dy = b.p.y - (pl.pos.y + 1.6), dz = b.p.z - pl.pos.z;
+        if (dx * dx + dy * dy * 0.4 + dz * dz < 1.3 && pl.alive) {
+          pl.takeHit(b.dmg, b.p.x - b.d.x * 5, b.p.z - b.d.z * 5, false, 'bullet');
+          this.bullets.splice(i, 1);
+          continue outer;
+        }
       }
       if (b.p.y < 0.05 || b.life > b.max || g.world.blocked(b.p.x, b.p.z, 0) && b.p.y < 6) {
         g.fx.sparks(b.p, 3, 0xffc070, 5);
         if (b.p.y < 0.3) g.fx.puff(b.p, 1, 0.55, 0.5, 1, 1);
         this.bullets.splice(i, 1);
       }
+    }
+  }
+
+  // ---------- co-op guest ----------
+  applyNet(pj) {
+    const V = (a, i) => new THREE.Vector3(a[i], a[i + 1], a[i + 2]);
+    const rows = (a, f) => { const out = []; for (let i = 0; i < a.length; i += 6) out.push(f(V(a, i), V(a, i + 3))); return out; };
+    this.beams = rows(pj.b, (p, d) => ({ p, d }));
+    this.bullets = rows(pj.u, (p, d) => ({ p, d }));
+    this.missiles = rows(pj.mi, (p, v) => ({ p, v }));
+    this.shells = rows(pj.sh, (p, v) => ({ p, v }));
+    if (pj.mega) {
+      const m = pj.mega;
+      this.megaState = { p: new THREE.Vector3(m.p.x, m.p.y, m.p.z), d: new THREE.Vector3(m.d.x, m.d.y, m.d.z), t: m.t, dur: m.dur, len: m.len, ticks: 99 };
+    } else this.megaState = null;
+  }
+
+  // Advance replicated projectiles kinematically between snapshots (no collisions on the guest).
+  guestAdvance(dt) {
+    const g = this.game;
+    for (const b of this.beams) b.p.addScaledVector(b.d, 120 * dt);
+    for (const b of this.bullets) b.p.addScaledVector(b.d, 42 * dt);
+    for (const m of this.missiles) {
+      m.p.addScaledVector(m.v, dt);
+      if (Math.random() < 0.7) g.fx.thruster(m.p, { x: -m.v.x / 40, y: -m.v.y / 40, z: -m.v.z / 40 }, 0xffc070, 0.6);
+    }
+    for (const s of this.shells) {
+      s.v.y -= 30 * dt;
+      s.p.addScaledVector(s.v, dt);
+    }
+    const M = this.megaState;
+    this.mega.visible = this.megaCore.visible = !!M;
+    if (M) {
+      M.t += dt;
+      const u = Math.min(1, M.t / M.dur);
+      const w = (u < 0.15 ? u / 0.15 : 1 - Math.pow((u - 0.15) / 0.85, 2)) * 1.6;
+      const yaw = Math.atan2(M.d.x, M.d.z);
+      for (const m of [this.mega, this.megaCore]) { m.position.copy(M.p); m.rotation.set(0, yaw, 0); }
+      this.mega.scale.set(w, w, M.len);
+      this.megaCore.scale.set(w * 0.45, w * 0.45, M.len);
     }
   }
 
@@ -173,5 +285,25 @@ export class Projectiles {
     }
     this.bulletMesh.count = n;
     this.bulletMesh.instanceMatrix.needsUpdate = true;
+    n = 0;
+    for (const m of this.missiles) {
+      _p.copy(m.v).normalize();
+      _q.setFromUnitVectors(Zf, _p);
+      _s.set(0.16, 0.16, 0.6);
+      _m.compose(m.p, _q, _s);
+      this.missileMesh.setMatrixAt(n++, _m);
+    }
+    this.missileMesh.count = n;
+    this.missileMesh.instanceMatrix.needsUpdate = true;
+    n = 0;
+    for (const s of this.shells) {
+      _p.copy(s.v).normalize();
+      _q.setFromUnitVectors(Zf, _p);
+      _s.set(0.34, 0.34, 0.9);
+      _m.compose(s.p, _q, _s);
+      this.shellMesh.setMatrixAt(n++, _m);
+    }
+    this.shellMesh.count = n;
+    this.shellMesh.instanceMatrix.needsUpdate = true;
   }
 }
