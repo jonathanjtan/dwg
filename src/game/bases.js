@@ -3,13 +3,10 @@
 import * as THREE from 'three';
 import { VoxelModel, Palette, voxelMesh } from '../core/voxel.js';
 import { rand, damp } from '../core/util.js';
+import { FIELDS } from '../world/world.js';
 
-// Open park lots around the plaza (see world.js layout).
-export const LZ_SITES = [
-  { name: 'ALPHA', x: 52, z: 52 },
-  { name: 'BRAVO', x: 0, z: -52 },
-  { name: 'CHARLIE', x: -52, z: 52 },
-];
+// The pods come down in the middle of the three military yards, a few blocks out from the plaza (see world.js).
+export const LZ_SITES = FIELDS.filter((f) => f.kind === 'yard').map((f) => ({ name: f.name, x: Math.round(f.cx), z: Math.round(f.cz) }));
 
 const RING_R = 9;
 const ZEON = new THREE.Color(3.0, 0.35, 0.3);

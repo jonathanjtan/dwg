@@ -89,7 +89,8 @@ export class Gundam extends Hero {
 
   onMoveTick(m, t) {
     const w = this.wpn;
-    if (w === 'saber') this.saberLit = 1.4;
+    // as in Reborn the blade goes out as soon as the attack ends; the short hold only bridges one move into the next
+    if (w === 'saber') this.saberLit = 0.12;
     else if (w) this.saberLit = 0;
     if (w === 'rifle') this.rifleVis = 0.6;
     if (m.ham) this.hamR = curve(m.ham, t);
@@ -97,6 +98,10 @@ export class Gundam extends Hero {
 
   onEndMusou() {
     this.hamR = 0;
+  }
+
+  onInterrupt() {
+    this.saberLit = 0;
   }
 
   // outside attacks a lit saber is carried angled up and back, so the long blade doesn't plough the ground
@@ -224,7 +229,7 @@ export class Gundam extends Hero {
     const wpn = this.heldWeapon(inMove);
     this.showWeapon(wpn);
     const lit = wpn === 'saber' || (!wpn && this.saberLit > 0);
-    this.saberScale = damp(this.saberScale, lit ? 1 : 0, lit ? 22 : 10, dt);
+    this.saberScale = damp(this.saberScale, lit ? 1 : 0, lit ? 22 : 24, dt);
     this.blade.visible = this.saberScale > 0.02;
     this.blade.scale.set(1, 1, Math.max(0.001, BLADE * this.saberScale));
     const flick = 0.92 + Math.random() * 0.08;

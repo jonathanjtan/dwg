@@ -8,8 +8,9 @@ import { lensClear } from '../core/lensclear.js';
 const MAX = 300;
 const GRAV = 30;
 const WALK = 3.7;
-const AGGRO = 19; // a garrison squad engages when a pilot comes this close
-const LEASH = 52; // ...and falls back to its post once every pilot is this far away
+const AGGRO = 22; // a garrison squad engages when a pilot comes this close
+const LEASH = 60; // ...and falls back to its post once every pilot is this far away
+const AIM_T = 1.05; // how long a gunner shows its aim line before the burst
 
 const ZSTANCE = poseFrom({
   y: -0.05, torso: [0.06, 0, 0], head: [0, 0, 0],
@@ -75,7 +76,8 @@ export class Crowd {
     this.meleeTokens = 0;
     this.gunTokens = 0;
     this.maxMelee = 3;
-    this.maxGun = 2;
+    this.maxGun = 1;
+    this.nextVolley = 0; // game time before which no gunner may start another aim (shooting is rare, as in Reborn)
     this.boomBudget = 0;
     this.feintUntil = 0;
     this.pressT = 0;
@@ -90,7 +92,7 @@ export class Crowd {
     return {
       i, alive: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, hp: 60, maxHp: 60,
       state: 'idle', t: 0, phase: rand(0, 6), gun: false, cd: 0, token: 0, flash: 0,
-      hitIds: [0, 0, 0, 0], hitCursor: 0, ringA: 0, ringR: 6, spin: 0, pitch: 0, roll: 0,
+      hitIds: [0, 0, 0, 0], hitCursor: 0, ringA: 0, ringR: 6, spin: 0, pitch: 0, roll: 0, aimYaw: 0, aimY: 0,
       pose: makePose(), scale: 1, radius: 0.95, dieT: 0, spawnVy: 0, fired: 0, think: 0, lastHitT: -9,
       kind: 'grunt', height: 3.1, staggerAlt: false, aggro: rand(0.6, 1.2),
       squad: null, slotX: 0, slotZ: 0, press: false, outerR: 13,
@@ -115,15 +117,17 @@ export class Crowd {
     g.gun = gun;
     g.state = drop ? 'drop' : 'idle';
     g.t = 0;
-    g.cd = rand(0.5, 2.5);
+    g.cd = gun ? rand(3, 8) : rand(0.5, 2.5);
     g.token = 0;
     g.flash = 0;
     g.pitch = g.roll = g.spin = 0;
     g.pitchRate = 0; g.pitchTarget = 0; g.shudder = 0; g.hitKind = 0; g.feint = false; g.bounced = false;
     g.hitIds.fill(0);
     g.ringA = rand(0, Math.PI * 2);
-    g.ringR = gun ? rand(13, 18) : rand(4.8, 7.8);
-    g.outerR = rand(11, 16);
+    // Reborn's mobs pack in around the pilot: the front rank at arm's length, the rest a body or two behind them
+    // (1-3 suit heights), gunners on the rim of the crowd
+    g.ringR = gun ? rand(9, 13) : rand(3.4, 5.4);
+    g.outerR = rand(5.8, 9.6);
     g.press = false;
     g.squad = squad;
     if (squad) {
@@ -366,11 +370,19 @@ export class Crowd {
               g.state = 'charge';
               g.t = 0;
               break;
-            } else if (g.gun && dist < 24 && dist > 5 && this.gunTokens < this.maxGun * tokenScale) {
+            } else if (g.gun && dist < 22 && dist > 6 && this.gunTokens < this.maxGun * tokenScale && game.time >= this.nextVolley) {
+              // one gunner at a time, a few seconds apart: it paints a red aim line, then fires a short burst down it
               g.token = 2;
               this.gunTokens++;
+              this.nextVolley = game.time + rand(5, 8) / (game.difficulty.aggression * Math.sqrt(players.length));
               g.state = 'aim';
               g.t = 0;
+              g.aimYaw = toHero;
+              g.aimY = (hero.pos.y + 1.6 - 2.35) / Math.max(1, dist);
+              const fx = Math.sin(toHero), fz = Math.cos(toHero);
+              const from = this._v.set(g.x + fx * 1.9 - fz * 0.62, 2.35, g.z + fz * 1.9 + fx * 0.62);
+              const L = dist + 8;
+              game.fx.aimLine(from, { x: from.x + fx * L, y: from.y + g.aimY * L, z: from.z + fz * L }, AIM_T);
               break;
             }
           }
@@ -442,27 +454,23 @@ export class Crowd {
           break;
         }
         case 'aim': {
+          // the burst goes down the painted line: step out of it
           g.vx = damp(g.vx, 0, 8, dt);
           g.vz = damp(g.vz, 0, 8, dt);
-          g.yaw = angleDamp(g.yaw, toHero, 8, dt);
-          if (g.t > 0.8) { g.state = 'fire'; g.t = 0; g.fired = 0; }
+          g.yaw = angleDamp(g.yaw, g.aimYaw, 14, dt);
+          if (g.t > AIM_T) { g.state = 'fire'; g.t = 0; g.fired = 0; }
           break;
         }
         case 'fire': {
-          g.yaw = angleDamp(g.yaw, toHero, 3, dt);
           const shots = 3;
-          if (g.fired < shots && g.t >= g.fired * 0.17) {
+          if (g.fired < shots && g.t >= g.fired * 0.13) {
             g.fired++;
-            const s = this.rig; // muzzle approx: right hand forward
-            const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw);
-            const rx = -fz, rz = fx;
-            const from = this._v.set(g.x + fx * 1.9 + rx * 0.62, 2.35, g.z + fz * 1.9 + rz * 0.62);
-            const spread = 0.05;
-            const a = g.yaw + rand(-spread, spread);
-            const aimY = (hero.pos.y + 1.6 - 2.35) / Math.max(1, dist);
-            game.projectiles.enemyBullet(from, new THREE.Vector3(Math.sin(a), aimY, Math.cos(a)).normalize());
+            const fx = Math.sin(g.aimYaw), fz = Math.cos(g.aimYaw);
+            const from = this._v.set(g.x + fx * 1.9 - fz * 0.62, 2.35, g.z + fz * 1.9 + fx * 0.62);
+            const a = g.aimYaw + rand(-0.025, 0.025);
+            game.projectiles.enemyBullet(from, new THREE.Vector3(Math.sin(a), g.aimY, Math.cos(a)).normalize());
           }
-          if (g.t > 0.9) { this.releaseToken(g); g.state = 'idle'; g.cd = rand(3.5, 6) / g.aggro; }
+          if (g.t > 0.7) { this.releaseToken(g); g.state = 'idle'; g.cd = rand(9, 14) / g.aggro; }
           break;
         }
         case 'stagger': {

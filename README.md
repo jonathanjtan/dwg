@@ -36,10 +36,12 @@ Connectivity: players connect directly, which works on most home networks. There
 
 ## The mission
 
-Zeon comes in squads, as in Dynasty Warriors: Gundam. Garrisons hold their posts until you come close. Only the front rank presses in to swing at you, while the rest form a watching ring further out.
+Side 7 is laid out like a Dynasty Warriors: Gundam stage: big open fields (the plaza in the middle and three military yards) a few blocks apart, with boulevards and town blocks in between.
 
-1. **The plaza.** Four squads meet you as you land. Clear 30 Zaku.
-2. **Landing zones.** Three supply pods drop out of the colony sky, each with a garrison and a squad leader. Pods keep dropping reinforcements until you defeat the squad leader and take the zone. An on-screen marker and the minimap point to the nearest one.
+Zeon comes in squads, as in the game. Garrisons hold their posts until you come close. Then the mob packs in around you, the front rank at arm's length and the rest a body or two behind, and a few at a time step in to swing. Gunners on the edge of the crowd fire the odd short burst, one at a time. A red aim line shows where it will go, so you can step out of it. Commanders mostly fight hand to hand and paint the same line before they open fire.
+
+1. **The plaza.** Four squads meet you as you land. Clear 50 Zaku.
+2. **Landing zones.** Three supply pods drop into the military yards, each with a garrison and a squad leader. Pods keep dropping reinforcements until you defeat the squad leader and take the zone. An on-screen marker and the minimap point to the nearest one.
 3. **Denim, then Gene.** Commander-type Zaku arrive with a camera cut and name card.
 4. **Char.** Drive off the Red Comet.
 
@@ -89,7 +91,7 @@ SP attacks: on the ground, a long saber flurry, then the javelin skewers, lifts 
 
 ### RX-77-2 Guncannon (Kai Shiden)
 
-Slower, with less armor but more defense than the Gundam (the game's spec sheet: armor 8429, mobility 667, thruster 790 against 10000, 800 and 1000). The right hand keeps the beam rifle; the left fist and the feet do the close work, and the twin 240mm shoulder cannons swing down over the shoulders for everything heavy.
+Slower, with less armor but more defense than the Gundam (the game's spec sheet: armor 8429, mobility 667, thruster 790 against 10000, 800 and 1000). The right hand keeps the beam rifle; the left fist and the feet do the close work, and the twin 240mm shoulder cannons swing down over the shoulders for everything heavy. As in the game, a blow lands a little past its swing arc, reaching about as far into a crowd as the Gundam's saber.
 
 - **J × 6**: left hook, backhand, stepping straight, spinning back kick, roundhouse, then a thruster hop into a spin with both arms out that launches everything around it
 - **K**: beam rifle. Mash it for a shot combo, or hold it for a charge shot: the suit braces and both cannons fire, blowing the target away
@@ -109,13 +111,13 @@ The boost gauge under the SP bar drains while you dash or hover and refills once
 
 - `src/core/voxel.js`: voxel models authored with box, ellipsoid and mirror operations, then meshed with face culling, baked ambient occlusion, and greedy merging for the static town.
 - `src/core/rig.js`: a 13-part humanoid rig with keyframed pose clips. It drives both Object3D rigs (the player suits and the commanders) and `InstancedMesh` crowds of up to 300 Zakus.
-- `src/game/`: the player suit controller (`hero.js`: locomotion, boost, the attack runner and the SP state machine), the two suits (`gundam.js` and `guncannon.js` with their movesets in `moves.js` and `guncannon_moves.js`: poses, hit shapes, weapon timelines, timed effects), the select screen roster (`roster.js`), the Guntank (`tank.js`), squad AI with attack tokens, a front-rank cap and grabs (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
+- `src/game/`: the player suit controller (`hero.js`: locomotion, boost, the attack runner and the SP state machine), the two suits (`gundam.js` and `guncannon.js` with their movesets in `moves.js` and `guncannon_moves.js`: poses, hit shapes, weapon timelines, timed effects), the select screen roster (`roster.js`), the Guntank (`tank.js`), squad AI with attack tokens, a front-rank cap, rationed and telegraphed gunfire, and grabs (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
 - `src/net/net.js`: co-op networking. The crowd is packed into an Int16Array per snapshot, and effect, sound and HUD events are replicated.
 - `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke, embers and debris, anime impact stars, beam afterglow, ground scorch decals, shockwave rings and the Catmull-Rom smoothed saber ribbon trail.
 - `src/audio/sfx.js`: the sound bank. Every effect is synthesized at load in an `OfflineAudioContext`, several takes per sound, each tuned differently, so no two triggers in a row are identical. Each saber move has its own voice, and the slash sweeps across the stereo field with the blade. Hits, footsteps, boosts and explosions are layered from a transient, a saturated body, ringing armor resonances, debris crackle and a low push. The weapon voices are tuned to *DW: Gundam Reborn*'s gameplay audio, measured band by band. Beams buzz around 160 Hz. Saber hits crunch near 2 kHz and ring at the game's armor partials between 0.7 and 1.15 kHz. There is little air above 6 kHz. The Guncannon's blows are a 300-400 Hz thump with a thin swish on top, and its 240mm cannons boom at 100-200 Hz under a bright 1.5-4 kHz blast.
 - `src/audio/audio.js`: plays the bank's takes, panned against the camera and dulled with distance, through a generated colony-hall reverb. It also runs the continuous beam-saber hum and thruster roar, and falls back to live synthesis until the bank is ready.
 - `src/audio/music.js`: the score, synthesized live: original pieces in the style of late-70s anime orchestral funk, with a brass section (trumpets, horns, chord stabs), strings, a plucked funk bass, glockenspiel, timpani and a march-funk kit. There's a battle theme, a boss theme for Char, a title theme, and victory and defeat stingers.
-- `src/world/world.js`: the Side 7 town and the O'Neill cylinder shell curving up into the sky.
+- `src/world/world.js`: the Side 7 town (a boulevard grid with four open fields cut out of it) and the O'Neill cylinder shell curving up into the sky. Static props are baked into one mesh per 60-unit chunk, and colliders sit in a lookup grid.
 - `src/post.js`: the MSAA HDR target, capped bloom, depth of field, grade and dither.
 
 ## Credits

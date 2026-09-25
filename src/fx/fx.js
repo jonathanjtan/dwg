@@ -316,6 +316,19 @@ export class FX {
       scene.add(m);
       this.domes.push({ m, t: 0, dur: 1, r0: 0, r1: 1, c: new THREE.Color(), active: false });
     }
+    // aim lines: the thin red laser a Zeon gunner paints on its target before it fires down that line
+    this.aims = [];
+    const aimGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5);
+    for (let i = 0; i < 10; i++) {
+      const m = new THREE.Mesh(aimGeo, new THREE.MeshBasicMaterial({
+        color: 0xff2030, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false,
+      }));
+      m.visible = false;
+      m.frustumCulled = false;
+      m.renderOrder = 6;
+      scene.add(m);
+      this.aims.push({ m, t: 0, dur: 1, len: 1, active: false });
+    }
     // flash lights (fixed count to avoid shader recompiles)
     this.lights = [];
     for (let i = 0; i < 4; i++) {
@@ -373,6 +386,18 @@ export class FX {
       r.m.rotation.y += dt * 0.8;
       r.m.material.color.copy(r.c).multiplyScalar((1 - t) * (1 - t));
     }
+    for (const A of this.aims) {
+      if (!A.active) continue;
+      A.t += dt;
+      const t = A.t / A.dur;
+      if (t >= 1) { A.active = false; A.m.visible = false; continue; }
+      // grows out from the muzzle, then flickers faster and brighter just before the shot
+      const reach = Math.min(1, t * 5);
+      const w = 0.08 + 0.06 * t;
+      A.m.scale.set(w, w, A.len * reach);
+      const pulse = 0.7 + 0.3 * Math.sin(A.t * (18 + 40 * t));
+      A.m.material.color.setRGB(3.4, 0.22, 0.26).multiplyScalar((0.6 + 0.6 * t) * pulse);
+    }
     for (const L of this.lights) {
       if (L.t >= L.dur) { L.l.intensity = 0; continue; }
       L.t += dt;
@@ -411,6 +436,19 @@ export class FX {
     L.i0 = intensity;
     L.t = 0;
     L.dur = dur;
+  }
+
+  // Red aim line from a gunner's muzzle toward where its burst will go, shown for `dur` seconds.
+  aimLine(from, to, dur = 1) {
+    const A = this.aims.find((x) => !x.active) || this.aims[0];
+    A.active = true;
+    A.t = 0;
+    A.dur = dur;
+    A.len = Math.max(0.1, _d.subVectors(to, from).length());
+    A.m.position.set(from.x, from.y, from.z);
+    A.m.lookAt(to.x, to.y, to.z); // co-op guests replay this with plain {x, y, z} objects
+    A.m.scale.set(0.05, 0.05, 0.01);
+    A.m.visible = true;
   }
 
   // Flat expanding ring at height y; tilt [x, z] (radians) stands it up for the swirl around a charging suit.

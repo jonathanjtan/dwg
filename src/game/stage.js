@@ -37,7 +37,7 @@ const LINES = {
 };
 
 const TAU = Math.PI * 2;
-const PLAZA_KOS = 30;
+const PLAZA_KOS = 50;
 
 // Officer loadouts, shared with co-op guests (who rebuild commander puppets by name).
 export function officerCfg(which) {
@@ -53,14 +53,15 @@ export function officerCfg(which) {
 
 // Per-phase pacing: cap on living Zaku, how many engaged soldiers near the pilot before hunters are sent,
 // and seconds between hunter squads.
+// Reborn keeps a mob of a few dozen Zaku around the pilot, so the caps are generous.
 const PACE = {
-  plaza: { cap: 34, want: 10, every: 6 },
-  bases: { cap: 999, want: 6, every: 16 },
-  predenim: { cap: 30, want: 6, every: 10 },
-  denim: { cap: 36, want: 10, every: 10 },
-  gene: { cap: 36, want: 10, every: 10 },
-  prechar: { cap: 24, want: 6, every: 10 },
-  char: { cap: 26, want: 8, every: 11 },
+  plaza: { cap: 64, want: 24, every: 5 },
+  bases: { cap: 999, want: 8, every: 18 }, // the yards' own garrisons do the fighting here
+  predenim: { cap: 44, want: 14, every: 8 },
+  denim: { cap: 54, want: 20, every: 8 },
+  gene: { cap: 54, want: 20, every: 8 },
+  prechar: { cap: 36, want: 12, every: 9 },
+  char: { cap: 40, want: 14, every: 10 },
 };
 
 export class Stage {
@@ -102,7 +103,7 @@ export class Stage {
     // the plaza garrison: four squads spread around the fountain ring
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * TAU + 0.45;
-      this.garrison(Math.sin(a) * 22, Math.cos(a) * 22, 7, null);
+      this.garrison(Math.sin(a) * 26, Math.cos(a) * 26, 11, null);
     }
   }
 
@@ -116,10 +117,10 @@ export class Stage {
   garrison(x, z, n, base, drop = false) {
     const g = this.game;
     const sq = this.newSquad(x, z, { base });
-    const gunners = n >= 5 ? 1 + (Math.random() < 0.35 ? 1 : 0) : 0;
+    const gunners = n >= 5 ? 1 + (n >= 9 && Math.random() < 0.4 ? 1 : 0) : 0;
     let made = 0;
     for (let i = 0; i < n * 3 && made < n; i++) {
-      const a = rand(0, TAU), r = rand(1.5, 6);
+      const a = rand(0, TAU), r = rand(1.5, 4 + n * 0.35);
       const px = x + Math.sin(a) * r, pz = z + Math.cos(a) * r;
       if (g.world.blocked(px, pz, 1.2)) continue;
       if (g.crowd.spawn(px, pz, { gun: made < gunners, drop, yaw: a, squad: sq })) made++;
@@ -134,7 +135,7 @@ export class Stage {
     let x = 0, z = 0, ok = false;
     for (let tries = 0; tries < 14 && !ok; tries++) {
       const a = rand(0, TAU);
-      const r = drop ? rand(16, 26) : rand(38, 58);
+      const r = drop ? rand(16, 26) : rand(40, 62);
       x = hero.x + Math.sin(a) * r;
       z = hero.z + Math.cos(a) * r;
       ok = Math.abs(x) < ARENA - 4 && Math.abs(z) < ARENA - 4 && !g.world.blocked(x, z, 3);
@@ -144,8 +145,9 @@ export class Stage {
     const gunners = Math.random() < 0.6 ? 1 : 0;
     const face = Math.atan2(hero.x - x, hero.z - z);
     let made = 0;
+    const spread = 2.5 + n * 0.25;
     for (let i = 0; i < n; i++) {
-      const ox = rand(-3.5, 3.5), oz = rand(-3.5, 3.5);
+      const ox = rand(-spread, spread), oz = rand(-spread, spread);
       if (g.world.blocked(x + ox, z + oz, 1)) continue;
       if (g.crowd.spawn(x + ox, z + oz, { gun: i < gunners, drop, yaw: face, squad: sq })) made++;
     }
@@ -227,7 +229,7 @@ export class Stage {
     const g = this.game;
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * TAU + rand(-0.3, 0.3);
-      this.garrison(lz.x + Math.sin(a) * 6.5, lz.z + Math.cos(a) * 6.5, 6, lz);
+      this.garrison(lz.x + Math.sin(a) * 10, lz.z + Math.cos(a) * 10, 9, lz);
     }
     lz.captain = this.addOfficer('captain', { x: lz.x + 3.5, z: lz.z + 3.5 });
     lz.captain.lz = lz;
@@ -292,7 +294,7 @@ export class Stage {
         g.hud.setObjective('Defeat Gene');
         this.addOfficer('gene');
         g.hud.say('gene', 'GENE', "Sergeant Denim?! You'll pay for that! This one's mine!", 3.2);
-        for (let i = 0; i < 2; i++) this.huntSquad(5, true);
+        for (let i = 0; i < 2; i++) this.huntSquad(8, true);
       });
     } else if (c.name === 'gene') {
       this.phase = 'prechar';
@@ -354,7 +356,7 @@ export class Stage {
       let near = 0;
       for (const e of g.crowd.grid.query(hero.x, hero.z, 26, g.combat.tmp)) if (!e.squad || e.squad.engaged) near++;
       if (g.crowd.count < cap && near < pace.want) {
-        this.huntSquad(randi(5, 7), Math.random() < 0.3);
+        this.huntSquad(randi(8, 12), Math.random() < 0.3);
         this.huntT = pace.every * D.reinforce;
       } else this.huntT = 1.5;
     }
@@ -367,8 +369,8 @@ export class Stage {
         lz.reinforceT = 11 * D.reinforce;
         let garrison = 0;
         for (const sq of this.squads) if (sq.base === lz) garrison += sq.n;
-        if (garrison < 15 && g.crowd.count < D.maxAlive) {
-          const sq = this.garrison(lz.x + rand(-5, 5), lz.z + rand(-5, 5), 5, lz, true);
+        if (garrison < 24 && g.crowd.count < D.maxAlive) {
+          const sq = this.garrison(lz.x + rand(-7, 7), lz.z + rand(-7, 7), 8, lz, true);
           sq.engaged = this.squads.some((s) => s.base === lz && s.engaged);
         }
       }

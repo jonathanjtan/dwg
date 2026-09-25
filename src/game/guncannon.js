@@ -101,8 +101,8 @@ export class Guncannon extends Hero {
   grab() {
     const g = this.game;
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
-    let best = null, bd = 5.4;
-    for (const e of g.crowd.grid.query(this.pos.x + fx * 2, this.pos.z + fz * 2, 4.5, g.combat.tmp)) {
+    let best = null, bd = 6.2;
+    for (const e of g.crowd.grid.query(this.pos.x + fx * 2, this.pos.z + fz * 2, 5.2, g.combat.tmp)) {
       if (!e.alive || e.state === 'dying' || e.state === 'drop' || e.state === 'held' || e.y > 3) continue;
       const dx = e.x - this.pos.x, dz = e.z - this.pos.z, d = Math.hypot(dx, dz);
       if (d > bd || (dx * fx + dz * fz) / (d || 1) < 0.2) continue;
@@ -121,7 +121,7 @@ export class Guncannon extends Hero {
     for (const c of g.commanders.list) {
       if (!c.alive || c.state === 'drop') continue;
       const dx = c.pos.x - this.pos.x, dz = c.pos.z - this.pos.z, d = Math.hypot(dx, dz);
-      if (d > 5 || (dx * fx + dz * fz) / (d || 1) < 0.2) continue;
+      if (d > 5.8 || (dx * fx + dz * fz) / (d || 1) < 0.2) continue;
       if (c.damage(38 * g.difficulty.dmgDealt, 3, 6, this.pos.x, this.pos.z, ++this.hitSerial)) {
         g.combat.registerHits(1, { big: true }, this);
         g.fx.hit(this._w.set(c.pos.x, c.pos.y + 2, c.pos.z), 0xffd49a, true);

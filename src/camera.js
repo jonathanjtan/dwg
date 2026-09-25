@@ -144,11 +144,7 @@ export class CameraRig {
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
       const x = lerp(this.target.x, p.x, t), y = lerp(this.target.y, p.y, t), z = lerp(this.target.z, p.z, t);
-      let hit = false;
-      for (const c of this.world.colliders) {
-        if (x > c.x0 - 0.4 && x < c.x1 + 0.4 && z > c.z0 - 0.4 && z < c.z1 + 0.4 && y < c.h + 0.5) { hit = true; break; }
-      }
-      if (hit) {
+      if (this.world.solidAt(x, y - 0.1, z, 0.4)) {
         const tt = Math.max(0.25, (i - 1) / steps);
         p.set(lerp(this.target.x, p.x, tt), lerp(this.target.y, p.y, tt), lerp(this.target.z, p.z, tt));
         break;

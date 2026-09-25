@@ -23,9 +23,9 @@ import { rand, wrapAngle } from './core/util.js';
 // dropEvery: KOs per repair kit / E-cap (halved when hurt); recover: share of damage that heals back if you avoid hits
 // reinforce: multiplier on the time between reinforcement squads
 const DIFFICULTY = {
-  easy: { dmgTaken: 0.6, dmgDealt: 1.2, enemyHp: 0.85, aggression: 0.7, speed: 0.9, maxAlive: 60, maxPress: 9, dropEvery: 14, recover: 0.65, reinforce: 1.3 },
-  normal: { dmgTaken: 1, dmgDealt: 1, enemyHp: 1, aggression: 1, speed: 1, maxAlive: 80, maxPress: 13, dropEvery: 20, recover: 0.5, reinforce: 1 },
-  hard: { dmgTaken: 1.5, dmgDealt: 0.9, enemyHp: 1.25, aggression: 1.4, speed: 1.15, maxAlive: 105, maxPress: 18, dropEvery: 30, recover: 0.3, reinforce: 0.75 },
+  easy: { dmgTaken: 0.6, dmgDealt: 1.2, enemyHp: 0.85, aggression: 0.7, speed: 0.9, maxAlive: 90, maxPress: 10, dropEvery: 20, recover: 0.65, reinforce: 1.3 },
+  normal: { dmgTaken: 1, dmgDealt: 1, enemyHp: 1, aggression: 1, speed: 1, maxAlive: 120, maxPress: 14, dropEvery: 28, recover: 0.5, reinforce: 1 },
+  hard: { dmgTaken: 1.5, dmgDealt: 0.9, enemyHp: 1.25, aggression: 1.4, speed: 1.15, maxAlive: 150, maxPress: 18, dropEvery: 40, recover: 0.3, reinforce: 0.75 },
 };
 const NO_INPUT = { move: { x: 0, y: 0 }, key: () => false };
 const savedSuit = () => {

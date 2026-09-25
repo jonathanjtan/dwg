@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ROADS } from '../world/world.js';
 import { portrait, loadPortraits, hasSheet, renderingFor, holdsTalk } from './portraits.js';
 
 const $ = (id) => document.getElementById(id);
@@ -407,7 +408,7 @@ export class HUD {
   drawMap() {
     const g = this.game;
     const ctx = this.mapCtx;
-    const W = 200, S = 200 / 150; // show ~150 units across
+    const W = 200, S = 200 / 190; // show ~190 units across
     const hero = g.local;
     const yaw = g.camera.yaw;
     ctx.clearRect(0, 0, W, W);
@@ -417,19 +418,28 @@ export class HUD {
     ctx.rotate(yaw + Math.PI);
     const tx = (x) => (x - hero.pos.x) * S;
     const tz = (z) => (z - hero.pos.z) * S;
-    // grid
-    ctx.strokeStyle = 'rgba(95,208,255,0.07)';
+    const B = g.world.bounds;
+    // boulevards
+    ctx.strokeStyle = 'rgba(95,208,255,0.1)';
+    ctx.lineWidth = 14 * S;
+    for (const v of ROADS) {
+      ctx.beginPath(); ctx.moveTo(tx(v), tz(-B)); ctx.lineTo(tx(v), tz(B)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(tx(-B), tz(v)); ctx.lineTo(tx(B), tz(v)); ctx.stroke();
+    }
+    // fields: the open battlefields
+    ctx.fillStyle = 'rgba(95,208,255,0.06)';
+    ctx.strokeStyle = 'rgba(95,208,255,0.3)';
     ctx.lineWidth = 1;
-    for (let v = -100; v <= 100; v += 26) {
-      ctx.beginPath(); ctx.moveTo(tx(v), tz(-104)); ctx.lineTo(tx(v), tz(104)); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(tx(-104), tz(v)); ctx.lineTo(tx(104), tz(v)); ctx.stroke();
+    for (const f of g.world.fields) {
+      ctx.fillRect(tx(f.x0), tz(f.z0), (f.x1 - f.x0) * S, (f.z1 - f.z0) * S);
+      ctx.strokeRect(tx(f.x0), tz(f.z0), (f.x1 - f.x0) * S, (f.z1 - f.z0) * S);
     }
     // buildings
     ctx.fillStyle = 'rgba(140,160,190,0.35)';
-    for (const c of g.world.colliders) ctx.fillRect(tx(c.x0), tz(c.z0), (c.x1 - c.x0) * S, (c.z1 - c.z0) * S);
+    for (const c of g.world.near(hero.pos.x, hero.pos.z, 150)) ctx.fillRect(tx(c.x0), tz(c.z0), (c.x1 - c.x0) * S, (c.z1 - c.z0) * S);
     // arena bound
     ctx.strokeStyle = 'rgba(255,90,90,0.5)';
-    ctx.strokeRect(tx(-104), tz(-104), 208 * S, 208 * S);
+    ctx.strokeRect(tx(-B), tz(-B), 2 * B * S, 2 * B * S);
     // landing zones: red while Zeon holds them, blue once taken
     for (const lz of g.lz.list) {
       if (lz.y > 0) continue;

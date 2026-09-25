@@ -44,7 +44,17 @@ window.bot = (frames, { render = false, stop = null, charge = 49 } = {}) => {
         const d = Math.hypot(c.pos.x - h.pos.x, c.pos.z - h.pos.z);
         if (d < bd + 12) { bd = d; best = { x: c.pos.x, z: c.pos.z }; }
       }
-      if (bd > 25) {
+      // landing zones: head for the nearest uncaptured one's squad leader unless a soldier is right in the way
+      if (bd > 7 && game.stage.phase === 'bases') {
+        let lzBest = null, lzd = 1e9;
+        for (const lz of game.lz.list) {
+          if (lz.captured || lz.y > 0) continue;
+          const tgt = lz.captain && lz.captain.alive ? lz.captain.pos : lz;
+          const d = Math.hypot(tgt.x - h.pos.x, tgt.z - h.pos.z);
+          if (d < lzd) { lzd = d; lzBest = { x: tgt.x, z: tgt.z }; }
+        }
+        if (lzBest) { best = lzBest; bd = lzd; }
+      } else if (bd > 25) {
         for (const lz of game.lz.list) {
           if (lz.captured || lz.y > 0) continue;
           const d = Math.hypot(lz.x - h.pos.x, lz.z - h.pos.z);

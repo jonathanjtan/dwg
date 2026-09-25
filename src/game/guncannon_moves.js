@@ -1,7 +1,8 @@
 // Guncannon moveset after Dynasty Warriors: Gundam Reborn's RX-77-2 (Kai Shiden): the right hand keeps the beam rifle,
 // the left fist and the feet do the close work, and the twin 240mm shoulder cannons do everything heavy. Reach was
-// measured off gameplay footage in heights (H ~ 3.4 units): punch arcs ~1.2 H, the giant swing ~1.8 H, cannon
-// blasts ~1 H across, the radial barrage bursting ~3 H out.
+// measured off gameplay footage in heights (H ~ 3.4 units): the swing arcs sweep ~1.2 H out, and as in the game the
+// blow lands a little past the arc (~1.5-1.7 H, level with the Gundam's saber) so it reaches into a crowd packed
+// around the suit; the giant swing ~1.9 H, cannon blasts ~1 H across, the radial barrage bursting ~3 H out.
 // Move fields as in moves.js, plus: tr: [[t0, t1, 'L' | 'R' | 'FL' | 'FR']] motion trails on the left fist, right fist or
 // a foot; can: cannon aim curve (0 barrels up, 1 levelled forward over the shoulders, >1 angled down); hold: where a
 // grabbed soldier is carried ('lift' overhead, 'swing' at arm's length while spinning); barrage: [t0, t1, every].
@@ -59,7 +60,7 @@ export const GC_MOVES = {
       k(0.18, { torso: [0.15, -0.7, 0], ...HOOK_IN, y: -0.25, ...LEGS_LUNGE_R }, 'snap'),
       k(0.5, { torso: [0.1, -0.45, 0], uArmL: [-0.5, -1.2, 0.9], fArmL: [-0.9, 0, 0], y: -0.2 }),
     ]),
-    hits: [{ t: 0.09, t1: 0.2, shape: 'arc', range: 4.3, arc: 150, dmg: 27, kb: 4, up: 1 }],
+    hits: [{ t: 0.09, t1: 0.2, shape: 'arc', range: 5.2, arc: 160, dmg: 27, kb: 4, up: 1 }],
     tr: [[0.06, 0.24, 'L']], sfx: 'punch', swing: 0.07,
   },
   N2: { // left backhand, swinging back out across the body
@@ -71,7 +72,7 @@ export const GC_MOVES = {
       k(0.17, { torso: [0.1, 0.75, 0], uArmL: [0, 0.3, 1.5], fArmL: [-0.1, 0, 0], y: -0.25, ...LEGS_LUNGE_L }, 'snap'),
       k(0.5, { torso: [0.1, 0.45, 0], uArmL: [-0.4, 0.2, 1.1], fArmL: [-0.8, 0, 0], y: -0.2 }),
     ]),
-    hits: [{ t: 0.07, t1: 0.18, shape: 'arc', range: 4.5, arc: 190, dmg: 27, kb: 4.5, up: 0 }],
+    hits: [{ t: 0.07, t1: 0.18, shape: 'arc', range: 5.3, arc: 200, dmg: 27, kb: 4.5, up: 0 }],
     tr: [[0.05, 0.22, 'L']], sfx: 'punch', swing: 0.07,
   },
   N3: { // stepping left straight
@@ -83,7 +84,7 @@ export const GC_MOVES = {
       k(0.17, { torso: [0.3, -0.45, 0], ...JAB, y: -0.35, ...LEGS_LUNGE_L }, 'snap'),
       k(0.48, { torso: [0.2, -0.3, 0], uArmL: [-1.2, -0.1, 0.2], fArmL: [-0.5, 0, 0], y: -0.3 }),
     ]),
-    hits: [{ t: 0.1, t1: 0.2, shape: 'arc', range: 4.8, arc: 90, dmg: 31, kb: 6.5, up: 0 }],
+    hits: [{ t: 0.1, t1: 0.2, shape: 'arc', range: 5.8, arc: 110, dmg: 31, kb: 6.5, up: 0 }],
     tr: [[0.08, 0.22, 'L']], sfx: 'punch', swing: 0.09,
   },
   N4: { // spinning back kick: turn away, the right leg drives out behind into the target, keep turning to face it
@@ -96,7 +97,7 @@ export const GC_MOVES = {
       k(0.4, { yaw: PI * 1.5, torso: [0.3, 0, 0], thighR: [0.4, 0, -0.1], shinR: [1.0, 0, 0] }),
       k(0.62, { yaw: PI * 2, torso: [0.1, -0.2, 0], y: -0.2, ...LEGS_WIDE }),
     ]),
-    hits: [{ t: 0.17, t1: 0.3, shape: 'arc', range: 4.8, arc: 170, dmg: 33, kb: 6, up: 1 }],
+    hits: [{ t: 0.17, t1: 0.3, shape: 'arc', range: 5.6, arc: 180, dmg: 33, kb: 6, up: 1 }],
     tr: [[0.14, 0.34, 'FR']], sfx: 'kick', swing: 0.14,
   },
   N5: { // left roundhouse: the body turns right and the leg sweeps round in front
@@ -109,7 +110,7 @@ export const GC_MOVES = {
       k(0.36, { yaw: -1.5, thighL: [-0.2, 0, 0.9], shinL: [0.8, 0, 0] }),
       k(0.58, { yaw: 0, torso: [0.1, -0.2, 0], uArmL: [-0.6, 0, 0.28], y: -0.2, ...LEGS_WIDE }),
     ]),
-    hits: [{ t: 0.1, t1: 0.25, shape: 'arc', range: 4.8, arc: 210, dmg: 33, kb: 5.5, up: 3 }],
+    hits: [{ t: 0.1, t1: 0.25, shape: 'arc', range: 5.6, arc: 220, dmg: 33, kb: 5.5, up: 3 }],
     tr: [[0.08, 0.3, 'FL']], sfx: 'kick', swing: 0.09,
   },
   N6: { // a thruster hop into a full spin with both arms out: throws everyone around it into the air
@@ -124,7 +125,7 @@ export const GC_MOVES = {
       k(0.78, { yaw: -PI * 2, torso: [0.2, 0, 0], uArmL: [-0.5, 0, 0.8], y: -0.35, ...LEGS_WIDE }),
       k(0.95, { yaw: -PI * 2, torso: [0.1, -0.1, 0], y: -0.2 }),
     ]),
-    hits: [{ t: 0.24, t1: 0.5, shape: 'arc', range: 5, arc: 360, hy: 5, dmg: 46, kb: 5, up: 10, big: true }],
+    hits: [{ t: 0.24, t1: 0.5, shape: 'arc', range: 6, arc: 360, hy: 5, dmg: 46, kb: 5, up: 10, big: true }],
     tr: [[0.2, 0.52, 'L'], [0.2, 0.52, 'R']], sfx: 'spin_gc', swing: 0.2,
   },
 
@@ -181,7 +182,7 @@ export const GC_MOVES = {
       k(1.1, { torso: [0.35, 0, 0], uArmL: [-0.6, 0, 0.4], fArmL: [-1.3, 0, 0], y: -0.45, ...LEGS_WIDE }),
       k(1.35, { torso: [0.1, -0.1, 0], y: -0.15 }),
     ]),
-    hits: [{ t: 0.28, t1: 0.44, shape: 'arc', range: 4.6, arc: 150, hy: 7, dmg: 44, kb: 2, up: 15, big: true }],
+    hits: [{ t: 0.28, t1: 0.44, shape: 'arc', range: 5.3, arc: 160, hy: 7, dmg: 44, kb: 2, up: 15, big: true }],
     tr: [[0.26, 0.5, 'L']],
     ev: [[0.02, 'flash', 'gold'], [1.1, 'land']],
     sfxs: [[0.26, 'uppercut']],
@@ -261,7 +262,7 @@ export const GC_MOVES = {
       k(2.55, { yaw: -PI * 8.05, torso: [0.25, 0, 0], uArmL: [-2.2, 0, 0.3], uArmR: [-2.2, 0, -0.3], y: -0.15, ...LEGS_LUNGE_L }, 'snap'),
       k(3.0, { yaw: -PI * 8, torso: [0.08, -0.12, 0], ...RIFLE_BACK, uArmL: [-0.6, 0, 0.28], fArmL: [-1.5, 0, 0], y: -0.15 }),
     ]),
-    hits: every(0.5, 2.4, 0.14, { shape: 'circle', range: 6, dmg: 12, kb: 6, up: 3.5 }),
+    hits: every(0.5, 2.4, 0.14, { shape: 'circle', range: 6.6, dmg: 12, kb: 6, up: 3.5 }),
     ev: [[0.0, 'flash', 'pink'], [0.28, 'grab'], ...times(0.55, 2.4, 0.3).map((t) => [t, 'whirl']), [2.42, 'throw', 'out']],
     sfxs: [[0.1, 'kick'], ...times(0.6, 2.4, 0.3).map((t) => [t, 'spin_gc']), [2.4, 'throw']],
   },
@@ -279,8 +280,8 @@ export const GC_MOVES = {
       k(0.36, { torso: [0.35, 0.5, 0], ...CHAMBER }),
     ]),
     hits: [
-      { t: 0.04, t1: 0.12, shape: 'arc', range: 4.4, arc: 150, dmg: 14, kb: 1.5, up: 0, pull: 1, stop: 1 },
-      { t: 0.22, t1: 0.31, shape: 'arc', range: 4.4, arc: 200, dmg: 14, kb: 1.5, up: 0, pull: 1, stop: 1 },
+      { t: 0.04, t1: 0.12, shape: 'arc', range: 5.1, arc: 170, dmg: 14, kb: 1.5, up: 0, pull: 1, stop: 1 },
+      { t: 0.22, t1: 0.31, shape: 'arc', range: 5.1, arc: 210, dmg: 14, kb: 1.5, up: 0, pull: 1, stop: 1 },
     ],
     tr: [[0.03, 0.34, 'L']],
     sfxs: [[0.03, 'punch'], [0.21, 'punch']],
@@ -296,7 +297,7 @@ export const GC_MOVES = {
       k(0.6, { torso: [0.3, 0, 0], uArmL: [-0.6, 0, 0.4], fArmL: [-1.3, 0, 0], y: -0.4, ...LEGS_WIDE }),
       k(0.8, { torso: [0.1, -0.1, 0], y: -0.15 }),
     ]),
-    hits: [{ t: 0.08, t1: 0.2, shape: 'arc', range: 4.6, arc: 180, hy: 6, dmg: 34, kb: 4, up: 12, big: true }],
+    hits: [{ t: 0.08, t1: 0.2, shape: 'arc', range: 5.3, arc: 190, hy: 6, dmg: 34, kb: 4, up: 12, big: true }],
     tr: [[0.06, 0.3, 'L']],
     ev: [[0.6, 'land']],
     sfxs: [[0.05, 'uppercut']],
@@ -317,7 +318,7 @@ export const GC_MOVES = {
       k(1.08, { pitch: -PI * 2, torso: [0.3, 0, 0], y: -0.5, ...LEGS_WIDE }),
       k(1.35, { pitch: -PI * 2, torso: [0.08, -0.12, 0], y: -0.15 }),
     ]),
-    hits: [{ t: 0.04, t1: 0.16, shape: 'arc', range: 4.6, arc: 200, hy: 6, dmg: 30, kb: 2, up: 14, big: true }],
+    hits: [{ t: 0.04, t1: 0.16, shape: 'arc', range: 5.3, arc: 210, hy: 6, dmg: 30, kb: 2, up: 14, big: true }],
     tr: [[0.03, 0.2, 'L']],
     ev: [[0.02, 'flash', 'pink'], [0.2, 'flash', 'red'], [1.08, 'land']],
     shots: [{ t: 0.5, kind: 'aa', side: 0 }, { t: 0.55, kind: 'aa', side: 1 }],
@@ -332,7 +333,7 @@ export const GC_MOVES = {
       k(0.16, { torso: [0.5, -0.4, 0], uArmL: [-1.1, -0.1, 0.1], fArmL: [0, 0, 0] }, 'snap'),
       k(0.5, { torso: [0.3, -0.2, 0], uArmL: [-0.9, 0, 0.3], fArmL: [-0.6, 0, 0] }),
     ]),
-    hits: [{ t: 0.06, t1: 0.2, shape: 'arc', range: 4.4, arc: 150, dmg: 26, kb: 4, up: 4, hy: 5 }],
+    hits: [{ t: 0.06, t1: 0.2, shape: 'arc', range: 5.1, arc: 160, dmg: 26, kb: 4, up: 4, hy: 5 }],
     tr: [[0.04, 0.22, 'L']], sfx: 'punch', swing: 0.05,
   },
   JC: { // both cannons fired down at the ground ahead mid-jump
@@ -370,8 +371,8 @@ export const GC_MOVES = {
       k(0.2, { torso: [0.3, 0.5, 0], ...CHAMBER }),
     ]),
     hits: [
-      ...every(0.04, 3.3, 0.06, { shape: 'arc', range: 4.6, arc: 110, dmg: 7, kb: 0.4, up: 0.2, pull: 1.3, sp: true }),
-      ...every(0.3, 3.3, 0.6, { shape: 'arc', range: 5, arc: 180, dmg: 10, kb: 1.5, up: 0.5, sp: true }),
+      ...every(0.04, 3.3, 0.06, { shape: 'arc', range: 5.3, arc: 160, dmg: 7, kb: 0.4, up: 0.2, pull: 1.3, sp: true }),
+      ...every(0.3, 3.3, 0.6, { shape: 'arc', range: 5.9, arc: 220, dmg: 10, kb: 1.5, up: 0.5, sp: true }),
     ],
     tr: [[0, 3.4, 'L']],
     sfxs: times(0, 3.3, 0.1).map((t) => [t + 0.02, 'punch_fast']),
@@ -386,7 +387,7 @@ export const GC_MOVES = {
       k(0.7, { torso: [0.3, -0.5, 0] }),
       k(0.95, { torso: [0.08, -0.12, 0], y: -0.15 }),
     ]),
-    hits: [{ t: 0.3, t1: 0.4, shape: 'line', len: 7, width: 3.4, hy: 5, dmg: 120, kb: 16, up: 8, big: true, sp: true }],
+    hits: [{ t: 0.3, t1: 0.4, shape: 'line', len: 8.5, width: 4.2, hy: 5, dmg: 120, kb: 16, up: 8, big: true, sp: true }],
     tr: [[0.26, 0.45, 'L']],
     ev: [[0.33, 'finpunch']],
     sfxs: [[0.3, 'uppercut']],

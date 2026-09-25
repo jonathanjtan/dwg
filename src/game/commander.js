@@ -78,6 +78,7 @@ export class Commander {
     this.invuln = 0;
     this.lie = 0;
     this.fired = 0;
+    this.nextShot = 0; // game time before which this commander won't open fire again
     this.hitDone = false;
     this.speed = cfg.speed;
     this.home = cfg.home || null; // squad leaders guard their landing zone
@@ -255,10 +256,12 @@ export class Commander {
           break;
         }
         if (heroOk && this.cd <= 0) {
+          // commanders mostly fight hand to hand; the machine gun comes out now and then, telegraphed by an aim line
+          const canShoot = g.time >= this.nextShot;
           if (dist > 16 && (isChar || Math.random() < 0.4)) {
-            if (Math.random() < (isChar ? 0.35 : 0.5)) { this.setState('aim'); this.fired = 0; }
+            if (canShoot && Math.random() < (isChar ? 0.3 : 0.35)) { this.setState('aim'); this.fired = 0; }
             else this.dash(toHero);
-          } else if (dist > 7 && Math.random() < (isChar ? 0.2 : 0.3)) {
+          } else if (dist > 7 && canShoot && Math.random() < (isChar ? 0.12 : 0.15)) {
             this.setState('aim'); this.fired = 0;
           } else {
             const list = COMBOS[this.kind];
@@ -347,26 +350,38 @@ export class Commander {
       case 'aim': {
         this.vel.x = damp(this.vel.x, 0, 8, dt);
         this.vel.z = damp(this.vel.z, 0, 8, dt);
-        this.heading = angleDamp(this.heading, toHero, 8, dt);
         this.rig.nodes.gun.visible = true;
         this.rig.nodes.hawk.visible = false;
         lerpPose(target, CSTANCE, AIM, Math.min(1, this.t / 0.2));
         const shots = isChar ? 8 : this.kind === 'captain' ? 4 : 6;
-        const start = isChar ? 0.35 : 0.55;
+        const start = isChar ? 0.6 : 0.85;
+        const lock = start - (isChar ? 0.45 : 0.6);
+        // track the target, then lock on and paint the aim line: the burst follows it
+        if (this.t < lock) {
+          this.heading = angleDamp(this.heading, toHero, 10, dt);
+          this.aimYaw = this.heading;
+          this.aimY = (hero.pos.y + 1.6 - 2.4) / Math.max(1, dist);
+        } else if (this.t - dt < lock) {
+          this.rig.root.updateMatrixWorld(true);
+          const from = this.rig.nodes.hand.localToWorld(this._v.set(0, 0, 1.2));
+          const L = dist + 8;
+          g.fx.aimLine(from, { x: from.x + Math.sin(this.aimYaw) * L, y: from.y + this.aimY * L, z: from.z + Math.cos(this.aimYaw) * L }, start - lock + shots * 0.1);
+        }
+        if (this.t >= lock) this.heading = angleDamp(this.heading, this.aimYaw, 20, dt);
         if (this.t > start && this.fired < shots && this.t >= start + this.fired * 0.1) {
           this.fired++;
           this.rig.root.updateMatrixWorld(true);
           const from = this.rig.nodes.hand.localToWorld(this._v.set(0, 0, 1.2));
-          const a = this.heading + rand(-0.04, 0.04);
-          const aimY = (hero.pos.y + 1.6 - from.y) / Math.max(1, dist);
-          g.projectiles.enemyBullet(from, new THREE.Vector3(Math.sin(a), aimY, Math.cos(a)).normalize(), isChar ? 1.4 : 1.1);
+          const a = this.aimYaw + rand(-0.03, 0.03);
+          g.projectiles.enemyBullet(from, new THREE.Vector3(Math.sin(a), this.aimY, Math.cos(a)).normalize(), isChar ? 1.4 : 1.1);
           target[P.uArmR * 3] -= 0.1;
         }
         if (this.t > start + shots * 0.1 + 0.3) {
           this.rig.nodes.gun.visible = false;
           this.rig.nodes.hawk.visible = true;
           this.setState('idle');
-          this.cd = rand(0.6, 1.4) * (isChar ? 0.6 : 1);
+          this.cd = rand(1.0, 1.8) * (isChar ? 0.6 : 1);
+          this.nextShot = g.time + rand(5, 8) * (isChar ? 0.6 : 1) / g.difficulty.aggression;
         }
         break;
       }
