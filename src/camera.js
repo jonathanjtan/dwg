@@ -18,7 +18,8 @@ export class CameraRig {
     this.show = null; // officer showcase: frame the new arrival over the hero's shoulder
     this.idleLook = 0;
     this.cine = null;
-    this.focus = null; // optional look-at blend target (e.g. a boss)
+    this.lockOn = null; // locked-on commander's position: the camera keeps it in frame beyond the pilot
+    this.lockK = 0;
     this._v = new THREE.Vector3();
     this._p = new THREE.Vector3();
   }
@@ -51,15 +52,16 @@ export class CameraRig {
 
   update(dt, rdt, heroPos, heroHeading, input, moving, crowdN = 0) {
     let manual = false;
+    const locked = !!this.lockOn && !this.show;
     if (input) {
       const sens = 0.0026;
       if (input.mouseDX || input.mouseDY) {
-        this.yaw -= input.mouseDX * sens;
+        if (!locked) this.yaw -= input.mouseDX * sens;
         this.pitch = clamp(this.pitch + input.mouseDY * sens * 0.8, -0.15, 1.1);
         manual = true;
       }
       if (input.look.x || input.look.y) {
-        this.yaw -= input.look.x * 2.6 * rdt;
+        if (!locked) this.yaw -= input.look.x * 2.6 * rdt;
         this.pitch = clamp(this.pitch + input.look.y * 1.6 * rdt, -0.15, 1.1);
         manual = true;
       }
@@ -67,7 +69,12 @@ export class CameraRig {
     }
     if (manual) { this.idleLook = 0; this.recenterTo = undefined; }
     else this.idleLook += rdt;
-    if (this.recenterTo !== undefined) {
+    // lock-on: swing round behind the pilot to face the locked commander
+    this.lockK = damp(this.lockK, locked ? 1 : 0, 5, rdt);
+    if (locked) {
+      this.recenterTo = undefined;
+      this.yaw = angleDamp(this.yaw, Math.atan2(this.lockOn.x - heroPos.x, this.lockOn.z - heroPos.z), 4.5, rdt);
+    } else if (this.recenterTo !== undefined) {
       this.yaw = angleDamp(this.yaw, this.recenterTo, 10, rdt);
       if (Math.abs(this.yaw - this.recenterTo) < 0.01) this.recenterTo = undefined;
     } else if (moving && !input?.locked && !input?.usingPad && this.idleLook > 0.6) {
@@ -86,6 +93,17 @@ export class CameraRig {
 
     let yaw = this.yaw, pitch = this.pitch, dist = this.dist, fov = this.fovBase;
     let lookX = 0, lookY = 0, lookZ = 0;
+    if (this.lockK > 0.001 && this.lockOn) {
+      // frame both: look a little toward the target, pull back as it gets further away
+      const L = this.lockOn, k = this.lockK;
+      const dx = L.x - heroPos.x, dz = L.z - heroPos.z, sep = Math.hypot(dx, dz) || 1;
+      const lead = Math.min(4, sep * 0.22) / sep;
+      lookX = dx * lead * k;
+      lookZ = dz * lead * k;
+      lookY = clamp((L.y - heroPos.y) * 0.35, -1, 3) * k;
+      dist *= 1 + clamp((sep - 10) / 45, 0, 0.3) * k;
+      pitch = lerp(pitch, Math.min(pitch, 0.24), k);
+    }
     if (this.show) {
       const s = this.show;
       s.t += rdt;

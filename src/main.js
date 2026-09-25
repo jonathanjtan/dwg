@@ -3,7 +3,7 @@ import { Post } from './post.js';
 import { Input, lockPointer } from './core/input.js';
 import { World } from './world/world.js';
 import { FX } from './fx/fx.js';
-import { Hero } from './game/hero.js';
+import { ROSTER, suitInfo } from './game/roster.js';
 import { Crowd } from './game/crowd.js';
 import { Commanders } from './game/commander.js';
 import { Combat } from './game/combat.js';
@@ -15,6 +15,7 @@ import { Tank } from './game/tank.js';
 import { Net, GRUNT_STATES, GF, LOCALNET } from './net/net.js';
 import { CameraRig } from './camera.js';
 import { HUD } from './ui/hud.js';
+import { SuitSelect } from './ui/select.js';
 import { Audio } from './audio/audio.js';
 import { rand, wrapAngle } from './core/util.js';
 
@@ -27,6 +28,9 @@ const DIFFICULTY = {
   hard: { dmgTaken: 1.5, dmgDealt: 0.9, enemyHp: 1.25, aggression: 1.4, speed: 1.15, maxAlive: 105, maxPress: 18, dropEvery: 30, recover: 0.3, reinforce: 0.75 },
 };
 const NO_INPUT = { move: { x: 0, y: 0 }, key: () => false };
+const savedSuit = () => {
+  try { return localStorage.getItem('gmusou.suit') || ROSTER[0].id; } catch (e) { return ROSTER[0].id; }
+};
 
 class Game {
   constructor() {
@@ -61,15 +65,17 @@ class Game {
     this.lz = new LandingZones(this);
     this.commanders = new Commanders(this);
     this.crowd = new Crowd(this);
-    this.hero = new Hero(this);
+    this.heroes = {};
+    this.players = [];
+    this.setSuit(savedSuit());
     this.tank = new Tank(this);
-    this.players = [this.hero];
-    this.local = this.hero;
     this.remoteInput = { x: 0, z: 0, mag: 0, edges: 0 };
     this.net = new Net(this);
     this.netEvent = (...e) => this.net.event(...e);
     this.localSpT = 0;
     this.hud = new HUD(this);
+    this.hud.setPilot(this.hero.suit.pilot);
+    this.select = new SuitSelect(this);
     this.stage = new Stage(this);
     this.stats = this.freshStats();
     this.combo = { count: 0, timer: 0, max: 0 };
@@ -108,6 +114,29 @@ class Game {
     return { kos: 0, time: 0, maxCombo: 0, damageTaken: 0, officers: 0 };
   }
 
+  // Switch the player's mobile suit (select screen, or a co-op guest following the host's pick). Each suit is built
+  // once and kept; only the chosen one is in the scene.
+  setSuit(id) {
+    const info = suitInfo(id);
+    const next = this.heroes[info.id] || (this.heroes[info.id] = new info.cls(this));
+    const prev = this.hero;
+    if (prev === next) return;
+    if (prev) {
+      next.reset();
+      next.pos.copy(prev.pos);
+      next.heading = prev.heading;
+      prev.attach(false);
+    }
+    next.attach(true);
+    this.hero = next;
+    this.players = this.players.length ? this.players.map((p) => (p === prev ? next : p)) : [next];
+    if (!this.local || this.local === prev) {
+      this.local = next;
+      this.hud?.setPilot(info.pilot);
+    }
+    if (this.net?.role !== 'guest') { try { localStorage.setItem('gmusou.suit', info.id); } catch (e) { /* private mode */ } }
+  }
+
   resize() {
     this.cam.aspect = innerWidth / innerHeight;
     this.cam.updateProjectionMatrix();
@@ -127,7 +156,7 @@ class Game {
         this.audio.play('ui');
       });
     }
-    $('launch').addEventListener('click', () => this.start());
+    $('launch').addEventListener('click', () => this.openSelect());
     $('resume').addEventListener('click', () => this.pause(false));
     $('restart').addEventListener('click', () => { this.pause(false); this.start(); });
     $('to-title').addEventListener('click', () => this.toTitle());
@@ -153,7 +182,9 @@ class Game {
     addEventListener('pointerdown', titleMusic);
     addEventListener('keydown', titleMusic);
     addEventListener('keydown', (e) => {
-      if (e.code === 'Enter' && this.mode === 'title') this.start();
+      if (e.repeat) return;
+      if (this.mode === 'select') this.select.key(e.code);
+      else if (e.code === 'Enter' && this.mode === 'title') this.openSelect();
       else if (e.code === 'Enter' && this.mode === 'results') this.start();
     });
   }
@@ -174,10 +205,29 @@ class Game {
     }
   }
 
+  // Title -> mobile suit select (the chosen suit stands in the title scene behind the panel).
+  openSelect() {
+    if (this.mode !== 'title') return;
+    this.audio.resume();
+    this.audio.play('ui');
+    this.mode = 'select';
+    document.getElementById('title').classList.add('hidden');
+    this.select.show();
+  }
+
+  closeSelect() {
+    if (this.mode !== 'select') return;
+    this.audio.play('ui');
+    this.select.hide();
+    this.mode = 'title';
+    document.getElementById('title').classList.remove('hidden');
+  }
+
   start() {
     this.audio.resume();
     this.audio.play('ui');
     this.audio.stopMusic();
+    this.select.hide();
     document.getElementById('title').classList.add('hidden');
     document.getElementById('results').classList.add('hidden');
     document.getElementById('pause').classList.add('hidden');
@@ -189,6 +239,7 @@ class Game {
     this.hud.reset();
     this.timers.length = 0;
     this.cutsceneT = 0;
+    this.lock = null;
     this.stats = this.freshStats();
     this.combo = { count: 0, timer: 0, max: 0 };
     this.hero.reset();
@@ -215,6 +266,8 @@ class Game {
   }
 
   toTitle() {
+    this.select.hide();
+    this.lock = null;
     document.getElementById('pause').classList.add('hidden');
     document.getElementById('results').classList.add('hidden');
     this.audio.stopMusic();
@@ -345,8 +398,45 @@ class Game {
     for (const p of this.players) p.invuln = Math.max(p.invuln, dur + 0.4);
     this.netEvent('showp', pos.x, pos.z, dur);
   }
+  // ---------- lock-on (commanders only: squad leaders, named officers, Char) ----------
+  lockable(c) {
+    return c && c.alive && c.state !== 'drop' && c.state !== 'dead' && c.state !== 'retreat' && c.rig.root.visible;
+  }
+
+  // R / middle click / R3: lock on to the commander nearest the middle of the view, or let go. With nobody to lock
+  // on to, it recentres the camera behind the pilot as before.
+  toggleLock() {
+    if (this.lock) { this.lock = null; this.audio.play('ui', { vol: 0.5, pitch: 0.8 }); return; }
+    const L = this.local.pos, fwd = this.camera.forward();
+    let best = null, bestScore = Infinity;
+    for (const c of this.commanders.list) {
+      if (!this.lockable(c)) continue;
+      const dx = c.pos.x - L.x, dz = c.pos.z - L.z, d = Math.hypot(dx, dz);
+      if (d > 60) continue;
+      const off = Math.acos(Math.max(-1, Math.min(1, (dx * fwd.x + dz * fwd.z) / (d || 1))));
+      const score = d * (1 + off * 1.5);
+      if (score < bestScore) { bestScore = score; best = c; }
+    }
+    if (!best) { this.camera.recenter(this.local.heading); return; }
+    this.lock = best;
+    this.audio.play('ui', { pitch: 1.3 });
+  }
+
+  updateLock() {
+    const c = this.lock;
+    if (c && (!this.lockable(c) || Math.hypot(c.pos.x - this.local.pos.x, c.pos.z - this.local.pos.z) > 75)) this.lock = null;
+    this.camera.lockOn = this.lock ? this.lock.pos : null;
+  }
+
+  // Where the local pilot's attacks aim while locked on (the hero asks through Hero.aimAt).
+  lockTarget(who) {
+    const c = this.lock;
+    if (!c || who !== this.local || !this.lockable(c)) return null;
+    return { x: c.pos.x, y: c.pos.y, z: c.pos.z };
+  }
+
   onHeroDeath() {
-    this.hud.announce('MISSION FAILED', 'THE GUNDAM HAS FALLEN', true);
+    this.hud.announce('MISSION FAILED', `THE ${suitInfo(this.hero.suit.id).unitShort} HAS FALLEN`, true);
     this.audio.stinger('defeat');
     this.netEvent('stinger', 'defeat');
     this.slowmo(0.25, 1.5);
@@ -357,8 +447,8 @@ class Game {
     this.stage.onHeroLanded();
   }
   onMusou(who = this.hero) {
-    if (who === this.local) this.localMusou(who === this.tank ? 'hayato' : 'amuro');
-    else this.hud.toast(who === this.tank ? 'HAYATO: FULL BURST!' : 'AMURO: SP ATTACK!', '#ffd1f1');
+    if (who === this.local) this.localMusou(who === this.tank ? 'hayato' : who.suit.pilot);
+    else this.hud.toast(who === this.tank ? 'HAYATO: FULL BURST!' : `${suitInfo(who.suit.id).pilotName.split(' ')[0]}: SP ATTACK!`, '#ffd1f1');
     // freezing the world only makes sense solo
     if (who === this.hero && this.players.length === 1) this.worldSlowT = 1.0;
     this.audio.duckMusic(0.35, 0.8);
@@ -438,7 +528,8 @@ class Game {
     this.local = this.hero;
     this.players = [this.hero];
     this.tank.remove();
-    this.hud.setPilot('amuro');
+    this.hud.setPilot(this.hero.suit.pilot);
+    this.select = new SuitSelect(this);
     history.replaceState(null, '', location.pathname);
     document.getElementById('lobby').classList.add('hidden');
     document.getElementById('results').classList.add('hidden');
@@ -504,6 +595,7 @@ class Game {
 
   applySnapshot(d) {
     if (d.mode === 'play' && this.mode === 'lobby') this.enterGuestPlay();
+    if (d.hero.suit && d.hero.suit !== this.hero.suit.id) this.setSuit(d.hero.suit);
     this.netAge = 0;
     const stash = (obj, s) => {
       obj.net = obj.net || { pose: new Float32Array(s.pose.length), npose: new Float32Array(s.pose.length) };
@@ -542,7 +634,7 @@ class Game {
       else if (tag === 'shake') this.camera.shake(name);
       else if (tag === 'sp') {
         if (name === 'tank') this.localMusou('hayato');
-        else this.hud.toast('AMURO: SP ATTACK!', '#ffd1f1');
+        else this.hud.toast(`${suitInfo(this.hero.suit.id).pilotName.split(' ')[0]}: SP ATTACK!`, '#ffd1f1');
       } else if (tag === 'stinger') this.audio.stinger(name);
       else if (tag === 'show') {
         const c = this.commanders.list.find((x) => x.netId === name);
@@ -566,6 +658,8 @@ class Game {
     }
     if (act.mute) document.getElementById('mute-btn').textContent = this.audio.toggleMute() ? 'SOUND: OFF' : 'SOUND: ON';
     if (act.recenter) this.camera.recenter(this.tank.heading);
+    if (act.lock) this.toggleLock();
+    this.updateLock();
     this.time += rdt;
     this.localSpT = Math.max(0, this.localSpT - rdt);
     const menuOpen = !document.getElementById('pause').classList.contains('hidden');
@@ -619,7 +713,8 @@ class Game {
     const act = this.input.poll();
 
     if (this.mode === 'guest') return this.guestFrame(rdt, act);
-    if (this.mode === 'title' || this.mode === 'lobby') {
+    if (this.mode === 'select') this.select.pad(act, this.input.move.x, rdt);
+    if (this.mode === 'title' || this.mode === 'lobby' || this.mode === 'select') {
       if (this.net.role === 'host') this.net.hostTick(rdt);
       this.audio.loops(0, 0, 0);
       this.titleT += rdt;
@@ -651,6 +746,8 @@ class Game {
     }
     if (act.help) this.hud.toggleKeys();
     if (act.recenter) this.camera.recenter(this.local.heading);
+    if (act.lock && this.mode === 'play') this.toggleLock();
+    this.updateLock();
 
     if (this.mode === 'paused' || this.mode === 'results') {
       if (this.net.role === 'host') this.net.hostTick(rdt);

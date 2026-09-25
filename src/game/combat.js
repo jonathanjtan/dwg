@@ -1,4 +1,4 @@
-// Hit resolution between the Gundam and everything Zeon.
+// Hit resolution between the player suits and everything Zeon.
 import * as THREE from 'three';
 import { wrapAngle } from '../core/util.js';
 
@@ -30,7 +30,7 @@ export class Combat {
       if (score < bestScore) { bestScore = score; best = obj; }
     };
     const near = g.crowd.grid.query(pos.x, pos.z, range, this.tmp);
-    for (const e of near) if (e.alive && e.state !== 'dying' && e.state !== 'drop') consider(e.x, e.z, e, 1);
+    for (const e of near) if (e.alive && e.state !== 'dying' && e.state !== 'drop' && e.state !== 'held') consider(e.x, e.z, e, 1);
     for (const c of g.commanders.list) if (c.alive && c.state !== 'drop') consider(c.pos.x, c.pos.z, { x: c.pos.x, z: c.pos.z }, 0.7);
     return best;
   }
@@ -62,13 +62,13 @@ export class Combat {
     let hits = 0;
     const dmgMul = g.difficulty.dmgDealt * (hero.state === 'musou' ? 1 : 1);
     for (const e of near) {
-      if (!e.alive || e.state === 'dying' || e.state === 'drop') continue;
+      if (!e.alive || e.state === 'dying' || e.state === 'drop' || e.state === 'held') continue;
       if (!this.inShape(spec, hx, hy, hz, h, e.x, e.y, e.z, e.radius)) continue;
       const radial = spec.shape === 'circle' || (spec.arc || 0) >= 360;
       const ok = g.crowd.damage(e, spec.dmg * dmgMul, spec.kb, spec.up, hx, hz, id, { pull: spec.pull ? spec.pull : 0, big: spec.big, radial });
       if (!ok) continue;
       hits++;
-      this.hitFx(e.x, e.y + 1.8, e.z, spec, hits);
+      this.hitFx(e.x, e.y + 1.8, e.z, spec, hits, false, hero);
     }
     for (const c of g.commanders.list) {
       if (!c.alive) continue;
@@ -76,20 +76,22 @@ export class Combat {
       const ok = c.damage(spec.dmg * dmgMul * (spec.sp ? 0.6 : 1), spec.kb, spec.up, hx, hz, id, { sp: spec.sp });
       if (!ok) continue;
       hits++;
-      this.hitFx(c.pos.x, c.pos.y + 1.9, c.pos.z, spec, hits, true);
+      this.hitFx(c.pos.x, c.pos.y + 1.9, c.pos.z, spec, hits, true, hero);
     }
     if (hits) this.registerHits(hits, spec, hero);
     return hits;
   }
 
-  hitFx(x, y, z, spec, n, boss = false) {
+  // Sparks and a crunch per victim; each suit has its own hit colour and sound (saber burns, fists crunch).
+  hitFx(x, y, z, spec, n, boss = false, hero = this.game.hero) {
     const g = this.game;
     const p = this._v.set(x, y, z);
-    if (n <= 12 || Math.random() < 0.3) g.fx.hit(p, SABER, !!spec.big || boss);
+    const su = hero.suit || {};
+    if (n <= 12 || Math.random() < 0.3) g.fx.hit(p, su.hitColor ?? SABER, !!spec.big || boss);
     if (n <= 6) g.fx.debris(p, 2, [0x3e6a3c, 0x78a85a, 0x4b5049], 6, 0.14);
     if (this.hitSfxBudget >= 1) {
       this.hitSfxBudget -= 1;
-      g.audio.play(spec.big || boss ? 'hit_heavy' : 'hit', { vol: boss ? 0.8 : 0.55, pitch: 0.94 + Math.random() * 0.12 });
+      g.audio.play(spec.big || boss ? su.hitSfxHeavy ?? 'hit_heavy' : su.hitSfx ?? 'hit', { vol: boss ? 0.8 : 0.55, pitch: 0.94 + Math.random() * 0.12 });
     }
   }
 
@@ -107,13 +109,13 @@ export class Combat {
   }
 
   // Area blast (Guntank shells and missiles): damage falls off toward the edge.
-  aoe(who, x, y, z, r, dmg, kb, up, id, big = false) {
+  aoe(who, x, y, z, r, dmg, kb, up, id, big = false, sp = false) {
     const g = this.game;
     const near = g.crowd.grid.query(x, z, r + 1, this.tmp);
     let hits = 0;
     const mul = g.difficulty.dmgDealt;
     for (const e of near) {
-      if (!e.alive || e.state === 'dying' || e.state === 'drop') continue;
+      if (!e.alive || e.state === 'dying' || e.state === 'drop' || e.state === 'held') continue;
       const d = Math.hypot(e.x - x, e.z - z);
       if (d > r + e.radius * 0.5 || Math.abs(e.y - y) > r + 2) continue;
       const f = 1 - 0.5 * Math.min(1, d / r);
@@ -126,7 +128,7 @@ export class Combat {
       if (!c.alive || Math.hypot(c.pos.x - x, c.pos.z - z) > r + 1) continue;
       if (c.damage(dmg * 0.8 * mul, kb, up, x, z, id)) hits++;
     }
-    if (hits) this.registerHits(hits, { big }, who);
+    if (hits) this.registerHits(hits, { big, sp }, who);
     return hits;
   }
 
@@ -145,7 +147,7 @@ export class Combat {
       return px * px + py * py * 0.5 + pz * pz < (radius + r) * (radius + r);
     };
     for (const e of near) {
-      if (!e.alive || e.state === 'dying' || e.state === 'drop') continue;
+      if (!e.alive || e.state === 'dying' || e.state === 'drop' || e.state === 'held') continue;
       if (test(e.x, e.y + 1.7, e.z, e.radius)) onHit(e, false);
     }
     for (const c of g.commanders.list) {

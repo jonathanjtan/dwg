@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Gundam Musou: Side 7</title>
-<meta name="description" content="A voxel Dynasty Warriors: Gundam tribute in three.js. Amuro and the RX-78-2 versus a Zeon invasion of Side 7.">
+<meta name="description" content="A voxel Dynasty Warriors: Gundam tribute in three.js. The RX-78-2 Gundam and RX-77-2 Guncannon versus a Zeon invasion of Side 7.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Russo+One&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
@@ -60,6 +60,7 @@
       <div class="dlg-body"><div id="dlg-name"></div><div id="dlg-text"></div></div>
     </div>
 
+    <div id="lockon" class="hidden"><div class="lk-ring"></div><div class="lk-name"></div></div>
     <div id="objmarker" class="hidden"><div class="om-arrow"></div><div class="om-body"><span id="om-label"></span><span id="om-dist"></span></div></div>
     <div id="namecard" class="hidden"><div class="nc-band"></div><div class="nc-text"><div class="nc-tag">ENEMY COMMANDER</div><div id="nc-jp"></div><div id="nc-en"></div><div id="nc-unit"></div></div></div>
     <div id="announce"></div>
@@ -67,8 +68,8 @@
     <div id="tags"></div>
     <div id="keys">
       <span><b>WASD</b> move</span><span><b>J</b>/<b>LMB</b> attack</span><span><b>K</b>/<b>RMB</b> charge (hold: charge shot)</span>
-      <span><b>Space</b> jump (hold: hover)</span><span><b>L</b>/<b>Shift</b> boost (hold: dash)</span><span><b>I</b>/<b>F</b> SP (hold: hammer)</span>
-      <span><b>Q E</b>/mouse camera</span><span><b>H</b> hide</span>
+      <span><b>Space</b> jump (hold: hover)</span><span><b>L</b>/<b>Shift</b> boost (hold: dash)</span><span><b>I</b>/<b>F</b> SP (hold: charge SP)</span>
+      <span><b>R</b>/<b>MMB</b> lock on</span><span><b>Q E</b>/mouse camera</span><span><b>H</b> hide</span>
     </div>
   </div>
 
@@ -86,8 +87,8 @@
       <div class="logo-sub">VOXEL WARRIORS · SIDE 7 INCIDENT</div>
       <div class="mission">
         <div class="mission-tag">MISSION 01</div>
-        <div class="mission-name">Amuro vs. the Zaku raid</div>
-        <div class="mission-desc">Zeon has breached Side 7. Board the RX-78-2, clear the plaza, take the three Zeon landing zones, defeat their commanders, and drive off the Red Comet.</div>
+        <div class="mission-name">The Zaku raid</div>
+        <div class="mission-desc">Zeon has breached Side 7. Take out the Gundam or the Guncannon, clear the plaza, take the three Zeon landing zones, defeat their commanders, and drive off the Red Comet.</div>
       </div>
       <div class="diff" id="diff">
         <button data-d="easy">EASY</button><button data-d="normal" class="on">NORMAL</button><button data-d="hard">HARD</button>
@@ -105,12 +106,23 @@
       <div class="controls">
         <div><b>WASD</b> Move</div><div><b>J / Left click</b> Attack</div>
         <div><b>K / Right click</b> Charge attack · hold to charge shot</div><div><b>Space</b> Jump · hold to hover</div>
-        <div><b>L / Shift</b> Boost · hold to dash</div><div><b>I / F</b> SP attack · hold for the hammer</div>
-        <div><b>Mouse / Q E</b> Camera</div><div><b>Esc</b> Pause · <b>M</b> Mute</div>
+        <div><b>L / Shift</b> Boost · hold to dash</div><div><b>I / F</b> SP attack · hold for the charge SP</div>
+        <div><b>Mouse / Q E</b> Camera</div><div><b>R / Middle click</b> Lock on to a commander</div>
+        <div><b>Esc</b> Pause · <b>M</b> Sound</div>
       </div>
-      <div class="combo-guide">Amuro's DW: Gundam Reborn moveset. Charge attacks change with how far into the combo you are: <b>K</b> fires the beam rifle (mash it, or hold for a charge shot), <b>J K</b> launches and spears with the beam javelin, <b>J J K</b> empties the hyper bazooka, <b>J J J K</b> slashes and dashes through, <b>J J J J K</b> rises with a crescent cut, <b>J J J J J K</b> stabs the ground for a shockwave. Boost then <b>J</b> for a dash rush, <b>K</b> for a point-blank bazooka.</div>
+      <div class="combo-guide">Two suits from DW: Gundam Reborn: Amuro's <b>RX-78-2 Gundam</b> and Kai's <b>RX-77-2 Guncannon</b>. Charge attacks change with how far into the combo you are: <b>K</b>, <b>J K</b>, <b>J J K</b> and so on up to <b>J J J J J K</b>. Boost, then <b>J</b> or <b>K</b>, for dash attacks.</div>
     </div>
     <div class="credit">Fan-made tribute. Not affiliated with Sotsu, Sunrise or Bandai Namco. Inspired by <a href="https://github.com/mike007jd/voxel-musou" target="_blank" rel="noopener">voxel-musou</a>.</div>
+  </div>
+
+  <div id="select" class="screen hidden">
+    <div class="sel-inner">
+      <div class="sel-head"><span class="sel-jp">機体選択</span><span class="sel-title">MOBILE SUIT SELECT</span></div>
+      <div id="sel-cards"></div>
+      <div id="sel-detail"></div>
+      <div class="row sel-buttons"><button id="sel-go" class="big">SORTIE</button><button id="sel-back" class="sel-back">BACK</button></div>
+      <div class="hint">A / D or ← → to choose · Enter to sortie · Esc to go back</div>
+    </div>
   </div>
 
   <div id="lobby" class="screen hidden">

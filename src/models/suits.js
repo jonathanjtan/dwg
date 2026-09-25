@@ -225,6 +225,151 @@ export function gundamDef() {
   };
 }
 
+// ---------------- RX-77-2 Guncannon ----------------
+// Red and bulky, teal joints, a cream helmet with a green visor, and twin 240mm cannons on the backpack (their own
+// node, so they can swing down over the shoulders to fire).
+const GC = {
+  R: 0xc8342a, R2: 0x9c2821, T: 0x3f8f8c, T2: 0x2e6b69, K: 0x565c69, K2: 0x3a3f49, K3: 0x24272d,
+  C: 0xe2ddcf, C2: 0xb9b4a6,
+};
+
+function gcHips() {
+  const m = M();
+  m.sbox(4, -2, -2, 1, 1, GC.R);
+  m.sbox(4, 1, -2, 1, 2, GC.T2); // belt
+  m.box(-1, -3, -1, 0, 0, 2, GC.K2); // crotch
+  m.box(-5, -4, 2, -2, 0, 3, GC.R); // front skirts
+  m.box(1, -4, 2, 4, 0, 3, GC.R);
+  m.box(-5, -4, 3, -2, -4, 3, GC.R2);
+  m.box(1, -4, 3, 4, -4, 3, GC.R2);
+  m.box(-6, -3, -2, -6, 0, 1, GC.R); // side skirts
+  m.box(5, -3, -2, 5, 0, 1, GC.R);
+  m.box(-4, -3, -3, 3, 0, -3, GC.R2); // rear
+  return m;
+}
+
+function gcTorso() {
+  const m = M();
+  m.sbox(4, 0, -2, 1, 2, GC.T2); // abdomen
+  m.sbox(6, 2, -3, 7, 3, GC.R); // chest
+  m.clearBox(-6, 7, -3, -6, 7, 3);
+  m.clearBox(5, 7, -3, 5, 7, 3);
+  m.sbox(5, 3, 4, 6, 4, GC.R2); // chest plate
+  m.box(-2, 3, 4, 1, 5, 4, GC.K2); // hatch
+  m.box(-2, 6, 4, 1, 6, 4, GC.C2);
+  for (const x0 of [-5, 3]) m.box(x0, 4, 4, x0 + 1, 6, 4, GC.K3); // intakes
+  m.sbox(3, 8, -2, 8, 2, GC.R2); // collar
+  // backpack
+  m.sbox(4, 1, -7, 8, -4, GC.K2);
+  m.sbox(3, 2, -8, 6, -8, GC.K);
+  m.box(-3, 1, -8, -2, 1, -7, GC.K3); // nozzles
+  m.box(1, 1, -8, 2, 1, -7, GC.K3);
+  return m;
+}
+
+// Twin 240mm cannons, barrels pointing up from the backpack (pivot at the mount).
+function gcCannons() {
+  const m = M();
+  for (const x0 of [-5, 3]) {
+    m.box(x0, 0, -2, x0 + 1, 3, 1, GC.K2); // breech
+    m.box(x0, 4, -1, x0 + 1, 13, 0, GC.K); // barrel
+    m.box(x0, 8, -1, x0 + 1, 8, 0, GC.K2);
+    m.box(x0, 13, -1, x0 + 1, 13, 0, GC.K3); // muzzle
+  }
+  m.box(-3, 1, -1, 2, 2, 0, GC.K3); // cross mount
+  return m;
+}
+
+function gcHead() {
+  const m = M();
+  m.box(-2, 0, -2, 1, 4, 1, GC.C); // helmet
+  m.box(-2, 5, -1, 1, 5, 0, GC.C2); // crown
+  m.box(-3, 1, -2, -3, 3, 0, GC.C); // ear blocks
+  m.box(2, 1, -2, 2, 3, 0, GC.C);
+  m.set(-3, 2, 1, GC.T);
+  m.set(2, 2, 1, GC.T);
+  m.box(-2, 0, 2, 1, 1, 2, GC.K2); // mouth grille
+  m.box(-2, 2, 2, 1, 2, 2, 0x7affbe, { glow: 1.8, jitter: 0 }); // visor
+  m.box(-2, 3, 2, 1, 4, 2, GC.C);
+  m.box(-1, 5, -2, 0, 6, -2, GC.C2); // rear sensor
+  return m;
+}
+
+function gcUpperArmR() {
+  const m = M();
+  m.box(-3, -1, -3, 1, 2, 2, GC.R); // boxy shoulder block
+  m.box(-3, 2, -3, 1, 2, 2, GC.R2);
+  m.box(-4, -1, -2, -4, 1, 1, GC.T); // side joint
+  m.box(-1, -5, -1, 0, -2, 0, GC.T2);
+  m.box(-2, -4, -2, 1, -2, 1, GC.R);
+  return m;
+}
+function gcForeArmR() {
+  const m = M();
+  m.box(-1, -1, -1, 0, 0, 0, GC.T); // elbow
+  m.box(-2, -5, -2, 1, -1, 1, GC.R);
+  m.box(-2, -5, -2, 1, -5, 1, GC.R2);
+  m.box(-2, -8, -2, 1, -6, 1, GC.K2); // fist
+  m.box(-2, -6, 2, 1, -6, 2, GC.K); // knuckles
+  return m;
+}
+function gcThigh() {
+  const m = M();
+  m.box(-1, -1, -1, 0, 0, 0, GC.T2);
+  m.sbox(2, -7, -2, -1, 2, GC.R);
+  m.sbox(2, -3, -2, -3, 2, GC.R2);
+  return m;
+}
+function gcShin() {
+  const m = M();
+  m.sbox(2, -2, -2, 0, 1, GC.T); // knee joint
+  m.box(-2, -2, 2, 1, 0, 2, GC.T);
+  m.sbox(3, -6, -3, -3, 2, GC.R); // heavy calf
+  m.sbox(3, -6, -3, -6, -3, GC.R2);
+  m.sbox(3, -8, -3, -7, 3, GC.R); // foot
+  m.sbox(3, -8, 4, -8, 4, GC.R2);
+  m.sbox(3, -8, -4, -7, -4, GC.K2);
+  m.sbox(3, -8, -3, -8, 3, GC.K2); // sole
+  return m;
+}
+
+export function guncannonWeapons() {
+  const rifle = M();
+  rifle.box(-1, -1, -3, 0, 1, 7, 0x363b46); // body
+  rifle.box(-1, 2, -1, 0, 2, 4, 0x4a505c);
+  rifle.box(0, -1, 8, 0, 0, 14, 0x4a505c); // barrel
+  rifle.box(-1, -1, 14, 0, 0, 14, 0x24272d);
+  rifle.box(-1, -4, 1, 0, -2, 2, 0x24272d); // grip
+  rifle.box(-2, 2, 1, -2, 3, 2, 0x4a505c); // sensor
+  rifle.set(-2, 3, 3, 0xffa040, { glow: 2, jitter: 0 });
+  return { rifle };
+}
+
+export function guncannonDef() {
+  const uR = gcUpperArmR(), fR = gcForeArmR();
+  const thigh = gcThigh(), shin = gcShin();
+  return {
+    scale: 0.1,
+    hipHeight: 16,
+    parts: {
+      hips: { parent: null, pivot: [0, 0, 0], model: gcHips() },
+      torso: { parent: 'hips', pivot: [0, 2, 0], model: gcTorso() },
+      cannons: { parent: 'torso', pivot: [0, 8, -5], model: gcCannons() },
+      head: { parent: 'torso', pivot: [0, 9, 0.5], model: gcHead() },
+      uArmR: { parent: 'torso', pivot: [-7.5, 6, 0], model: uR },
+      fArmR: { parent: 'uArmR', pivot: [0, -5, 0], model: fR },
+      hand: { parent: 'fArmR', pivot: [0, -7, 0], model: null },
+      uArmL: { parent: 'torso', pivot: [7.5, 6, 0], model: uR.clone().flipX() },
+      fArmL: { parent: 'uArmL', pivot: [0, -5, 0], model: fR.clone().flipX() },
+      handL: { parent: 'fArmL', pivot: [0, -7, 0], model: null },
+      thighR: { parent: 'hips', pivot: [-2.4, -1, 0], model: thigh },
+      shinR: { parent: 'thighR', pivot: [0, -7, 0], model: shin },
+      thighL: { parent: 'hips', pivot: [2.4, -1, 0], model: thigh.clone() },
+      shinL: { parent: 'thighL', pivot: [0, -7, 0], model: shin.clone() },
+    },
+  };
+}
+
 // ---------------- MS-06 Zaku II ----------------
 export const Z = {
   DG: 0x3e6a3c, LG: 0x78a85a, J: 0x4b5049, P: 0x676f64, P2: 0x3a4039, SL: 0x151716,

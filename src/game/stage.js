@@ -4,6 +4,37 @@ import { commanderDef, charDef, captainDef, CMD_COLORS, CHAR_COLORS, CAPT_COLORS
 import { rand, randi } from '../core/util.js';
 import { ARENA } from '../world/world.js';
 import { LZ_SITES } from './bases.js';
+import { suitInfo } from './roster.js';
+
+// Radio chatter that depends on who is flying: Amuro in the Gundam, or Kai in the Guncannon.
+const LINES = {
+  amuro: {
+    order: 'Zeon mobile suits are inside the colony! Amuro, get that Gundam moving!',
+    launch: 'I can pilot it. I know I can. Gundam, launching!',
+    hayato: "Guntank's rolling out too! I'll cover you from the back, Amuro!",
+    bases: 'Three of them... Right. One at a time.',
+    denim: 'It moved just like the manual said. I did it!',
+    zone: 'Good work, Amuro! Their supply line is cracking. Keep moving!',
+    warn: 'Amuro! A red mobile suit is closing fast. Three times faster than the others!',
+    char: "So this is the Federation's new mobile suit. Show me what it can do.",
+    meet: "A red one... it's fast! I can't let it get past me!",
+    kit: "Amuro, we've dropped you a repair kit. Finish this!",
+    bye: "Hmph. The pilot learns fast. We'll meet again, Gundam.",
+  },
+  kai: {
+    order: 'Zeon mobile suits are inside the colony! Kai, get the Guncannon out there!',
+    launch: "Yeah, yeah, I'm going. Guncannon, heading out!",
+    hayato: "Guntank's rolling out too! I've got your back, Kai!",
+    bases: 'Three landing zones? You have got to be kidding me...',
+    denim: 'Heh. Not bad for a guy who never wanted to be here.',
+    zone: 'Good work, Kai! Their supply line is cracking. Keep moving!',
+    warn: 'Kai! A red mobile suit is closing fast. Three times faster than the others!',
+    char: 'A Federation artillery suit... Let us see what it can do.',
+    meet: 'The Red Comet?! Great. Just great... Fine. Eat 240 millimeters!',
+    kit: "Kai, we've dropped you a repair kit. Finish this!",
+    bye: "Hmph. The Federation has more than one good pilot. We'll meet again.",
+  },
+};
 
 const TAU = Math.PI * 2;
 const PLAZA_KOS = 30;
@@ -52,12 +83,22 @@ export class Stage {
     this.zonesTaken = 0;
   }
 
+  // The pilot's radio lines and name card for the current suit.
+  get lines() {
+    return LINES[this.game.hero.suit.pilot] || LINES.amuro;
+  }
+
+  pilotSay(key, dur) {
+    const g = this.game, info = suitInfo(g.hero.suit.id);
+    g.hud.say(info.pilot, info.pilotName, this.lines[key], dur);
+  }
+
   begin() {
     const g = this.game;
     this.reset();
     this.phase = 'launch';
-    g.hud.say('bright', 'BRIGHT NOA', 'Zeon mobile suits are inside the colony! Amuro, get that Gundam moving!', 3.4);
-    g.hud.say('amuro', 'AMURO RAY', 'I can pilot it. I know I can. Gundam, launching!', 3.0);
+    g.hud.say('bright', 'BRIGHT NOA', this.lines.order, 3.4);
+    this.pilotSay('launch', 3.0);
     // the plaza garrison: four squads spread around the fountain ring
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * TAU + 0.45;
@@ -133,7 +174,7 @@ export class Stage {
   onHeroLanded() {
     const g = this.game;
     if (this.phase !== 'launch') return;
-    if (g.players.length > 1) g.hud.say('hayato', 'HAYATO KOBAYASHI', "Guntank's rolling out too! I'll cover you from the back, Amuro!", 3.2);
+    if (g.players.length > 1) g.hud.say('hayato', 'HAYATO KOBAYASHI', this.lines.hayato, 3.2);
     this.phase = 'plaza';
     this.t = 0;
     this.huntT = 8;
@@ -172,7 +213,7 @@ export class Stage {
     g.hud.announce('ZEON LANDING ZONES', 'DEFEAT THEIR SQUAD LEADERS', true);
     g.hud.setObjective(`Capture the landing zones · 0/${LZ_SITES.length}`);
     g.hud.say('bright', 'BRIGHT NOA', "They're dropping supply pods all over Side 7! Take out each squad leader and the landing zone falls.", 4.0);
-    g.hud.say('amuro', 'AMURO RAY', 'Three of them... Right. One at a time.', 2.6);
+    this.pilotSay('bases', 2.6);
     const zones = LZ_SITES.map((site, i) => g.lz.add(site, 0.6 + i * 0.7));
     // watch the nearest pod come down out of the colony sky
     const h = g.hero.pos;
@@ -198,11 +239,11 @@ export class Stage {
     if (c.kind === 'captain') return this.onZoneTaken(c.lz);
     if (c.name === 'denim') {
       g.hud.say('denim', 'DENIM', "Impossible! Its armor shrugged off my heat hawk...", 2.6);
-      g.hud.say('amuro', 'AMURO RAY', 'It moved just like the manual said. I did it!', 2.6);
+      this.pilotSay('denim', 2.6);
     } else if (c.name === 'gene') {
       g.hud.say('gene', 'GENE', 'No... not like this!', 2.2);
     } else if (c.name === 'char') {
-      g.hud.say('char', 'CHAR AZNABLE', "Hmph. The pilot learns fast. We'll meet again, Gundam.", 3.4);
+      g.hud.say('char', 'CHAR AZNABLE', this.lines.bye, 3.4);
     }
   }
 
@@ -217,7 +258,7 @@ export class Stage {
     g.audio.play('capture');
     g.hud.announce(`LANDING ZONE ${lz.name} SECURED`, left ? `${left} REMAINING` : 'ALL ZONES CAPTURED');
     g.hud.setObjective(`Capture the landing zones · ${this.zonesTaken}/${LZ_SITES.length}`);
-    if (this.zonesTaken === 1) g.hud.say('bright', 'BRIGHT NOA', 'Good work, Amuro! Their supply line is cracking. Keep moving!', 3.0);
+    if (this.zonesTaken === 1) g.hud.say('bright', 'BRIGHT NOA', this.lines.zone, 3.0);
     if (left === 0) {
       this.phase = 'predenim';
       this.t = 0;
@@ -257,7 +298,7 @@ export class Stage {
       this.phase = 'prechar';
       this.t = 0;
       g.hud.setObjective('Hold the plaza');
-      g.hud.say('bright', 'BRIGHT NOA', 'Amuro! A red mobile suit is closing fast. Three times faster than the others!', 3.4);
+      g.hud.say('bright', 'BRIGHT NOA', this.lines.warn, 3.4);
       setTimeoutGame(g, 4.2, () => this.startChar());
     }
   }
@@ -271,8 +312,8 @@ export class Stage {
     g.hud.setObjective('Drive off Char Aznable');
     g.audio.playMusic('boss');
     this.char = this.addOfficer('char');
-    g.hud.say('char', 'CHAR AZNABLE', "So this is the Federation's new mobile suit. Show me what it can do.", 3.6);
-    g.hud.say('amuro', 'AMURO RAY', "A red one... it's fast! I can't let it get past me!", 3.0);
+    g.hud.say('char', 'CHAR AZNABLE', this.lines.char, 3.6);
+    this.pilotSay('meet', 3.0);
   }
 
   onCharRetreated() {
@@ -341,7 +382,7 @@ export class Stage {
       }
       if (!this.flags.charKit2 && f < 0.22) {
         this.flags.charKit2 = true;
-        g.hud.say('bright', 'BRIGHT NOA', "Amuro, we've dropped you a repair kit. Finish this!", 2.8);
+        g.hud.say('bright', 'BRIGHT NOA', this.lines.kit, 2.8);
         g.items.drop('hpL', g.hero.pos.x - 4, g.hero.pos.z + 3);
       }
     }

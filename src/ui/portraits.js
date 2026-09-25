@@ -4,6 +4,7 @@ const PAL = {
   h: '#6b3f22', H: '#43260f', s: '#f1c9a5', S: '#d49f7a', e: '#1e2030', w: '#ffffff', m: '#b0685a',
   b: '#2d5fb8', B: '#1c3a78', r: '#c0283a', R: '#861a28', W: '#dfe3ea', k: '#2a2a30', y: '#f0d060', Y: '#c9a53a',
   g: '#4f6e3e', G: '#34502a', o: '#d9772e', O: '#a4521c', n: '#1a1a1e', p: '#e67aa0', t: '#8c96a8',
+  c: '#a8653a', C: '#74401f',
 };
 
 const ART = {
@@ -78,6 +79,24 @@ const ART = {
     '...ggggYYgggg...',
     '..gggggYYggggg..',
     '.ggggggYYgggggg.',
+  ],
+  kai: [
+    '................',
+    '.....cccccc.....',
+    '...cccccccccc...',
+    '..ccccCcccccCc..',
+    '.cccccccccccccc.',
+    '.cccCssssccCccc.',
+    '.ccsssssssssscc.',
+    '.ccssssssssssc..',
+    '..ssCCsssCCsss..',
+    '..sseessssessc..',
+    '...ssssssSssss..',
+    '...Sssssssmms...',
+    '....SssssssS....',
+    '.....SSssSS.....',
+    '...WWWWttWWWW...',
+    '..WWWWWttWWWWW..',
   ],
   hayato: [
     '................',

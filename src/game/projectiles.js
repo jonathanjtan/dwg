@@ -1,4 +1,5 @@
-// Beam rifle shots (and the charge shot), hyper bazooka rounds, Zaku machine-gun tracers, Guntank ordnance.
+// Beam rifle shots (and the charge shot), hyper bazooka rounds and 240mm cannon shells, Zaku machine-gun tracers,
+// Guntank ordnance.
 import * as THREE from 'three';
 
 const _m = new THREE.Matrix4();
@@ -7,6 +8,7 @@ const _s = new THREE.Vector3();
 const _p = new THREE.Vector3();
 const Zf = new THREE.Vector3(0, 0, 1);
 const BULLET_SPEED = 34; // slow enough to read the tracers and step out of a burst
+const BAZOOKA = { speed: 52, fuse: 0.6, r: 3.4, dmg: 42, kb: 8, up: 7, big: true };
 
 function glowInstanced(scene, max, color) {
   const geo = new THREE.BoxGeometry(1, 1, 1);
@@ -67,19 +69,34 @@ export class Projectiles {
 
   // Hyper bazooka round: flies straight and bursts on the first thing it touches.
   rocket(owner, from, dir) {
-    this.rockets.push({ p: from.clone(), v: dir.clone().multiplyScalar(52), life: 0, owner, id: ++this.serial });
+    this.shell(owner, from, dir, BAZOOKA);
   }
 
-  // Bazooka detonation: white flash, fireball, smoke, and a blast that throws everything within r.
-  heroBlast(owner, p, r, dmg, kb, up) {
+  // A shell or rocket that flies straight, trailing smoke, and bursts on contact, on the ground, against a wall or
+  // when its fuse runs out. o: { speed, fuse, r, dmg, kb, up, big, sp, lite, smoke }
+  shell(owner, from, dir, o = BAZOOKA) {
+    if (this.rockets.length > 60) return;
+    this.rockets.push({ p: from.clone(), v: dir.clone().multiplyScalar(o.speed ?? 52), life: 0, owner, id: ++this.serial, o });
+  }
+
+  // Detonation: white flash, fireball, smoke, and a blast that throws everything within r.
+  // o.lite: a lighter burst for barrages (no light, smaller fireball); o.sp: an SP blast (no hit-stop).
+  heroBlast(owner, p, r, dmg, kb, up, o = {}) {
     const g = this.game;
     const c = this._v.set(p.x, Math.max(0.8, p.y), p.z);
-    g.fx.explode(c, r / 1.9, [0x8a867c, 0x6f6c64, 0x3a3532]);
-    g.fx.star(c, 0xfff0d0, 2.2);
-    g.fx.light(c, 0xffb060, 120, 18, 0.35);
-    g.combat.aoe(owner, c.x, c.y, c.z, r, dmg, kb, up, ++this.serial, true);
-    g.audio.play('bzboom', { at: c });
-    if (g.local === owner) { g.camera.shake(0.3); g.aberr(0.35); }
+    if (o.lite) {
+      // a quick burst: fireball, smoke and a flash, without the full explosion's debris, embers and light
+      g.fx.fireball(c, r / 2.6);
+      g.fx.puff(c, 3, 0.4, 0.9, 1.2, 2.2);
+      g.fx.star(c, 0xfff0d0, 1.3);
+    } else {
+      g.fx.explode(c, r / 1.9, [0x8a867c, 0x6f6c64, 0x3a3532]);
+      g.fx.star(c, 0xfff0d0, 2.2);
+      g.fx.light(c, 0xffb060, 120, 18, 0.35);
+    }
+    g.combat.aoe(owner, c.x, c.y, c.z, r, dmg, kb, up, ++this.serial, o.big ?? true, !!o.sp);
+    g.audio.play(o.sound || 'bzboom', { at: c, vol: o.lite ? 0.6 : 1 });
+    if (g.local === owner) { g.camera.shake(o.lite ? 0.03 : 0.3); if (!o.lite) g.aberr(0.35); }
   }
 
   tankMissile(owner, from, dir, target) {
@@ -147,11 +164,12 @@ export class Projectiles {
       r.life += dt;
       const ax = r.p.x, ay = r.p.y, az = r.p.z;
       r.p.addScaledVector(r.v, dt);
-      if (Math.random() < 0.8) { g.fx.noNet = true; g.fx.puff(r.p, 1, 0.8, 0.45, 0.3, 0.4); g.fx.noNet = false; }
+      const o = r.o;
+      if (Math.random() < 0.8) { g.fx.noNet = true; g.fx.puff(r.p, 1, 0.8, o.smoke ?? 0.45, 0.3, 0.4); g.fx.noNet = false; }
       let hit = false;
       combat.beamSweep(ax, ay, az, r.p.x, r.p.y, r.p.z, 1.1, () => { hit = true; });
-      if (hit || r.p.y <= 0.3 || r.life > 0.6 || (g.world.blocked(r.p.x, r.p.z, 0) && r.p.y < 8)) {
-        this.heroBlast(r.owner, r.p, 3.4, 42, 8, 7);
+      if (hit || r.p.y <= 0.3 || r.life > o.fuse || (g.world.blocked(r.p.x, r.p.z, 0) && r.p.y < 8)) {
+        this.heroBlast(r.owner, r.p, o.r, o.dmg, o.kb, o.up, o);
         this.rockets.splice(i, 1);
       }
     }

@@ -46,6 +46,8 @@ const SHOULDER = { torso: [0.05, -0.35, 0], uArmR: [-0.55, 0, -0.25], fArmR: [-1
 // hit: { t, t1, shape, range, arc, len, width, off, hy, dmg, kb, up, big, pull, sp, stop (hit-stop frames) }
 // ev: [t, name, arg] timed effects; shots: { t, kind, ang, dn }; wpn: [t, weapon] (saber | rifle | javelin | bazooka |
 // hammer); jets: [t0, t1, lift]; slide: [t0, t1, speed]; ham: hammer orbit radius curve; rate: playback speed.
+// SP phases: spNext (the phase that follows), spHold (taken instead while SP is still held), spRepeat (plays n times),
+// steer (move speed while steering), chargeAura.
 export const MOVES = {
   // ---- normal string: six beam saber cuts, the sixth a thruster hop into a launching spin ----
   N1: { // rising diagonal, low left to high right
@@ -350,7 +352,7 @@ export const MOVES = {
   // Ground: a starburst, a long standing flurry, then the beam javelin skewers, lifts and slams, and the ground erupts
   // in purple lightning. Hold SP through the starburst for the charge SP (Gundam hammer); in the air: bazooka barrage.
   SP_IN: {
-    dur: 0.55, rate: 1, saber: true, armor: true, invuln: true, sp: true,
+    dur: 0.55, rate: 1, saber: true, armor: true, invuln: true, sp: true, spNext: 'SP_FL', spHold: 'SPC_CH',
     clip: clip([
       k(0, { torso: [0, 0, 0], uArmR: [-0.2, 0, -0.3], hand: [0.2, 0, 0] }),
       k(0.22, { torso: [-0.2, 0.3, 0], uArmR: [-3.0, 0, -0.35], fArmR: [0, 0, 0], hand: [0, 0, 0], uArmL: [-0.2, 0, 0.9], head: [-0.2, 0, 0], y: -0.2, ...LEGS_WIDE }, 'snap'),
@@ -359,7 +361,7 @@ export const MOVES = {
     ev: [[0.04, 'burst']],
   },
   SP_FL: {
-    dur: 3.0, rate: 1, saber: true, armor: true, invuln: true, sp: true, loop: 0.3, rushFx: true,
+    dur: 3.0, rate: 1, saber: true, armor: true, invuln: true, sp: true, loop: 0.3, rushFx: true, steer: 2, spNext: 'SP_JV',
     clip: clip([
       k(0, { torso: [0.15, -0.9, 0], ...SWEEP_R, uArmL: [-0.9, 0, 0.5], y: -0.3, ...LEGS_WIDE }),
       k(0.08, { torso: [0.15, 0.9, 0], ...SWEEP_L, uArmL: [-0.3, 0, 0.9], y: -0.35 }, 'snap'),
@@ -374,7 +376,7 @@ export const MOVES = {
     sfxs: [0.02, 0.1, 0.17, 0.25].flatMap((o) => times(0, 2.9, 0.3).map((t) => [t + o, 'slash_fast'])),
   },
   SP_JV: {
-    dur: 1.25, rate: 1, armor: true, invuln: true, sp: true,
+    dur: 1.25, rate: 1, armor: true, invuln: true, sp: true, spNext: 'SP_OUT',
     wpn: [[0, 'javelin']],
     lunge: [[0, 0], [0.16, 2]],
     clip: clip([
@@ -402,7 +404,7 @@ export const MOVES = {
     ]),
   },
   SPA_IN: {
-    dur: 0.5, rate: 1, armor: true, invuln: true, sp: true, isAir: true,
+    dur: 0.5, rate: 1, armor: true, invuln: true, sp: true, isAir: true, spNext: 'SPA_FIRE',
     wpn: [[0, 'saber'], [0.25, 'bazooka']],
     jets: [0, 0.5, true],
     clip: clip([
@@ -413,7 +415,7 @@ export const MOVES = {
     ev: [[0.04, 'burst']],
   },
   SPA_FIRE: {
-    dur: 0.42, rate: 1, armor: true, invuln: true, sp: true, isAir: true,
+    dur: 0.42, rate: 1, armor: true, invuln: true, sp: true, isAir: true, spRepeat: 11,
     wpn: [[0, 'bazooka']],
     jets: [0, 0.42, true],
     clip: clip([
@@ -424,7 +426,7 @@ export const MOVES = {
     shots: [{ t: 0.1, kind: 'bazooka', dn: true }],
   },
   SPC_CH: {
-    dur: 1.1, rate: 1, armor: true, invuln: true, sp: true,
+    dur: 1.1, rate: 1, armor: true, invuln: true, sp: true, chargeAura: true, spNext: 'SPC_HAM',
     wpn: [[0, null]],
     clip: clip([
       k(0, { torso: [-0.2, 0.3, 0], uArmR: [-3.0, 0, -0.35], hand: [0, 0, 0], y: -0.2, ...LEGS_WIDE }),
@@ -434,7 +436,7 @@ export const MOVES = {
     ev: [[0.02, 'charge'], [1.05, 'burst']],
   },
   SPC_HAM: {
-    dur: 4.5, rate: 1, armor: true, invuln: true, sp: true, rushFx: true,
+    dur: 4.5, rate: 1, armor: true, invuln: true, sp: true, rushFx: true, steer: 3.5, spNext: 'SPC_END',
     wpn: [[0, 'hammer']],
     ham: [[0, 0.6], [0.3, HAMMER_R]],
     clip: clip([

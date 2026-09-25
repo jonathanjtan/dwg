@@ -168,7 +168,7 @@ export class Crowd {
 
   // Called by combat when the hero's attack connects.
   damage(g, dmg, kb, up, fromX, fromZ, id, opts = {}) {
-    if (!g.alive || g.state === 'dying') return false;
+    if (!g.alive || g.state === 'dying' || g.state === 'held') return false;
     if (id && this.alreadyHit(g, id)) return false;
     if (id) {
       g.hitIds[g.hitCursor] = id;
@@ -229,6 +229,44 @@ export class Crowd {
     g.state = 'dying';
     g.t = 0;
     g.dieT = rand(0.35, 0.7);
+  }
+
+  // Grabs: a pilot takes hold of a soldier (it stops fighting and goes where the hands put it), then lets go.
+  hold(g, holder) {
+    this.releaseToken(g);
+    g.state = 'held';
+    g.holder = holder;
+    g.t = 0;
+    g.vx = g.vy = g.vz = 0;
+    g.flash = 1;
+    g.hitKind = 1;
+    g.shudder = 0;
+    if (g.squad) g.squad.engaged = true;
+  }
+
+  place(g, x, y, z, yaw, pitch) {
+    g.x = x; g.y = y; g.z = z;
+    g.yaw = yaw;
+    g.pitch = pitch;
+  }
+
+  // Let go with a velocity (a throw, or just dropping it): the body tumbles and lands on its back like a launch.
+  fling(g, vx, vy, vz, dmg = 0, big = false) {
+    if (!g.alive || g.state !== 'held') return;
+    g.holder = null;
+    g.hp -= dmg;
+    g.flash = dmg ? 1 : 0;
+    g.hitKind = g.hp <= 0 ? 2 : big ? 1 : 0;
+    g.state = 'air';
+    g.t = 0;
+    g.bounced = false;
+    g.vx = vx; g.vy = vy; g.vz = vz;
+    if (Math.hypot(vx, vz) > 0.5) g.yaw = Math.atan2(-vx, -vz);
+    const flight = (2 * Math.max(0, vy)) / GRAV * 1.25 + Math.sqrt((2 * Math.max(0, g.y)) / GRAV);
+    g.pitchTarget = g.hp <= 0 ? -(Math.PI / 2 + TAU) : -Math.PI / 2;
+    g.pitchTarget = Math.min(g.pitch, g.pitchTarget);
+    g.pitchRate = (g.pitchTarget - g.pitch) / Math.max(0.3, flight);
+    if (dmg) g.lastHitT = this.game.time;
   }
 
   explodeGrunt(g) {
@@ -470,6 +508,10 @@ export class Crowd {
           if (g.t > 0.5) { g.state = 'idle'; g.cd = rand(1.2, 2.4); }
           break;
         }
+        case 'held': {
+          if (!g.holder || g.holder.held !== g) this.fling(g, 0, 1, 0, 0); // the holder was interrupted
+          break;
+        }
         case 'dying': {
           g.vx = damp(g.vx, 0, 4, dt);
           g.vz = damp(g.vz, 0, 4, dt);
@@ -482,7 +524,7 @@ export class Crowd {
       }
 
       // separation + hero push
-      if (g.state !== 'air' && g.state !== 'drop') {
+      if (g.state !== 'air' && g.state !== 'drop' && g.state !== 'held') {
         const near = this.grid.query(g.x, g.z, 2.6, this.tmp);
         for (let k = 0; k < near.length; k++) {
           const o = near[k];
@@ -682,7 +724,7 @@ export class Crowd {
           else lerpPose(p, rec, base, clamp((g.t - 0.22) / 0.2, 0, 1));
           break;
         }
-        case 'air': p.set(AIRPOSE); p[RPITCH] = g.pitch; break;
+        case 'air': case 'held': p.set(AIRPOSE); p[RPITCH] = g.pitch; break;
         case 'down': p.set(DOWNPOSE); break;
         case 'getup': lerpPose(p, DOWNPOSE, GETUP, clamp(g.t / 0.25, 0, 1)); if (g.t > 0.25) lerpPose(p, GETUP, base, clamp((g.t - 0.25) / 0.2, 0, 1)); break;
         case 'dying': p.set(g.y > 0.1 ? AIRPOSE : DOWNPOSE); p[RPITCH] = -1.2; p[RROLL] = Math.sin(g.t * 30) * 0.1; break;

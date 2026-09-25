@@ -10,6 +10,7 @@ const REV = {
   mg: 0.12, alarm: 0.2, capture: 0.25, distant: 0.9, eye: 0.25, step: 0.08, sp: 0.35, skid: 0.1, hurt: 0.15, jet: 0.12,
   qb: 0.2, slash_h: 0.12, slash_down: 0.15, bazooka: 0.25, bzboom: 0.4, shock: 0.35, lightning: 0.45, burst: 0.35,
   flash: 0.15, javelin: 0.15, spcharge: 0.2, hammer: 0.1,
+  cannon: 0.35, cboom: 0.4, phit: 0.08, phit_heavy: 0.25, kick: 0.08, throw: 0.1, uppercut: 0.12, grab: 0.1,
 };
 // live-synth stand-ins used until the rendered bank is ready
 const FALLBACK = {
@@ -17,6 +18,8 @@ const FALLBACK = {
   slash_fast: 'swing', slash_rise: 'swing', hit_heavy: 'hit', qb: 'boost', ping: 'hit',
   cshot: 'rifle', javelin: 'swing', hammer: 'swing', bazooka: 'boom', bzboom: 'boom', shock: 'slam', lightning: 'bigboom',
   flash: 'charge', spcharge: 'charge', burst: 'sp', draw: 'clang', bhit: 'hit',
+  punch: 'swing', kick: 'swing', spin_gc: 'swing', uppercut: 'swing', throw: 'swing', phit: 'hit', phit_heavy: 'hit',
+  grab: 'clang', cannon: 'boom', cboom: 'boom', punch_fast: 'swing',
 };
 
 export class Audio {
@@ -247,7 +250,7 @@ export class Audio {
     const now = ctx.currentTime;
     // throttle identical sounds
     const last = this.throttle.get(name) || 0;
-    const minGap = { ping: 0.05, hit: 0.03, bhit: 0.03, hit_heavy: 0.05, boom: 0.04, bzboom: 0.05, mg: 0.03, step: 0.08, swing: 0.04, jet: 0.12, eye: 0.25, qb: 0.06, flash: 0.05 }[name] ?? 0.015;
+    const minGap = { ping: 0.05, hit: 0.03, bhit: 0.03, hit_heavy: 0.05, boom: 0.04, bzboom: 0.05, mg: 0.03, step: 0.08, swing: 0.04, jet: 0.12, eye: 0.25, qb: 0.06, flash: 0.05, phit: 0.03, phit_heavy: 0.05, cannon: 0.04, cboom: 0.05, punch: 0.04, punch_fast: 0.04 }[name] ?? 0.015;
     if (now - last < minGap) return;
     this.throttle.set(name, now);
     let dist = 0;

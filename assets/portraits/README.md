@@ -1,7 +1,7 @@
 # Pilot portraits
 
 Drop portrait images here and list them in `manifest.json` to replace the built-in 16x16 pixel art. Names are
-`amuro`, `char`, `denim`, `gene` and `bright`; any name left out keeps its pixel-art fallback.
+`amuro`, `kai`, `hayato`, `char`, `denim`, `gene` and `bright`; any name left out keeps its pixel-art fallback.
 
 A single image:
 

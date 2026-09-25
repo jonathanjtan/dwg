@@ -15,7 +15,8 @@ const KEYMAP = {
   musou: ['KeyI', 'KeyF'],
   camL: ['KeyQ'],
   camR: ['KeyE'],
-  recenter: ['KeyR'],
+  lock: ['KeyR'],
+  recenter: [],
   pause: ['Escape', 'KeyP'],
   mute: ['KeyM'],
   help: ['KeyH'],
@@ -58,6 +59,8 @@ export class Input {
       this.down.delete(e.button === 0 ? 'Mouse0' : e.button === 2 ? 'Mouse2' : 'Mouse1');
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener('auxclick', (e) => e.preventDefault());
+    canvas.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
     addEventListener('mousemove', (e) => {
       if (this.locked) {
         this.mouseDX += e.movementX;
@@ -95,6 +98,7 @@ export class Input {
       mute: this.hit('mute'),
       help: this.hit('help'),
       recenter: this.hit('recenter'),
+      lock: this.hit('lock') || this.pressed.has('Mouse1'),
       attackHeld: this.key('attack') || this.down.has('Mouse0'),
       chargeHeld: this.key('charge') || this.down.has('Mouse2'),
     };
@@ -124,7 +128,8 @@ export class Input {
       act.dodge ||= edge(1) || edge(4);
       act.musou ||= edge(5) || edge(7);
       act.pause ||= edge(9);
-      act.recenter ||= edge(6) || edge(11);
+      act.recenter ||= edge(6);
+      act.lock ||= edge(11);
       act.attackHeld ||= b(2);
       act.chargeHeld ||= b(3);
       this.padHeld = { dodge: b(1) || b(4), jump: b(0), musou: b(5) || b(7) };

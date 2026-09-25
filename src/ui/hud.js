@@ -18,6 +18,7 @@ export class HUD {
       hpRed: $('hp-red'), boostBar: $('boost-bar'), boostFill: $('boost-fill'), speedlines: $('speedlines'),
       letterbox: $('letterbox'), namecard: $('namecard'), ncJp: $('nc-jp'), ncEn: $('nc-en'), ncUnit: $('nc-unit'),
       marker: $('objmarker'), omLabel: $('om-label'), omDist: $('om-dist'),
+      lock: $('lockon'), lockName: document.querySelector('#lockon .lk-name'),
     };
     this.pilot = 'amuro';
     this.el.portrait.src = portrait('amuro');
@@ -72,6 +73,7 @@ export class HUD {
     this.pilot = name;
     const labels = {
       amuro: ['アムロ・レイ', 'AMURO RAY · RX-78-2'],
+      kai: ['カイ・シデン', 'KAI SHIDEN · RX-77-2'],
       hayato: ['ハヤト・コバヤシ', 'HAYATO KOBAYASHI · RX-75'],
     };
     this.el.pilotJp.textContent = labels[name][0];
@@ -120,7 +122,7 @@ export class HUD {
     setTimeout(() => d.remove(), 1400);
   }
 
-  // speaker: amuro | char | denim | gene | bright
+  // speaker: amuro | kai | hayato | char | denim | gene | bright
   say(speaker, name, text, dur = 3.2) {
     this.dlgQueue.push({ speaker, name, text, dur });
   }
@@ -223,6 +225,7 @@ export class HUD {
     this.updateBosses();
     this.updateTags();
     this.updateMarker();
+    this.updateLock();
     this.mapT -= dt;
     if (this.mapT <= 0) { this.mapT = 1 / 20; this.drawMap(); }
   }
@@ -234,7 +237,7 @@ export class HUD {
     this.el.ally.classList.toggle('hidden', !coop);
     if (!coop) return;
     const a = g.local === g.hero ? g.tank : g.hero;
-    this.el.allyName.textContent = a === g.tank ? 'GUNTANK · HAYATO' : 'GUNDAM · AMURO';
+    this.el.allyName.textContent = a === g.tank ? 'GUNTANK · HAYATO' : a.suit.id === 'guncannon' ? 'GUNCANNON · KAI' : 'GUNDAM · AMURO';
     this.el.allyFill.style.width = Math.max(0, a.hp / a.maxHp) * 100 + '%';
     this.el.allyState.textContent = a.state === 'dead' ? `REDEPLOY ${Math.max(0, Math.ceil(a.respawnT || 0))}` : '';
   }
@@ -380,6 +383,25 @@ export class HUD {
     arrow.style.animation = onScreen ? '' : 'none';
     this.el.omLabel.textContent = label;
     this.el.omDist.textContent = Math.round(best) + 'm';
+  }
+
+  // Lock-on reticle on the locked commander's chest, pinned to the screen edge when it's out of view.
+  updateLock() {
+    const g = this.game, c = g.lock, el = this.el.lock;
+    if (!c || g.mode === 'title' || g.mode === 'select') { el.classList.add('hidden'); this.lockShown = null; return; }
+    if (this.lockShown !== c) { this.lockShown = c; this.el.lockName.textContent = c.cfg.title.split(' · ')[0]; }
+    const cam = g.camera.cam;
+    const v = this._v.set(c.pos.x, c.pos.y + 2.3, c.pos.z).applyMatrix4(cam.matrixWorldInverse);
+    const behind = v.z > 0;
+    let sx, sy;
+    if (behind) { sx = -v.x; sy = -v.y; if (Math.abs(sx) + Math.abs(sy) < 1e-3) sy = -1; }
+    else { v.applyMatrix4(cam.projectionMatrix); sx = v.x; sy = v.y; }
+    const edge = behind || Math.abs(sx) > 0.94 || Math.abs(sy) > 0.9;
+    if (edge) { const m = Math.max(Math.abs(sx) / 0.92, Math.abs(sy) / 0.86, 1e-3); sx /= m; sy /= m; }
+    el.classList.remove('hidden');
+    el.classList.toggle('edge', edge);
+    el.style.left = ((sx + 1) / 2) * innerWidth + 'px';
+    el.style.top = ((1 - sy) / 2) * innerHeight + 'px';
   }
 
   drawMap() {
