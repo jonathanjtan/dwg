@@ -96,7 +96,7 @@ export class Projectiles {
     this.bullets.push({ p: from.clone(), d: dir.clone(), life: 0, max: 1.7, speed: BULLET_SPEED, dmg: 4 * mul });
     this.game.fx.sparks(from, 3, 0xffc070, 5, 0.6, dir);
     this.game.fx.star(from, 0xffa040, 0.4);
-    if (Math.random() < 0.5) this.game.audio.play('mg', { vol: 0.3, at: from });
+    if (Math.random() < 0.5) this.game.audio.play('mg', { vol: 0.28, at: from });
   }
 
   update(dt) {

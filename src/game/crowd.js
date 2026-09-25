@@ -237,7 +237,7 @@ export class Crowd {
     game.fx.explode(p, rand(1.35, 1.6), EXPLODE_COLORS);
     if (this.boomBudget > 0) {
       this.boomBudget--;
-      game.audio.play('boom', { vol: 0.7, pitch: rand(0.8, 1.05), at: p });
+      game.audio.play('boom', { vol: 0.95, pitch: rand(0.85, 1.05), at: p });
       // a Zaku going up right next to you rocks the view a little
       const h = game.local.pos, d = Math.hypot(g.x - h.x, g.z - h.z);
       if (d < 10) game.camera.shake(0.07 * (1 - d / 10));
@@ -382,7 +382,7 @@ export class Crowd {
             const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw);
             game.fx.glint(this._v.set(g.x - fx * 0.5 - fz * 0.6, 4.4, g.z - fz * 0.5 + fx * 0.6), g.feint ? 0xffffff : 0xff3040);
           }
-          if (g.t >= T) { g.state = 'strike'; g.t = 0; game.audio.play('hawk', { vol: 0.45, at: this._v.set(g.x, 1, g.z) }); }
+          if (g.t >= T) { g.state = 'strike'; g.t = 0; game.audio.play('hawk', { vol: 0.35, at: this._v.set(g.x, 1, g.z) }); }
           break;
         }
         case 'strike': {

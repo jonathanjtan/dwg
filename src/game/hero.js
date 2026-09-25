@@ -339,7 +339,7 @@ export class Hero {
       this.vel.x = dir.x * RUN * 1.05;
       this.vel.z = dir.z * RUN * 1.05;
     }
-    g.audio.play('boost', { vol: 0.6 });
+    g.audio.play('qb', { vol: boosted ? 0.8 : 0.55, pitch: 1.12 });
     g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), 8, 1);
   }
 
@@ -405,8 +405,11 @@ export class Hero {
     if (dir) this.heading = Math.atan2(dx, dz);
     this.invuln = 0.3;
     this.airDodge = this.pos.y > 0.2;
-    g.audio.play('boost');
-    g.camera.kick(4);
+    // quick boost: the exhaust detonates out of the backpack and the view lurches with it
+    g.audio.play('qb');
+    if (g.local === this) { g.camera.kick(8); g.camera.shake(0.12); }
+    for (let i = 0; i < 3; i++) this.thrust(2.6, false);
+    g.fx.puff(this._v.set(this.pos.x - dx * 1.2, this.pos.y + 1.8, this.pos.z - dz * 1.2), 4, 0.6, 0.8, 0.4, 3);
   }
 
   updateDodge(dt, act, dir, input) {
@@ -518,14 +521,10 @@ export class Hero {
       g.fx.aura(this._v, 0xff7ad0, 3, 1.2);
       if (prevT === 0 || Math.floor(prevT * 10) !== Math.floor(t * 10)) g.audio.play('charge', { vol: 0.35 });
     }
-    // swing sfx
-    if (m.swing !== undefined) {
-      const every = m.swingEvery || 99;
-      const idx = t >= m.swing ? Math.floor((t - m.swing) / every) : -1;
-      if (idx > this.lastSwing && t < m.dur - 0.1) {
-        this.lastSwing = idx;
-        g.audio.play('swing', { pitch: 0.9 + Math.random() * 0.25 });
-      }
+    // swing sfx: each move has its own voice, played once per swing
+    if (m.swing !== undefined && this.lastSwing < 0 && t >= m.swing) {
+      this.lastSwing = 0;
+      g.audio.play(m.sfx || 'slash_a', { vol: 0.65 });
     }
     if (m.slam !== undefined && prevT < m.slam && t >= m.slam) this.impact(m.hits?.[0]?.sp ? 11 : 5.6, true, !!m.hits?.[0]?.sp);
     if (m.giant) this.giant = t >= m.giant[0] && t <= m.giant[1] ? damp(this.giant, 5.5, 10, dt) : damp(this.giant, 1, 8, dt);
@@ -563,7 +562,7 @@ export class Hero {
     this.blendDur = 0.14;
     this.boostSfxT = 0;
     this.hovering = false;
-    g.audio.play('jet', { vol: 0.7 });
+    g.audio.play('qb', { vol: 0.7, pitch: 0.9 });
   }
 
   updateBoost(dt, act, dir, input) {
@@ -644,7 +643,10 @@ export class Hero {
     } else {
       g.projectiles.heroBeam(from, dir);
       g.audio.play('rifle');
-      g.camera.shake(0.12);
+      g.camera.shake(0.14);
+      g.camera.kick(2.5);
+      this.vel.x -= dir.x * 4;
+      this.vel.z -= dir.z * 4;
     }
     g.fx.muzzle(from, dir, 0xff8ad8, shot.kind === 'mega' ? 1.8 : 1);
   }
@@ -678,7 +680,8 @@ export class Hero {
     g.stats.damageTaken += dmg;
     if (kind !== 'bullet') g.hud.hurt();
     if (kind !== 'bullet' || Math.random() < 0.3) g.fx.hit(this._v.set(this.pos.x, this.pos.y + 1.8, this.pos.z), 0xffa040);
-    g.audio.play('hurt', { vol: kind === 'bullet' ? 0.35 : 1 });
+    if (kind === 'bullet') g.audio.play('ping', { vol: 0.45 });
+    else g.audio.play('hurt', { vol: heavy ? 1 : 0.85 });
     g.camera.shake(heavy ? 0.5 : kind === 'bullet' ? 0.05 : 0.2);
     if (heavy && g.local === this) g.aberr(1);
     if (this.hp <= 0) {
@@ -855,7 +858,7 @@ export class Hero {
       this.blendPose(dt);
       if (prevT < 0.06 && t >= 0.06) {
         g.combat.heroStrike(this, { shape: 'arc', range: 5.2, arc: 220, dmg: 22, kb: 3, up: 3.5, sp: true }, ++this.hitSerial);
-        g.audio.play('swing', { pitch: 1.1 + Math.random() * 0.2 });
+        g.audio.play('slash_fast', { vol: 0.55 });
       }
       if (t >= m.dur) {
         this.spRushIdx++;
@@ -877,6 +880,7 @@ export class Hero {
       m.hits.forEach((h, i) => {
         if (t >= h.t && prevT <= h.t1) g.combat.heroStrike(this, h, this.moveHitIds[i]);
       });
+      if (prevT < 0.56 && t >= 0.56) g.audio.play('slash_down', { vol: 0.8 });
       if (prevT < m.slam && t >= m.slam) {
         this.impact(11, true, true);
         g.slowmo(0.25, 0.5);

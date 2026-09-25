@@ -2,11 +2,18 @@
 // Positional sounds are panned against the camera and dulled with distance, big ones ring out through a
 // shared colony-hall reverb, and the beam saber hum and thruster roar run as continuous loops.
 import { Music } from './music.js';
+import { renderBank } from './sfx.js';
 
 // reverb send per sound (positional sounds also get wetter with distance)
 const REV = {
-  boom: 0.3, bigboom: 0.5, slam: 0.35, land: 0.15, rifle: 0.3, mega: 0.45, clang: 0.35, hit: 0.06, hawk: 0.1,
-  mg: 0.12, alarm: 0.2, capture: 0.25, distant: 0.9, eye: 0.25, step: 0.06, sp: 0.35, skid: 0.1, hurt: 0.12, jet: 0.12,
+  boom: 0.3, bigboom: 0.5, slam: 0.35, land: 0.18, rifle: 0.3, mega: 0.45, clang: 0.35, hit: 0.08, hit_heavy: 0.25, hawk: 0.1,
+  mg: 0.12, alarm: 0.2, capture: 0.25, distant: 0.9, eye: 0.25, step: 0.08, sp: 0.35, skid: 0.1, hurt: 0.15, jet: 0.12,
+  qb: 0.2, slash_h: 0.12, slash_down: 0.15, whirl: 0.1,
+};
+// live-synth stand-ins used until the rendered bank is ready
+const FALLBACK = {
+  slash_a: 'swing', slash_b: 'swing', slash_h: 'swing', slash_spin: 'swing', slash_down: 'swing', slash_dash: 'swing',
+  slash_fast: 'swing', slash_thrust: 'swing', slash_rise: 'swing', whirl: 'swing', hit_heavy: 'hit', qb: 'boost', ping: 'hit',
 };
 
 export class Audio {
@@ -17,6 +24,10 @@ export class Audio {
     this.listener = null; // {x,z}
     this.listenerYaw = 0; // camera yaw: sounds pan against the camera's right vector
     this.throttle = new Map();
+    this.lastTake = new Map();
+    this.bank = null;
+    // render the sample bank in the background (needs no user gesture); live synthesis covers the gap
+    if (typeof OfflineAudioContext !== 'undefined') renderBank(48000).then((b) => { this.bank = b; }).catch(() => {});
   }
 
   init() {
@@ -35,7 +46,12 @@ export class Audio {
     this.master.connect(comp).connect(ctx.destination);
     this.sfx = ctx.createGain();
     this.sfx.gain.value = 0.9;
-    this.sfx.connect(this.master);
+    // a little extra low end on everything that hits
+    const shelf = ctx.createBiquadFilter();
+    shelf.type = 'lowshelf';
+    shelf.frequency.value = 120;
+    shelf.gain.value = 3;
+    this.sfx.connect(shelf).connect(this.master);
     this.music = ctx.createGain();
     this.music.gain.value = 0.5;
     this.music.connect(this.master);
@@ -122,6 +138,28 @@ export class Audio {
     low.gain.value = 1.8;
     src.connect(jet.bp).connect(jet.gain);
     src.connect(jet.lp).connect(low).connect(jet.gain);
+    // hiss on top and a gritty engine rumble underneath
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 4500;
+    const hiss = ctx.createGain();
+    hiss.gain.value = 0.35;
+    src.connect(hp).connect(hiss).connect(jet.gain);
+    const rlp = ctx.createBiquadFilter();
+    rlp.type = 'lowpass';
+    rlp.frequency.value = 130;
+    const grit = ctx.createWaveShaper();
+    grit.curve = this.curve;
+    const rg = ctx.createGain();
+    rg.gain.value = 0.5;
+    for (const f of [37, 38.7]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = f;
+      o.connect(rlp);
+      o.start();
+    }
+    rlp.connect(grit).connect(rg).connect(jet.gain);
     jet.gain.gain.value = 0;
     jet.gain.connect(this.sfx);
     src.start();
@@ -132,14 +170,14 @@ export class Audio {
     if (!this.hum) return;
     const t = this.ctx.currentTime, h = this.hum;
     const sp = Math.min(1, bladeSpeed / 45);
-    h.gain.gain.setTargetAtTime(saber * (0.03 + sp * 0.15), t, 0.03);
-    h.lp.frequency.setTargetAtTime(420 + sp * 2600, t, 0.03);
-    const f = 92 * (1 + sp * 0.35);
+    h.gain.gain.setTargetAtTime(saber * (0.035 + sp * 0.06), t, 0.04);
+    h.lp.frequency.setTargetAtTime(420 + sp * 1400, t, 0.04);
+    const f = 92 * (1 + sp * 0.2);
     h.oscs[0].frequency.setTargetAtTime(f, t, 0.04);
     h.oscs[1].frequency.setTargetAtTime(f, t, 0.04);
     h.oscs[2].frequency.setTargetAtTime(f / 2, t, 0.04);
     const j = this.jetLoop;
-    j.gain.gain.setTargetAtTime(jet * 0.3, t, jet > 0.05 ? 0.05 : 0.12);
+    j.gain.gain.setTargetAtTime(jet * 0.34, t, jet > 0.05 ? 0.05 : 0.15);
     j.bp.frequency.setTargetAtTime(900 + jet * 1000, t, 0.1);
   }
 
@@ -206,7 +244,7 @@ export class Audio {
     const now = ctx.currentTime;
     // throttle identical sounds
     const last = this.throttle.get(name) || 0;
-    const minGap = { hit: 0.03, boom: 0.04, mg: 0.03, step: 0.08, swing: 0.04, jet: 0.12, eye: 0.25 }[name] ?? 0.015;
+    const minGap = { ping: 0.05, hit: 0.03, hit_heavy: 0.05, boom: 0.04, mg: 0.03, step: 0.08, swing: 0.04, jet: 0.12, eye: 0.25, qb: 0.06 }[name] ?? 0.015;
     if (now - last < minGap) return;
     this.throttle.set(name, now);
     let dist = 0;
@@ -246,7 +284,20 @@ export class Audio {
       node.connect(send).connect(this.revIn);
     }
     const p = pitch;
-    switch (name) {
+    // rendered takes: never the same one twice in a row, with a little pitch drift
+    const takes = this.bank && this.bank[name];
+    if (takes && takes.length) {
+      let i = Math.floor(Math.random() * takes.length);
+      if (takes.length > 1 && i === this.lastTake.get(name)) i = (i + 1) % takes.length;
+      this.lastTake.set(name, i);
+      const src = ctx.createBufferSource();
+      src.buffer = takes[i];
+      src.playbackRate.value = p * (1 + (Math.random() - 0.5) * 0.06);
+      src.connect(out);
+      src.start(t);
+      return;
+    }
+    switch (FALLBACK[name] || name) {
       case 'ignite':
         this.osc('sawtooth', 70 * p, 240 * p, t, 0.35, 0.18, out);
         this.osc('sawtooth', 71 * p, 243 * p, t, 0.35, 0.12, out);

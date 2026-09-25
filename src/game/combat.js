@@ -89,7 +89,7 @@ export class Combat {
     if (n <= 6) g.fx.debris(p, 2, [0x3e6a3c, 0x78a85a, 0x4b5049], 6, 0.14);
     if (this.hitSfxBudget >= 1) {
       this.hitSfxBudget -= 1;
-      g.audio.play('hit', { vol: boss ? 0.9 : 0.6, pitch: 0.9 + Math.random() * 0.3 });
+      g.audio.play(spec.big || boss ? 'hit_heavy' : 'hit', { vol: boss ? 0.8 : 0.55, pitch: 0.94 + Math.random() * 0.12 });
     }
   }
 

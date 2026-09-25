@@ -138,7 +138,7 @@ export class Tank {
         if (act.jump && this.state === 'move') {
           this.state = 'air';
           this.vel.y = 10.5;
-          g.audio.play('boost', { vol: 0.6, at: this.pos });
+          g.audio.play('qb', { vol: 0.6, pitch: 0.85, at: this.pos });
           g.fx.dust(this.pos, 8, 1);
         }
         if (act.dodge) { this.dodge(dir); break; }
@@ -240,7 +240,7 @@ export class Tank {
     this.state = 'dodge';
     this.stateT = 0;
     this.invuln = 0.3;
-    g.audio.play('boost', { at: this.pos });
+    g.audio.play('qb', { pitch: 0.85, at: this.pos });
   }
 
   // ---------- weapons ----------
@@ -374,7 +374,8 @@ export class Tank {
     this.flash = kind === 'bullet' ? 0.35 : 1;
     if (kind !== 'bullet') { if (g.local === this) g.hud.hurt(); else g.netEvent('hurt'); }
     if (kind !== 'bullet') g.fx.hit(this._v.set(this.pos.x, this.pos.y + 1.6, this.pos.z), 0xffa040);
-    g.audio.play('hurt', { vol: kind === 'bullet' ? 0.3 : 0.9, at: this.pos });
+    if (kind === 'bullet') g.audio.play('ping', { vol: 0.4, at: this.pos });
+    else g.audio.play('hurt', { vol: 0.9, at: this.pos });
     if (this.hp <= 0) { this.die(); return true; }
     if (kind === 'bullet') return true;
     const dx = this.pos.x - fromX, dz = this.pos.z - fromZ, l = Math.hypot(dx, dz) || 1;

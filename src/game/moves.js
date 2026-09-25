@@ -35,7 +35,7 @@ export const MOVES = {
       k(0.46, { torso: [0.12, 0.5, 0], uArmR: [-0.3, 1.2, -1.0], hand: [0.8, 0, 0], y: -0.22 }),
     ]),
     hits: [{ t: 0.08, t1: 0.19, shape: 'arc', range: 3.9, arc: 170, dmg: 26, kb: 4, up: 0 }],
-    swing: 0.08,
+    sfx: 'slash_a', swing: 0.08,
   },
   N2: {
     dur: 0.46, chain: 0.2, next: 'N3', charge: 'C3', saber: true,
@@ -47,7 +47,7 @@ export const MOVES = {
       k(0.46, { torso: [0.05, -0.6, 0.05], uArmR: [-0.5, 0, -0.9], hand: [0.8, 0, 0] }),
     ]),
     hits: [{ t: 0.07, t1: 0.18, shape: 'arc', range: 3.9, arc: 170, dmg: 26, kb: 4.5, up: 0 }],
-    swing: 0.07,
+    sfx: 'slash_b', swing: 0.07,
   },
   N3: {
     dur: 0.52, chain: 0.24, next: 'N4', charge: 'C4', saber: true,
@@ -59,7 +59,7 @@ export const MOVES = {
       k(0.52, { torso: [0.35, 0, 0], uArmR: [-0.6, 0, -0.2], y: -0.3 }),
     ]),
     hits: [{ t: 0.12, t1: 0.22, shape: 'arc', range: 4.3, arc: 110, dmg: 32, kb: 6, up: 0 }],
-    swing: 0.1,
+    sfx: 'slash_h', swing: 0.1,
   },
   N4: {
     dur: 0.62, chain: 0.34, next: 'N5', charge: 'C5', saber: true,
@@ -71,7 +71,7 @@ export const MOVES = {
       k(0.62, { yaw: PI * 2, torso: [0.1, 0.2, 0], uArmR: [-0.3, 0.8, -1.2], y: -0.2 }),
     ]),
     hits: [{ t: 0.12, t1: 0.4, shape: 'arc', range: 4.4, arc: 360, dmg: 30, kb: 7, up: 2 }],
-    swing: 0.1,
+    sfx: 'slash_spin', swing: 0.1,
   },
   N5: {
     dur: 0.56, chain: 0.3, next: 'N6', charge: 'C6', saber: true,
@@ -83,7 +83,7 @@ export const MOVES = {
       k(0.56, { torso: [0.2, 0.2, 0], uArmR: [-1.3, 0, -0.1], y: -0.3 }),
     ]),
     hits: [{ t: 0.12, t1: 0.26, shape: 'line', len: 6.2, width: 2.2, dmg: 34, kb: 9, up: 1 }],
-    swing: 0.12,
+    sfx: 'slash_thrust', swing: 0.12,
   },
   N6: {
     dur: 0.9, chain: 0.7, next: null, charge: null, saber: true,
@@ -97,7 +97,7 @@ export const MOVES = {
     ]),
     hits: [{ t: 0.34, t1: 0.4, shape: 'circle', range: 5.6, off: 2.2, dmg: 48, kb: 9, up: 9, big: true }],
     slam: 0.35,
-    swing: 0.22,
+    sfx: 'slash_down', swing: 0.22,
   },
 
   // ---- boost dash attack: a thruster-driven slash out of the boost ----
@@ -111,7 +111,7 @@ export const MOVES = {
       k(0.66, { torso: [0.2, 0.6, 0], uArmR: [-0.3, 1.2, -1.0], hand: [0.8, 0, 0], y: -0.25 }),
     ]),
     hits: [{ t: 0.08, t1: 0.24, shape: 'arc', range: 4.8, arc: 200, dmg: 36, kb: 10, up: 4 }],
-    swing: 0.08,
+    sfx: 'slash_dash', swing: 0.08,
   },
 
   // ---- charge attacks ----
@@ -136,7 +136,7 @@ export const MOVES = {
       k(0.72, { torso: [0.1, 0, 0], uArmR: [-0.6, 0, -0.3] }),
     ]),
     hits: [{ t: 0.1, t1: 0.24, shape: 'arc', range: 4.2, arc: 130, dmg: 34, kb: 2, up: 13, big: true }],
-    swing: 0.1,
+    sfx: 'slash_rise', swing: 0.1,
   },
   C3: {
     dur: 1.3, chain: 1.15, saber: true, next: null, charge: null, armor: true,
@@ -149,7 +149,7 @@ export const MOVES = {
     hits: [0.12, 0.26, 0.4, 0.54, 0.68, 0.82].map((t) => ({ t, t1: t + 0.12, shape: 'arc', range: 4.6, arc: 360, dmg: 14, kb: 1.5, up: 1.5, pull: 2 }))
       .concat([{ t: 0.95, t1: 1.08, shape: 'arc', range: 5, arc: 360, dmg: 30, kb: 10, up: 5, big: true }]),
     spinTrail: true,
-    swing: 0.12, swingEvery: 0.14,
+    sfx: 'whirl', swing: 0.02, // one continuous voice for the whole spin
   },
   C4: {
     dur: 0.9, chain: 0.75, rifle: true, next: null, charge: null,
@@ -172,7 +172,7 @@ export const MOVES = {
     ]),
     hits: [0.12, 0.22, 0.32, 0.42].map((t) => ({ t, t1: t + 0.1, shape: 'circle', range: 2.8, off: 1.2, dmg: 22, kb: 14, up: 4 })),
     boost: [0.08, 0.5],
-    swing: 0.1,
+    sfx: 'qb', swing: 0.1,
   },
   C6: {
     dur: 1.25, chain: 1.1, rifle: true, next: null, charge: null, armor: true,
@@ -195,7 +195,7 @@ export const MOVES = {
       k(0.5, { torso: [0.3, 0, 0] }),
     ]),
     hits: [{ t: 0.06, t1: 0.2, shape: 'arc', range: 4, arc: 150, dmg: 26, kb: 4, up: 4, hy: 4 }],
-    swing: 0.06,
+    sfx: 'slash_a', swing: 0.06,
   },
   JC: {
     dur: 0.75, chain: 0.6, saber: true, next: null, charge: null, isAir: true, plunge: true,

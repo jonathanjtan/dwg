@@ -178,7 +178,7 @@ export class Commander {
     const a = this.heading + Math.PI + rand(-0.9, 0.9);
     this.evadeDir = { x: Math.sin(a), z: Math.cos(a) };
     this.invuln = 0.4;
-    g.audio.play('boost', { vol: 0.7 });
+    g.audio.play('qb', { vol: 0.7, at: this.pos });
   }
 
   update(dt) {
@@ -339,7 +339,7 @@ export class Commander {
               hero.takeHit(this.cfg.dmg * (h.big ? 1.5 : 1), this.pos.x, this.pos.z, !!h.big || name === 'N4');
             }
           }
-          if (m.swing !== undefined && t >= m.swing && t - dt * speedMul < m.swing) g.audio.play('hawk', { vol: 0.6 });
+          if (m.swing !== undefined && t >= m.swing && t - dt * speedMul < m.swing) g.audio.play('hawk', { vol: 0.5, at: this.pos });
           if (t >= m.chain + (isChar ? 0.02 : 0.12)) this.nextComboStep();
         }
         break;
@@ -584,7 +584,7 @@ export class Commander {
   dash(toHero) {
     this.heading = toHero;
     this.setState('dash');
-    this.game.audio.play('boost', { vol: 0.7 });
+    this.game.audio.play('qb', { vol: 0.7, at: this.pos });
   }
 
   startComboStep() {
