@@ -1,4 +1,5 @@
-// Keyboard + mouse + gamepad, normalised to game actions.
+// Keyboard + mouse + gamepad + touch, normalised to game actions.
+import { TouchControls, isTouch } from './touch.js';
 
 // requestPointerLock returns a promise in modern browsers and rejects when not allowed (e.g. in iframes).
 export function lockPointer(el) {
@@ -71,7 +72,17 @@ export class Input {
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === canvas;
     });
-    this.wantLock = true;
+    this.wantLock = !isTouch();
+    this.touch = isTouch() ? new TouchControls(this) : null;
+  }
+
+  // Touch controls drive the game by pressing the keys each action is already bound to.
+  pressKey(code) {
+    if (!this.down.has(code)) this.pressed.add(code);
+    this.down.add(code);
+  }
+  releaseKey(code) {
+    this.down.delete(code);
   }
 
   // held: keyboard, or the gamepad buttons for boost / jump (hold to dash / hover)
@@ -140,6 +151,10 @@ export class Input {
       this.padPrev = pad.buttons.map((x) => x.pressed);
     }
     if (!pad) this.padHeld = {};
+    if (this.touch?.active) {
+      mx += this.touch.vec.x;
+      my += this.touch.vec.y;
+    }
     const len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }
     this.move.x = mx;
