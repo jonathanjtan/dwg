@@ -1,0 +1,77 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Move filmstrip</title>
+<style>html,body{margin:0;height:100%;background:#9ab;font:12px monospace}canvas{display:block}#lbl{position:fixed;left:8px;top:6px;color:#012}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+</head><body><div id="lbl"></div>
+<script type="module">
+// Dev-only filmstrip of a move: ?move=C2&n=8[&view=side|back|top][&t=0.1,0.2]. Poses the Gundam at n evenly spaced
+// move times (with root motion, weapon in hand, blade length) and outlines the hits active at each sample in red.
+import * as THREE from 'three';
+import { RigObject } from '../src/core/rig.js';
+import { voxelMesh } from '../src/core/voxel.js';
+import { gundamDef, gundamWeapons } from '../src/models/suits.js';
+import { MOVES, BLADE } from '../src/game/moves.js';
+const q = new URLSearchParams(location.search);
+const name = q.get('move') || 'N1', m = MOVES[name];
+const n = +(q.get('n') || 8), view = q.get('view') || 'side';
+const ts = q.get('t') ? q.get('t').split(',').map(Number) : Array.from({ length: n }, (_, i) => (m.dur * i) / (n - 1));
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9aaabb);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.5));
+const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(4, 8, 6); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 60), new THREE.MeshStandardMaterial({ color: 0x80868c })); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+const curve = (keys, t) => { if (t <= keys[0][0]) return keys[0][1]; for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]) { const a = keys[i - 1], b = keys[i]; const u = (t - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * u * u * (3 - 2 * u); } return keys[keys.length - 1][1]; };
+const weaponAt = (t) => { if (!m.wpn) return m.saber ? 'saber' : m.rifle ? 'rifle' : null; let w = null; for (const [t0, x] of m.wpn) if (t >= t0) w = x; return w; };
+const W = gundamWeapons(), gap = view === 'top' ? 16 : 9;
+const hitMat = new THREE.MeshBasicMaterial({ color: 0xff2020, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false });
+const yaw = +(q.get('yaw') ?? (view === 'side' ? -1.2 : view === 'back' ? Math.PI : 0));
+ts.forEach((t, i) => {
+  const x0 = (i - (ts.length - 1) / 2) * gap;
+  const holder = new THREE.Group(); // one sample: rotated by ?yaw so forward (+z) reads across the screen
+  holder.position.x = x0;
+  holder.rotation.y = yaw;
+  scene.add(holder);
+  const rig = new RigObject(gundamDef());
+  rig.applyPose(m.clip.sample(m.loop ? t % m.loop : Math.min(t, m.clip.dur), new Float32Array(13 * 3 + 4)));
+  const fwd = m.lunge ? curve(m.lunge, t) : 0;
+  rig.root.position.set(0, m.air ? curve(m.air, t) : 0, fwd);
+  holder.add(rig.root);
+  const hand = rig.nodes.hand, w = weaponAt(t);
+  if (w === 'saber') {
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.17, 1).translate(0, 0, 0.5), new THREE.MeshBasicMaterial({ color: 0xff5fc8 }));
+    blade.position.z = 0.3; blade.scale.z = BLADE; hand.add(blade);
+  } else if (w) {
+    const mesh = voxelMesh(W[{ rifle: 'rifle', javelin: 'javelin', bazooka: 'bazooka', hammer: 'grip' }[w]], { scale: 0.1 });
+    if (w === 'bazooka') mesh.position.y = 0.12;
+    hand.add(mesh);
+  }
+  for (const h of m.hits || []) { // hits active at t
+    if (!(t >= h.t - 0.02 && t <= h.t1 + 0.02)) continue;
+    let g;
+    const off = h.off || 0;
+    if (h.shape === 'line') g = new THREE.PlaneGeometry(h.width, h.len).rotateX(-Math.PI / 2).translate(0, 0.05, h.len / 2);
+    else if (h.shape === 'circle' || (h.arc || 360) >= 360) g = new THREE.CircleGeometry(h.range, 48).rotateX(-Math.PI / 2).translate(0, 0.05, off);
+    else { const a = (h.arc * Math.PI) / 180; g = new THREE.CircleGeometry(h.range, 48, Math.PI / 2 - a / 2, a).rotateX(Math.PI / 2).translate(0, 0.05, off); }
+    const mesh = new THREE.Mesh(g, hitMat);
+    mesh.position.z = fwd;
+    holder.add(mesh);
+  }
+  const lab = document.createElement('div');
+  lab.textContent = `t=${t.toFixed(2)} ${w || ''}`;
+  lab.style.cssText = 'position:fixed;color:#012;font:11px monospace';
+  lab.dataset.x = x0;
+  lab.className = 'tl';
+  document.body.appendChild(lab);
+});
+const cam = new THREE.PerspectiveCamera(28, innerWidth / innerHeight, 0.1, 500);
+const span = ts.length * gap, fit = span / (2 * Math.tan((14 * Math.PI) / 180) * cam.aspect);
+if (view === 'top') { cam.position.set(0, fit * 1.05, 0.01); cam.lookAt(0, 0, 0); }
+else { cam.position.set(0, 3 + fit * 0.16, fit * 1.02 + 4); cam.lookAt(0, 2.4, 0); }
+r.render(scene, cam);
+for (const lab of document.querySelectorAll('.tl')) {
+  const v = new THREE.Vector3(+lab.dataset.x, view === 'top' ? 0 : 5.5, 0).project(cam);
+  lab.style.left = ((v.x + 1) / 2 * innerWidth - 40) + 'px'; lab.style.top = ((1 - v.y) / 2 * innerHeight) + 'px';
+}
+document.getElementById('lbl').textContent = `${name} dur=${m.dur} view=${view}`;
+window.rerender = () => r.render(scene, cam);
+</script></body></html>

@@ -127,7 +127,7 @@ export class Input {
       act.recenter ||= edge(6) || edge(11);
       act.attackHeld ||= b(2);
       act.chargeHeld ||= b(3);
-      this.padHeld = { dodge: b(1) || b(4), jump: b(0) };
+      this.padHeld = { dodge: b(1) || b(4), jump: b(0), musou: b(5) || b(7) };
       if (b(12)) my += 1;
       if (b(13)) my -= 1;
       if (b(14)) mx -= 1;

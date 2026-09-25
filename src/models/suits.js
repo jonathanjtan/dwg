@@ -160,7 +160,44 @@ export function gundamWeapons() {
   rifle.box(-1, -4, 1, 0, -2, 2, G.DK); // magazine / grip
   rifle.box(-1, -1, 13, 0, 0, 13, G.DK);
   rifle.box(-1, 1, 7, 0, 1, 9, 0xf3c11c);
-  return { hilt, rifle };
+
+  // Beam javelin: the extended shaft with a three-pronged beam head, gripped a third of the way up.
+  const javelin = M();
+  javelin.box(-1, -1, -18, 0, 0, 30, G.GR);
+  javelin.box(-1, -1, -3, 0, 0, 2, G.DK); // grip
+  javelin.box(-1, -1, -18, 0, 0, -17, G.W2);
+  javelin.box(-2, -2, 28, 1, 1, 30, G.W2); // emitter collar
+  const BEAM = { glow: 2.4, jitter: 0 };
+  for (let z = 31; z <= 44; z++) {
+    const w = z < 36 ? 1 : z < 41 ? 0 : -1; // spearhead tapers to a point
+    if (w >= 0) javelin.box(-1 - w, -1 - w, z, w, w, z, 0xff8ad8, BEAM);
+    else javelin.set(0, 0, z, 0xffc8f0, BEAM);
+  }
+  for (const s of [-1, 1]) for (let i = 0; i < 5; i++) javelin.set(s > 0 ? 1 + i : -2 - i, 0, 31 + i * 2, 0xff8ad8, BEAM); // side prongs
+
+  // Hyper bazooka: a long dark tube shouldered over the right arm, flared muzzle, grip and sight.
+  const bazooka = M();
+  bazooka.box(-2, -1, -14, 1, 2, 12, 0x3a4458);
+  bazooka.box(-3, -2, 10, 2, 3, 13, 0x2a3040); // muzzle flare
+  bazooka.box(-1, 0, 13, 0, 1, 13, G.DK);
+  bazooka.box(-2, -2, -15, 1, 3, -13, 0x2a3040); // breech
+  bazooka.box(-1, -4, -1, 0, -2, 1, G.DK); // grip
+  bazooka.box(2, 2, -3, 3, 3, 3, G.GR); // sight
+  bazooka.set(3, 3, 3, 0x8affff, { glow: 2, jitter: 0 });
+  bazooka.box(-2, 3, -6, 1, 3, -2, 0xf3c11c);
+
+  // Gundam hammer: a spiked iron ball on a chain; the grip sits in the fist.
+  const ball = M();
+  ball.ellipsoid(0, 0, 0, 4.2, 4.2, 4.2, 0x3a3f4c);
+  for (const [x, y, z] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+    for (let k = 4; k <= 6; k++) ball.set(Math.round(x * k) - (x < 0 ? 1 : 0), Math.round(y * k) - (y < 0 ? 1 : 0), Math.round(z * k) - (z < 0 ? 1 : 0), 0x6a707e);
+  }
+  const grip = M();
+  grip.box(-1, -1, -3, 0, 0, 3, G.GR);
+  grip.box(-1, -1, 4, 0, 0, 5, G.DK);
+  const link = M();
+  link.box(0, 0, 0, 0, 0, 1, G.DK);
+  return { hilt, rifle, javelin, bazooka, ball, grip, link };
 }
 
 export function gundamDef() {

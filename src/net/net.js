@@ -25,7 +25,7 @@ const GF = 13; // int16 fields per grunt
 
 // Effects the guest regenerates locally from state instead of receiving (they fire every frame).
 const LOCAL_FX = new Set(['thruster', 'aura']);
-const FX_METHODS = ['explode', 'hit', 'sparks', 'debris', 'puff', 'dust', 'ring', 'dome', 'light', 'glint', 'thruster', 'aura', 'star', 'muzzle', 'scorch'];
+const FX_METHODS = ['explode', 'hit', 'sparks', 'debris', 'puff', 'dust', 'ring', 'dome', 'light', 'glint', 'thruster', 'aura', 'star', 'muzzle', 'scorch', 'shock', 'bolts'];
 const HUD_METHODS = ['announce', 'say', 'setObjective', 'toast', 'whiteFlash'];
 
 function code6() {
@@ -181,11 +181,11 @@ export class Net {
       cmd: g.commanders.list.map((c) => c.netState()),
       crowd: crowd.buffer,
       pj: {
-        b: flat(pj.beams, (b) => [b.p.x, b.p.y, b.p.z, b.d.x, b.d.y, b.d.z]),
+        b: flat(pj.beams, (b) => [b.p.x, b.p.y, b.p.z, b.d.x, b.d.y, b.d.z, b.w]),
+        rk: flat(pj.rockets, (r) => [r.p.x, r.p.y, r.p.z, r.v.x, r.v.y, r.v.z]),
         u: flat(pj.bullets, (b) => [b.p.x, b.p.y, b.p.z, b.d.x, b.d.y, b.d.z]),
         mi: flat(pj.missiles, (m) => [m.p.x, m.p.y, m.p.z, m.v.x, m.v.y, m.v.z]),
         sh: flat(pj.shells, (s) => [s.p.x, s.p.y, s.p.z, s.v.x, s.v.y, s.v.z]),
-        mega: pj.megaState ? { p: plain(pj.megaState.p), d: plain(pj.megaState.d), t: pj.megaState.t, dur: pj.megaState.dur, len: pj.megaState.len } : null,
       },
       it: g.items.netState(),
       bz: g.lz.netState(),

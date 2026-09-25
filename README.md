@@ -56,22 +56,27 @@ Staying alive:
 | Move | WASD | Left stick |
 | Camera | Mouse (click to lock), Q / E, wheel to zoom, R to recenter | Right stick |
 | Attack (beam saber) | J / left click | X / Square |
-| Charge attack | K / right click | Y / Triangle |
+| Charge attack (hold for a charge shot) | K / right click | Y / Triangle |
 | Jump (hold to hover on the thrusters) | Space | A / Cross |
 | Boost dodge (hold to boost dash) | L / Shift | B / Circle |
-| SP attack | I / F | RB / R1 |
-| Pause, mute, hide keys | Esc, M, H | Start |
+| SP attack (hold for the charge SP) | I / F | RB / R1 |
+| Pause, sound on/off, hide keys | Esc, M, H | Start |
 
-Charge attacks change with how far into the combo you are, as in Dynasty Warriors:
+Sound starts off. Press M, or use the SOUND button in the pause menu, to turn it on.
 
-- **K**: beam rifle shot (tap up to 3 times)
-- **J K**: rising launcher slash
-- **J J K**: spinning saber whirlwind
-- **J J J K**: five-shot rifle spread
-- **J J J J K**: shield rush
-- **J J J J J K**: charged mega beam
+Amuro's moveset follows the RX-78-2's in *Dynasty Warriors: Gundam Reborn*, with its beam saber, beam rifle, beam javelin, hyper bazooka and Gundam hammer. Reach is scaled from gameplay footage: the saber blade is about 1.3 Gundam heights long, as in the game. Charge attacks change with how far into the combo you are:
+
+- **J × 6**: six saber cuts. The sixth is a thruster hop into a full-circle cut that launches everything around you.
+- **K**: beam rifle shot. Mash it for a shot combo, or hold it for a charge shot that throws its target.
+- **J K**: rising launcher cut, a spin under the falling target, then the beam javelin speared up into it
+- **J J K**: the hyper bazooka comes off the back and fires four rounds point-blank
+- **J J J K**: a flurry of cuts, a crescent sweep, then a thruster dash straight through the target
+- **J J J J K**: a spin, then a huge rising crescent that carries the Gundam up with its target
+- **J J J J J K**: a spin, a hop, and a saber stab into the ground that sends out a shockwave about 2.8 Gundam heights across
 - In the air: **J** aerial slash, **K** plunging slam
-- During a boost dash: **J** dash slash, **K** beam rifle, **Space** boost jump
+- During a boost dash: **J** dash rush (keep pressing J for up to 12 cuts and a launcher), **K** point-blank bazooka, **Space** boost jump
+
+SP attacks: on the ground, a long saber flurry, then the javelin skewers, lifts and slams, and purple lightning erupts. Hold SP through the starburst for the charge SP: the Gundam hammer, whirled around you on its chain. In the air, the Gundam hovers and shells the crowd with the hyper bazooka.
 
 The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest.
 
@@ -79,10 +84,10 @@ The boost gauge under the SP bar drains while you dash or hover and refills once
 
 - `src/core/voxel.js`: voxel models authored with box, ellipsoid and mirror operations, then meshed with face culling, baked ambient occlusion, and greedy merging for the static town.
 - `src/core/rig.js`: a 13-part humanoid rig with keyframed pose clips. It drives both Object3D rigs (the Gundam and the commanders) and `InstancedMesh` crowds of up to 300 Zakus.
-- `src/game/`: the hero moveset (`moves.js`), the Guntank (`tank.js`), squad AI with attack tokens and a front-rank cap (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
+- `src/game/`: the hero moveset (`moves.js`: poses, hit shapes, weapon timelines, timed effects), the Guntank (`tank.js`), squad AI with attack tokens and a front-rank cap (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
 - `src/net/net.js`: co-op networking. The crowd is packed into an Int16Array per snapshot, and effect, sound and HUD events are replicated.
 - `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke, embers and debris, anime impact stars, beam afterglow, ground scorch decals, shockwave rings and the Catmull-Rom smoothed saber ribbon trail.
-- `src/audio/sfx.js`: the sound bank. Every effect is synthesized at load in an `OfflineAudioContext`, several takes per sound, each tuned differently, so no two triggers in a row are identical. Each saber move has its own voice (the slash sweeps across the stereo field with the blade, and the whirlwind is one continuous spin). Hits, footsteps, boosts and explosions are layered from a transient, a saturated body, ringing armor resonances, debris crackle and a sub-bass push.
+- `src/audio/sfx.js`: the sound bank. Every effect is synthesized at load in an `OfflineAudioContext`, several takes per sound, each tuned differently, so no two triggers in a row are identical. Each saber move has its own voice, and the slash sweeps across the stereo field with the blade. Hits, footsteps, boosts and explosions are layered from a transient, a saturated body, ringing armor resonances, debris crackle and a low push. The weapon voices are tuned to *DW: Gundam Reborn*'s gameplay audio, measured band by band. Beams buzz around 160 Hz. Saber hits crunch near 2 kHz and ring at the game's armor partials between 0.7 and 1.15 kHz. There is little air above 6 kHz.
 - `src/audio/audio.js`: plays the bank's takes, panned against the camera and dulled with distance, through a generated colony-hall reverb. It also runs the continuous beam-saber hum and thruster roar, and falls back to live synthesis until the bank is ready.
 - `src/audio/music.js`: the score, synthesized live. It's original anime hard rock with double-tracked distorted guitars, bass, a rock kit, a gliding lead, pads and arps. There's a battle theme, a boss theme for Char, a title theme, and victory and defeat stingers.
 - `src/world/world.js`: the Side 7 town and the O'Neill cylinder shell curving up into the sky.

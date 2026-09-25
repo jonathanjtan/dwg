@@ -6,20 +6,23 @@ import { renderBank } from './sfx.js';
 
 // reverb send per sound (positional sounds also get wetter with distance)
 const REV = {
-  boom: 0.3, bigboom: 0.5, slam: 0.35, land: 0.18, rifle: 0.3, mega: 0.45, clang: 0.35, hit: 0.08, hit_heavy: 0.25, hawk: 0.1,
+  boom: 0.3, bigboom: 0.5, slam: 0.35, land: 0.18, rifle: 0.25, cshot: 0.35, clang: 0.35, hit: 0.08, hit_heavy: 0.25, hawk: 0.1,
   mg: 0.12, alarm: 0.2, capture: 0.25, distant: 0.9, eye: 0.25, step: 0.08, sp: 0.35, skid: 0.1, hurt: 0.15, jet: 0.12,
-  qb: 0.2, slash_h: 0.12, slash_down: 0.15, whirl: 0.1,
+  qb: 0.2, slash_h: 0.12, slash_down: 0.15, bazooka: 0.25, bzboom: 0.4, shock: 0.35, lightning: 0.45, burst: 0.35,
+  flash: 0.15, javelin: 0.15, spcharge: 0.2, hammer: 0.1,
 };
 // live-synth stand-ins used until the rendered bank is ready
 const FALLBACK = {
   slash_a: 'swing', slash_b: 'swing', slash_h: 'swing', slash_spin: 'swing', slash_down: 'swing', slash_dash: 'swing',
-  slash_fast: 'swing', slash_thrust: 'swing', slash_rise: 'swing', whirl: 'swing', hit_heavy: 'hit', qb: 'boost', ping: 'hit',
+  slash_fast: 'swing', slash_rise: 'swing', hit_heavy: 'hit', qb: 'boost', ping: 'hit',
+  cshot: 'rifle', javelin: 'swing', hammer: 'swing', bazooka: 'boom', bzboom: 'boom', shock: 'slam', lightning: 'bigboom',
+  flash: 'charge', spcharge: 'charge', burst: 'sp', draw: 'clang', bhit: 'hit',
 };
 
 export class Audio {
   constructor() {
     this.ctx = null;
-    this.muted = false;
+    this.muted = true; // sound starts off; M or the pause menu turns it on
     this.musicOn = true;
     this.listener = null; // {x,z}
     this.listenerYaw = 0; // camera yaw: sounds pan against the camera's right vector
@@ -36,7 +39,7 @@ export class Audio {
     if (!AC) return;
     const ctx = (this.ctx = new AC());
     this.master = ctx.createGain();
-    this.master.gain.value = 0.8;
+    this.master.gain.value = this.muted ? 0 : 0.8;
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14;
     comp.knee.value = 10;
@@ -105,9 +108,9 @@ export class Audio {
     const hum = (this.hum = { gain: ctx.createGain(), lp: ctx.createBiquadFilter(), oscs: [] });
     hum.gain.gain.value = 0;
     hum.lp.type = 'lowpass';
-    hum.lp.frequency.value = 500;
-    hum.lp.Q.value = 4;
-    for (const [type, f, det] of [['sawtooth', 92, 0], ['sawtooth', 92, 13], ['square', 46, -7]]) {
+    hum.lp.frequency.value = 700;
+    hum.lp.Q.value = 3;
+    for (const [type, f, det] of [['sawtooth', 157, 0], ['sawtooth', 157, 13], ['square', 78.5, -7]]) {
       const o = ctx.createOscillator();
       o.type = type;
       o.frequency.value = f;
@@ -171,8 +174,8 @@ export class Audio {
     const t = this.ctx.currentTime, h = this.hum;
     const sp = Math.min(1, bladeSpeed / 45);
     h.gain.gain.setTargetAtTime(saber * (0.035 + sp * 0.06), t, 0.04);
-    h.lp.frequency.setTargetAtTime(420 + sp * 1400, t, 0.04);
-    const f = 92 * (1 + sp * 0.2);
+    h.lp.frequency.setTargetAtTime(600 + sp * 2000, t, 0.04);
+    const f = 157 * (1 + sp * 0.15);
     h.oscs[0].frequency.setTargetAtTime(f, t, 0.04);
     h.oscs[1].frequency.setTargetAtTime(f, t, 0.04);
     h.oscs[2].frequency.setTargetAtTime(f / 2, t, 0.04);
@@ -244,7 +247,7 @@ export class Audio {
     const now = ctx.currentTime;
     // throttle identical sounds
     const last = this.throttle.get(name) || 0;
-    const minGap = { ping: 0.05, hit: 0.03, hit_heavy: 0.05, boom: 0.04, mg: 0.03, step: 0.08, swing: 0.04, jet: 0.12, eye: 0.25, qb: 0.06 }[name] ?? 0.015;
+    const minGap = { ping: 0.05, hit: 0.03, bhit: 0.03, hit_heavy: 0.05, boom: 0.04, bzboom: 0.05, mg: 0.03, step: 0.08, swing: 0.04, jet: 0.12, eye: 0.25, qb: 0.06, flash: 0.05 }[name] ?? 0.015;
     if (now - last < minGap) return;
     this.throttle.set(name, now);
     let dist = 0;
@@ -341,18 +344,11 @@ export class Audio {
         this.crackle(t + 0.1, 1.3, 14, 0.25, out);
         break;
       case 'rifle':
-        // beam rifle: a bright zap that falls away, a buzzing tail and a low recoil punch
-        this.osc('sine', 2600 * p, 320 * p, t, 0.2, 0.3, out);
-        this.osc('sawtooth', 1100 * p, 150 * p, t, 0.32, 0.16, out);
-        this.noiseBurst(t, 0.35, 0.45, out, { type: 'bandpass', f0: 5000, f1: 700, q: 1.1 });
-        this.osc('sine', 160, 45, t, 0.25, 0.55, out);
-        break;
-      case 'mega':
-        for (let i = 0; i < 3; i++) this.osc('sawtooth', (400 + i * 7) * p, 60, t, 1.1, 0.22, out, { detune: i * 12 });
-        this.noiseBurst(t, 1.1, 0.7, out, { type: 'bandpass', f0: 3000, f1: 300, q: 0.8 });
-        this.osc('sine', 60, 30, t, 1.0, 0.6, out);
-        this.osc('sine', 3200, 500, t, 0.3, 0.2, out);
-        this.noiseBurst(t, 0.06, 0.6, out, { type: 'highpass', f0: 2500 });
+        // beam rifle: a buzzing discharge gliding down around 170 Hz, a falling whine and a sizzle
+        this.osc('sawtooth', 185 * p, 160 * p, t, 0.26, 0.2, out);
+        this.osc('sawtooth', 185 * p, 160 * p, t, 0.26, 0.14, out, { detune: 9 });
+        this.osc('sine', 1400 * p, 460 * p, t, 0.14, 0.16, out);
+        this.noiseBurst(t, 0.35, 0.4, out, { type: 'bandpass', f0: 2600, f1: 1100, q: 1.4 });
         break;
       case 'mg':
         this.noiseBurst(t, 0.06, 0.6, out, { type: 'lowpass', f0: 3500, q: 0.6 });

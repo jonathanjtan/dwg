@@ -1,7 +1,9 @@
 // Offline-rendered sound bank. Every effect is synthesized once per variant at load (OfflineAudioContext), then
 // played back as samples: each trigger gets a different take instead of the same synth patch, and the takes can
 // afford layers that would be too costly live (saturation, metal resonance banks, debris crackle, pan sweeps).
-// Voice: heavy mech. Transients, a saturated body, ringing armour and a sub push under everything that hits.
+// Voice: after Dynasty Warriors: Gundam. Measured off gameplay audio, its effects sit in a 150-500 Hz body and a
+// 1.5-3.5 kHz bite with little air above 6 kHz; beam weapons buzz around 160 Hz, and saber hits ring at inharmonic
+// partials between 0.7 and 1.15 kHz. So: buzzy beams, crunchy mids, ringing armour, and less sub than a mech sim.
 import { mulberry32 } from '../core/util.js';
 
 let NOISE = null;
@@ -122,6 +124,13 @@ class Synth {
       this.noise(t, (dur * this.r(0.6, 1.1)) / (1 + i * 0.15), (vol * this.r(0.5, 1)) / (1 + i * 0.25), { type: 'bandpass', f0: f, q, a: 0.001, dest });
     }
   }
+  // Ringing partials at explicit frequencies (the armour ring measured off DW:Gundam hits), each decaying on its own.
+  bell(t, freqs, dur, vol, { dest = this.out, spread = 0.03 } = {}) {
+    freqs.forEach((f, i) => {
+      const ff = f * this.r(1 - spread, 1 + spread);
+      this.tone('sine', ff, ff * 0.985, t, (dur * this.r(0.7, 1.1)) / (1 + i * 0.12), (vol * this.r(0.6, 1)) / (1 + i * 0.2), { a: 0.002, dest });
+    });
+  }
   // Scattered ticks: plasma crackle, falling debris.
   crackle(t, span, n, vol, { f0 = 1500, f1 = 5000, dest = this.out } = {}) {
     for (let i = 0; i < n; i++) {
@@ -152,49 +161,39 @@ class Synth {
 }
 
 // ---------------------------------------------------------------- beam saber
-// Ignition snap, a saturated "vwom" of detuned saws through a resonant filter that opens and closes with the
-// blade, the air it cuts, plasma crackle, and for heavy swings a sub push. The stereo position follows the arc.
+// A buzzing beam (saws around 160 Hz, gliding down with the swing) through a resonant band that sweeps up into the
+// 1.5-3 kHz bite and back, an airy whoosh riding the same arc, a few plasma ticks, and for heavy cuts a low swell.
+// The stereo position follows the arc.
+const HIT_RING = [727, 888, 1003, 1080, 1141];
 function blade(o) {
   return (s, v) => {
-    const t0 = 0.005;
+    const t0 = 0.004;
     const pan = o.pan === 'alt' ? (v % 2 ? [0.5, -0.5] : [-0.5, 0.5]) : o.pan;
     const main = s.bus({ pan, panAt: o.panAt || [o.dur * 0.6] });
     const heavy = o.heavy || 0;
-    const base = o.base * s.r(0.92, 1.08);
-    s.click(t0, 0.45, main);
-    s.noise(t0, 0.035, 0.3, { type: 'highpass', f0: 5000, dest: main });
-    // saturate first, then sweep: the resonant filter opening and closing on the driven saws is the "vwom"
-    const lp = s.filter('lowpass', 260, o.q || 7, main);
-    const hot = s.bus({ dest: lp, drive: 2.5 + heavy * 3, gain: 0.8 });
+    const base = (o.base || 157) * s.r(0.94, 1.06);
     const peakT = t0 + (o.peak || 0.07) * s.r(0.85, 1.15);
-    lp.frequency.setValueAtTime(260, t0);
-    lp.frequency.exponentialRampToValueAtTime((o.bright || 2600) * s.r(0.85, 1.15), peakT);
-    lp.frequency.exponentialRampToValueAtTime(300, t0 + o.dur * 0.85);
-    for (const det of [-10, 0, 12]) s.tone('sawtooth', base * 1.35, base * 0.7, t0, o.dur * 0.8, 0.2, { dest: hot, detune: det + s.r(-5, 5), a: 0.015 });
-    s.tone('square', base * 0.6, base * 0.38, t0, o.dur * 0.6, 0.12, { dest: hot, a: 0.015 });
-    s.noise(t0, o.dur * 0.55, 0.5 * (o.air ?? 1), { type: 'bandpass', f0: 600, fm: (o.airTop || 3400) * s.r(0.85, 1.15), tm: o.peak || 0.07, f1: 800, q: 1.2, a: 0.02, dest: main });
-    s.crackle(t0 + 0.02, o.dur * 0.55, 5 + Math.round(heavy * 6), 0.16, { f0: 3500, f1: 9000, dest: main });
+    s.click(t0, 0.25, main);
+    // the buzz: driven saws into a sweeping band-pass
+    const lo = o.lo || 700;
+    const bp = s.filter('bandpass', lo, o.q || 2.2, main);
+    bp.frequency.setValueAtTime(lo, t0);
+    bp.frequency.exponentialRampToValueAtTime((o.bright || 2600) * s.r(0.88, 1.12), peakT);
+    bp.frequency.exponentialRampToValueAtTime(o.tail || 900, t0 + o.dur * 0.8);
+    const hot = s.bus({ dest: s.filter('highpass', 320, 0.7, bp), drive: 2.2 + heavy * 1.5, gain: 0.9 });
+    for (const det of [-9, 0, 11]) s.tone('sawtooth', base * 1.2, base * 0.85, t0, o.dur * 0.75, 0.22, { dest: hot, detune: det + s.r(-4, 4), a: 0.012 });
+    // body of the swing: the buzz an octave up, band-passed around 330 Hz (the fundamental itself stays quiet)
+    const body = s.filter('bandpass', 300, 1.3, main);
+    for (const det of [-6, 7]) s.tone('sawtooth', base * 2.2, base * 1.5, t0, o.dur * 0.55, 0.075 * (o.body ?? 1), { dest: body, detune: det, a: 0.02 });
+    // air
+    s.noise(t0, o.dur * 0.6, 0.5 * (o.air ?? 1), { type: 'bandpass', f0: o.airLo || 420, fm: (o.airTop || 2300) * s.r(0.85, 1.15), tm: o.peak || 0.07, f1: o.tail || 600, q: 1.1, a: 0.02, dest: main });
+    s.noise(t0, o.dur * 0.4, 0.22 * (o.body ?? 1), { type: 'bandpass', f0: 520, q: 1.2, a: 0.02, dest: main });
+    s.crackle(t0 + 0.02, o.dur * 0.5, 3 + Math.round(heavy * 4), 0.12, { f0: 1500, f1: 4200, dest: main });
     if (heavy) {
-      s.tone('sine', 130, 40, t0 + 0.02, 0.25 + heavy * 0.25, 0.35 + heavy * 0.45, { dest: main, a: 0.01 });
-      s.noise(t0 + 0.02, 0.25 + heavy * 0.2, 0.3 * heavy, { type: 'lowpass', f0: 500, f1: 120, dest: main, a: 0.01 });
+      s.tone('sine', 220, 110, t0 + 0.02, 0.2 + heavy * 0.2, 0.45 * heavy, { dest: main, a: 0.012 });
+      s.noise(t0 + 0.02, 0.2 + heavy * 0.2, 0.25 * heavy, { type: 'lowpass', f0: 700, f1: 180, dest: main, a: 0.01 });
     }
   };
-}
-
-// Straight thrust: a metallic "shink" riding a short energy stab and a forward push.
-function thrust(s) {
-  const main = s.bus();
-  const hot = s.bus({ dest: main, drive: 4 });
-  s.click(0.005, 0.7, main);
-  s.noise(0.005, 0.13, 0.6, { type: 'bandpass', f0: 2200 * s.r(0.9, 1.1), f1: 7500, q: 6, dest: hot, a: 0.004 });
-  s.noise(0.005, 0.3, 0.45, { type: 'bandpass', f0: 900, fm: 2800, tm: 0.05, f1: 700, q: 1.2, dest: main, a: 0.01 });
-  const lp = s.filter('lowpass', 1800, 5, main);
-  lp.frequency.setValueAtTime(2200, 0.005);
-  lp.frequency.exponentialRampToValueAtTime(300, 0.35);
-  const stab = s.bus({ dest: lp, drive: 3 });
-  for (const d of [-8, 9]) s.tone('sawtooth', 130 * s.r(0.92, 1.08), 70, 0.005, 0.3, 0.2, { dest: stab, detune: d });
-  s.tone('sine', 150, 48, 0.01, 0.24, 0.55, { dest: main });
-  s.crackle(0.03, 0.3, 6, 0.15, { f0: 4000, f1: 9000, dest: main });
 }
 
 // Rising cut (launcher, jump slash wind-up): the blade charges as it climbs, then tears upward.
@@ -205,36 +204,11 @@ function rise(s) {
   lp.frequency.setValueAtTime(300, 0);
   lp.frequency.exponentialRampToValueAtTime(3200 * s.r(0.85, 1.1), 0.18);
   lp.frequency.exponentialRampToValueAtTime(400, 0.7);
-  for (const d of [-10, 0, 12]) s.tone('sawtooth', 50, 170 * s.r(0.9, 1.1), 0.005, 0.45, 0.2, { dest: hot, detune: d, glide: 0.18, a: 0.03 });
+  for (const d of [-10, 0, 12]) s.tone('sawtooth', 110, 200 * s.r(0.9, 1.1), 0.005, 0.45, 0.2, { dest: hot, detune: d, glide: 0.18, a: 0.03 });
   s.noise(0.01, 0.45, 0.55, { type: 'bandpass', f0: 400, fm: 4000, tm: 0.16, f1: 1200, q: 1.1, dest: main, a: 0.05 });
   s.click(0.14, 0.4, main);
-  s.tone('sine', 60, 110, 0, 0.3, 0.35, { dest: main, a: 0.05 });
-  s.crackle(0.1, 0.45, 8, 0.16, { f0: 3500, f1: 9000, dest: main });
-}
-
-// Whirlwind: one continuous voice for the whole spin, with blade passes circling the listener and a closing cut.
-// Pass spacing matches the move's hits at the hero's attack rate (0.14 s of move time / 0.86).
-const WHIRL_STEP = 0.163, WHIRL_END = 1.08;
-function whirl(s) {
-  const ctx = s.ctx;
-  const pans = [], at = [];
-  for (let i = 0; i < 7; i++) { pans.push(i % 2 ? 0.7 : -0.7); at.push(0.12 + i * WHIRL_STEP); }
-  const main = s.bus({ pan: [0, ...pans, 0], panAt: [...at, WHIRL_END + 0.1] });
-  const lp = s.filter('lowpass', 1300, 6, main);
-  const hot = s.bus({ dest: lp, drive: 3 });
-  const lfo = ctx.createOscillator();
-  lfo.frequency.value = 1 / WHIRL_STEP;
-  const lg = ctx.createGain();
-  lg.gain.value = 1000;
-  lfo.connect(lg).connect(lp.frequency);
-  lfo.start(0);
-  lfo.stop(WHIRL_END + 0.3);
-  for (const d of [-10, 0, 12]) s.tone('sawtooth', 72, 62, 0.01, 0.25, 0.16, { dest: hot, detune: d, a: 0.06, hold: WHIRL_END - 0.1 });
-  for (let i = 0; i < 6; i++) s.noise(0.1 + i * WHIRL_STEP, 0.13, 0.42 * s.r(0.8, 1.1), { type: 'bandpass', f0: 700, fm: 3200 * s.r(0.85, 1.15), tm: 0.05, f1: 900, q: 1.3, dest: main, a: 0.01 });
-  s.crackle(0.05, WHIRL_END, 18, 0.14, { f0: 3500, f1: 9000, dest: main });
-  s.noise(WHIRL_END, 0.35, 0.6, { type: 'bandpass', f0: 500, fm: 2600, tm: 0.06, f1: 600, q: 1, dest: main, a: 0.01 });
-  s.tone('sine', 120, 38, WHIRL_END + 0.01, 0.35, 0.6, { dest: main });
-  s.click(WHIRL_END, 0.5, main);
+  s.tone('sine', 90, 160, 0, 0.3, 0.3, { dest: main, a: 0.05 });
+  s.crackle(0.1, 0.45, 6, 0.14, { f0: 1600, f1: 4500, dest: main });
 }
 
 // Laser blade ignition.
@@ -252,31 +226,50 @@ function ignite(s) {
 }
 
 // ---------------------------------------------------------------- impacts
-// Beam saber through Zaku armour.
+// Beam saber through Zaku armour: a driven crunch centred near 2 kHz on top, the armour ringing at the partials
+// measured off the game's hits (well under the crunch), a beam sizzle, and a short body thump (mid, not sub).
 function hit(s) {
   const main = s.bus({ pan: s.r(-0.15, 0.15) });
-  const crunch = s.bus({ dest: main, drive: 5, gain: 0.7 });
-  s.click(0, 0.9, main);
-  s.tone('square', 110 * s.r(0.9, 1.1), 42, 0, 0.1, 0.6, { dest: crunch });
-  s.noise(0, 0.07, 0.8, { type: 'lowpass', f0: 3000, f1: 400, dest: crunch });
-  s.metal(0.002, s.r(380, 620), 0.28, 0.9, { n: 5, q: 28, dest: main });
-  s.noise(0.01, 0.2, 0.45, { type: 'bandpass', f0: 4200, f1: 2000, q: 2.2, dest: main });
-  s.crackle(0.02, 0.3, 7, 0.2, { f0: 3000, f1: 8000, dest: main });
-  s.tone('sine', 75, 35, 0, 0.22, 0.9, { dest: main });
+  const crunch = s.bus({ dest: main, drive: 5, gain: 0.8 });
+  s.click(0, 0.6, main);
+  s.noise(0, 0.15, 1.3, { type: 'bandpass', f0: 2100 * s.r(0.9, 1.1), f1: 1600, q: 1.4, dest: crunch });
+  s.noise(0, 0.08, 0.35, { type: 'bandpass', f0: 550, q: 1, dest: main });
+  s.noise(0, 0.1, 0.8, { type: 'bandpass', f0: 2700, q: 1.4, dest: crunch });
+  s.noise(0, 0.1, 0.4, { type: 'lowpass', f0: 500, f1: 200, dest: main });
+  s.tone('square', 190 * s.r(0.9, 1.1), 95, 0, 0.08, 0.25, { dest: s.filter('lowpass', 380, 0.7, main) });
+  const k = s.r(0.94, 1.06);
+  s.bell(0.002, HIT_RING.map((f) => f * k), 0.26, 0.022, { dest: main });
+  s.noise(0.01, 0.15, 0.35, { type: 'bandpass', f0: 2800, f1: 2000, q: 1.8, dest: main });
+  s.crackle(0.02, 0.2, 5, 0.14, { f0: 1500, f1: 3500, dest: main });
+  s.tone('sine', 150, 70, 0, 0.12, 0.4, { dest: main });
 }
 
-// Finishers and commander hits: the same, bigger, with armour plates shearing off.
+// Finishers and commander hits: the same, lower and longer, with armour plates shearing off.
 function hitHeavy(s) {
   const main = s.bus({ pan: s.r(-0.1, 0.1) });
   const crunch = s.bus({ dest: main, drive: 6, gain: 0.8 });
-  s.click(0, 1, main);
-  s.tone('square', 85 * s.r(0.9, 1.1), 30, 0, 0.16, 0.7, { dest: crunch });
-  s.noise(0, 0.25, 0.9, { type: 'lowpass', f0: 2400, f1: 200, dest: crunch });
-  s.metal(0.003, s.r(220, 360), 0.6, 1, { n: 6, q: 24, dest: main });
-  s.noise(0.01, 0.3, 0.45, { type: 'bandpass', f0: 3800, f1: 1500, q: 2, dest: main });
-  s.tone('sine', 62, 26, 0, 0.5, 1, { dest: main });
-  s.noise(0.05, 0.7, 0.4, { type: 'lowpass', f0: 600, f1: 80, dest: main, a: 0.02 });
-  s.crackle(0.05, 0.8, 12, 0.28, { f0: 600, f1: 3000, dest: main });
+  s.click(0, 0.8, main);
+  s.noise(0, 0.22, 1.3, { type: 'bandpass', f0: 1800 * s.r(0.9, 1.1), f1: 1200, q: 0.9, dest: crunch });
+  s.noise(0, 0.14, 0.8, { type: 'bandpass', f0: 2600, q: 1.3, dest: crunch });
+  s.noise(0, 0.26, 0.7, { type: 'lowpass', f0: 600, f1: 160, dest: main });
+  s.tone('square', 130 * s.r(0.9, 1.1), 55, 0, 0.14, 0.4, { dest: s.filter('lowpass', 320, 0.7, main) });
+  const k = s.r(0.78, 0.86);
+  s.bell(0.003, HIT_RING.map((f) => f * k), 0.5, 0.035, { dest: main });
+  s.noise(0.01, 0.3, 0.4, { type: 'bandpass', f0: 2600, f1: 1400, q: 1.6, dest: main });
+  s.tone('sine', 110, 45, 0, 0.35, 0.6, { dest: main });
+  s.noise(0.05, 0.6, 0.3, { type: 'lowpass', f0: 600, f1: 120, dest: main, a: 0.02 });
+  s.crackle(0.05, 0.7, 10, 0.24, { f0: 900, f1: 3200, dest: main });
+}
+
+// A beam shot connecting: crunch and sizzle without the saber's armour ring.
+function bhit(s) {
+  const main = s.filter('lowpass', 4000, 0.7, s.bus({ pan: s.r(-0.15, 0.15) }));
+  const crunch = s.bus({ dest: main, drive: 4, gain: 0.8 });
+  s.click(0, 0.5, main);
+  s.noise(0, 0.09, 1, { type: 'bandpass', f0: 2200 * s.r(0.9, 1.1), f1: 1500, q: 1, dest: crunch });
+  s.noise(0.005, 0.18, 0.4, { type: 'bandpass', f0: 3000, f1: 1800, q: 1.6, dest: main });
+  s.tone('sine', 200, 110, 0, 0.1, 0.45, { dest: main });
+  s.crackle(0.02, 0.2, 4, 0.12, { f0: 1500, f1: 3500, dest: main });
 }
 
 // The Gundam's own hull taking a blow: lower, heavier, and a jolt through the cockpit.
@@ -354,28 +347,81 @@ function bigboom(s) {
 }
 
 // ---------------------------------------------------------------- weapons
-// Beam rifle: a hard crack, a saturated zap that falls away, a recoil punch and electric crackle trailing off.
+// Beam rifle: a buzzing discharge gliding from ~185 down to ~160 Hz (the tone the game's shots carry), pushed through
+// a 2.2 kHz resonance, a descending "pew" whine on top, a snap of air and a sizzle that falls away.
 function rifle(s) {
-  const main = s.bus();
-  const hot = s.bus({ dest: main, drive: 4, gain: 0.8 });
-  s.click(0, 0.8, main);
-  s.tone('sawtooth', 2200 * s.r(0.9, 1.1), 180, 0, 0.2, 0.35, { dest: hot, glide: 0.18 });
-  s.tone('sine', 900, 120, 0, 0.3, 0.3, { dest: main });
-  s.noise(0, 0.05, 0.6, { type: 'highpass', f0: 3000, dest: main });
-  s.noise(0, 0.4, 0.5, { type: 'bandpass', f0: 3000, f1: 500, q: 1, dest: main });
-  s.tone('sine', 130, 40, 0, 0.3, 0.85, { dest: main });
-  s.crackle(0.08, 0.55, 10, 0.18, { f0: 3000, f1: 9000, dest: main });
+  const main = s.filter('lowpass', 3800, 0.7, s.filter('lowpass', 3800, 0.7, s.bus()));
+  const bp = s.filter('bandpass', 2200 * s.r(0.9, 1.1), 1.6, main);
+  const hot = s.bus({ dest: bp, drive: 4, gain: 0.9 });
+  for (const d of [-8, 0, 9]) s.tone('sawtooth', 185, 160, 0, 0.26, 0.28, { dest: hot, detune: d, a: 0.003 });
+  const lp = s.filter('lowpass', 700, 1, main);
+  for (const d of [-5, 6]) s.tone('sawtooth', 185, 160, 0, 0.2, 0.16, { dest: lp, detune: d, a: 0.003 });
+  s.tone('sine', 3200 * s.r(0.92, 1.08), 1300, 0, 0.14, 0.1, { dest: main, glide: 0.12 });
+  s.tone('sine', 300, 180, 0, 0.12, 0.6, { dest: main });
+  s.noise(0, 0.035, 0.6, { type: 'bandpass', f0: 3000, q: 1.2, dest: main, a: 0.001 });
+  s.noise(0.01, 0.4, 0.35, { type: 'bandpass', f0: 2600, f1: 1100, q: 1.4, dest: main });
+  s.crackle(0.05, 0.35, 5, 0.12, { f0: 1500, f1: 4000, dest: main });
 }
 
-function mega(s) {
+// Charge shot: the rifle's buzz, fatter and longer, with a growl under it and a heavy report.
+function cshot(s) {
   const main = s.bus();
-  const hot = s.bus({ dest: main, drive: 4, gain: 0.8 });
-  s.click(0, 1, main);
-  for (let i = 0; i < 3; i++) s.tone('sawtooth', 420 + i * 7, 60, 0, 1.2, 0.22, { dest: hot, detune: i * 12, a: 0.01 });
-  s.noise(0, 1.2, 0.7, { type: 'bandpass', f0: 3000, f1: 300, q: 0.8, dest: hot });
-  s.tone('sine', 55, 24, 0, 1.2, 1, { dest: main });
-  s.tone('sine', 3200, 500, 0, 0.3, 0.2, { dest: main });
-  s.crackle(0.05, 1.4, 24, 0.2, { f0: 3000, f1: 9000, dest: main });
+  const bp = s.filter('bandpass', 3000, 1.3, main);
+  bp.frequency.setValueAtTime(3000, 0);
+  bp.frequency.exponentialRampToValueAtTime(1200, 0.6);
+  const hot = s.bus({ dest: bp, drive: 5, gain: 0.9 });
+  for (const d of [-14, -5, 5, 14]) s.tone('sawtooth', 178, 150, 0, 0.6, 0.22, { dest: hot, detune: d, a: 0.004 });
+  const lp = s.filter('lowpass', 600, 1.2, main);
+  for (const f of [90, 113]) s.tone('sawtooth', f * 1.1, f, 0, 0.5, 0.2, { dest: lp, a: 0.005 });
+  s.click(0, 0.9, main);
+  s.noise(0, 0.08, 0.8, { type: 'bandpass', f0: 2400, q: 0.7, dest: main, a: 0.001 });
+  s.noise(0, 0.35, 0.7, { type: 'lowpass', f0: 1600, f1: 200, dest: s.bus({ dest: main, drive: 3 }) });
+  s.tone('sine', 1800, 380, 0, 0.3, 0.2, { dest: main, glide: 0.25 });
+  s.tone('sine', 150, 55, 0, 0.4, 0.6, { dest: main });
+  s.noise(0.05, 0.7, 0.35, { type: 'bandpass', f0: 2200, f1: 900, q: 1.3, dest: main });
+  s.crackle(0.08, 0.7, 10, 0.16, { f0: 1500, f1: 4500, dest: main });
+}
+
+// Beam javelin thrust: the beam head buzzes up in pitch as it drives forward, a hard "shk" and a servo extension.
+function javelin(s) {
+  const main = s.bus({ pan: [0.2, -0.1], panAt: [0.3] });
+  const bp = s.filter('bandpass', 900, 2, main);
+  bp.frequency.setValueAtTime(900, 0);
+  bp.frequency.exponentialRampToValueAtTime(3000, 0.12);
+  bp.frequency.exponentialRampToValueAtTime(1200, 0.45);
+  const hot = s.bus({ dest: bp, drive: 3 });
+  for (const d of [-8, 9]) s.tone('sawtooth', 140, 210, 0, 0.4, 0.22, { dest: hot, detune: d, glide: 0.1, a: 0.01 });
+  s.noise(0.06, 0.12, 0.8, { type: 'bandpass', f0: 2000, f1: 3200, q: 3, dest: s.bus({ dest: main, drive: 3 }), a: 0.003 });
+  s.noise(0, 0.3, 0.4, { type: 'bandpass', f0: 500, fm: 2400, tm: 0.1, f1: 700, q: 1.1, dest: main, a: 0.01 });
+  s.fm(300, 700, 0.5, 1.4, 0, 0.14, 0.08, { dest: main });
+  s.tone('sine', 190, 90, 0.06, 0.18, 0.4, { dest: main });
+  s.crackle(0.08, 0.35, 5, 0.12, { f0: 1600, f1: 4200, dest: main });
+}
+
+// Hyper bazooka launch: a hollow "thoomp", a slap of exhaust and the round's motor hissing away.
+function bazooka(s) {
+  const main = s.bus();
+  const hot = s.bus({ dest: main, drive: 4 });
+  s.click(0, 0.8, main);
+  s.tone('sine', 150, 55, 0, 0.22, 0.9, { dest: hot });
+  s.noise(0, 0.28, 0.9, { type: 'lowpass', f0: 1200, f1: 200, dest: hot, a: 0.002 });
+  s.noise(0, 0.06, 0.6, { type: 'bandpass', f0: 1800, q: 0.8, dest: main, a: 0.001 });
+  s.noise(0.04, 0.5, 0.4, { type: 'bandpass', f0: 2800, f1: 1600, q: 2, dest: main, a: 0.02 });
+  s.metal(0.005, s.r(420, 520), 0.2, 0.25, { n: 4, q: 20, dest: main });
+}
+
+// Bazooka round detonating: a crack, a mid-heavy fireball roar, a body thump and debris crackling in the 1-4 kHz bite.
+function bzboom(s) {
+  const main = s.bus({ pan: s.r(-0.2, 0.2) });
+  const hot = s.bus({ dest: main, drive: 3.5 });
+  s.click(0, 0.9, main);
+  s.noise(0, 0.05, 0.8, { type: 'bandpass', f0: 3000, q: 0.7, dest: main, a: 0.001 });
+  s.noise(0, 0.8, 1, { type: 'lowpass', f0: 480 * s.r(0.85, 1.15), f1: 100, dest: hot, a: 0.004 });
+  s.noise(0.01, 0.5, 0.7, { type: 'bandpass', f0: 200, f1: 110, q: 0.9, dest: hot });
+  s.noise(0, 0.35, 1.4, { type: 'bandpass', f0: 3200, f1: 2300, q: 0.8, dest: main, a: 0.002 });
+  s.tone('sine', 120 * s.r(0.9, 1.1), 40, 0, 0.5, 0.8, { dest: main });
+  s.crackle(0.04, 0.8, 18, 0.34, { f0: 1800, f1: 4500, dest: main });
+  s.noise(0.1, 0.7, 0.3, { type: 'lowpass', f0: 300, dest: main, a: 0.08, hold: 0.2 });
 }
 
 // Zaku 120mm machine gun.
@@ -397,6 +443,91 @@ function hawk(s) {
   s.noise(0, 0.3, 0.3, { type: 'lowpass', f0: 900, f1: 300, dest: hot, a: 0.03 });
   s.tone('sawtooth', 55, 45, 0, 0.3, 0.08, { dest: s.filter('lowpass', 400, 2, main), a: 0.03 });
   s.crackle(0.03, 0.3, 4, 0.1, { f0: 2000, f1: 5000, dest: main });
+}
+
+// ---------------------------------------------------------------- specials
+// Charge-attack swirl: a bright rising "shing" with a shimmer of partials and an air swell.
+function flash(s) {
+  const main = s.bus();
+  const bp = s.filter('bandpass', 800, 3, main);
+  bp.frequency.setValueAtTime(800, 0);
+  bp.frequency.exponentialRampToValueAtTime(3200, 0.16);
+  bp.frequency.exponentialRampToValueAtTime(1600, 0.45);
+  const hot = s.bus({ dest: bp, drive: 2.5 });
+  for (const d of [-7, 8]) s.tone('sawtooth', 300, 620, 0, 0.35, 0.2, { dest: hot, detune: d, glide: 0.16, a: 0.01 });
+  s.bell(0.05, [1210, 1890, 2530, 3180], 0.45, 0.12, { dest: main, spread: 0.01 });
+  s.noise(0, 0.35, 0.45, { type: 'bandpass', f0: 900, fm: 3400, tm: 0.15, f1: 1500, q: 1.3, dest: main, a: 0.05 });
+}
+
+// SP starburst: an air swell into a bright bloom and a falling low thrum.
+function burst(s) {
+  const main = s.bus();
+  s.noise(0, 0.6, 0.7, { type: 'bandpass', f0: 600, fm: 3600, tm: 0.12, f1: 1200, q: 0.9, dest: main, a: 0.03 });
+  s.bell(0.02, [880, 1320, 1760, 2640, 3520], 0.8, 0.12, { dest: main, spread: 0.005 });
+  s.tone('sine', 240, 60, 0, 0.6, 0.6, { dest: main });
+  const lp = s.filter('lowpass', 900, 1.5, main);
+  for (const d of [-12, 0, 12]) s.tone('sawtooth', 157, 110, 0, 0.6, 0.12, { dest: lp, detune: d, a: 0.02 });
+  s.click(0, 0.6, main);
+}
+
+// Weapon off the rack: a latch, a clank of the mount and a short servo.
+function draw(s) {
+  const main = s.bus({ pan: s.r(-0.2, 0.2) });
+  s.click(0, 0.8, main);
+  s.metal(0.004, s.r(520, 680), 0.25, 0.5, { n: 5, q: 26, dest: main });
+  s.noise(0, 0.05, 0.4, { type: 'bandpass', f0: 2200, q: 1, dest: main });
+  s.fm(320, 620, 0.5, 1.2, 0.04, 0.16, 0.08, { dest: main });
+  s.tone('sine', 160, 90, 0, 0.08, 0.3, { dest: main });
+}
+
+// C6 ground shockwave: a mid "whoom" centred near 500-800 Hz (as in the game), a crack and debris.
+function shock(s) {
+  const main = s.filter('lowpass', 4000, 0.7, s.bus());
+  s.click(0, 0.6, main);
+  s.noise(0, 0.05, 0.3, { type: 'bandpass', f0: 2200, q: 1.6, dest: main, a: 0.001 });
+  s.noise(0, 0.75, 3, { type: 'bandpass', f0: 650, f1: 470, q: 2, dest: main, a: 0.005 });
+  for (const d of [-10, 10]) s.tone('triangle', 500, 360, 0, 0.6, 0.2, { dest: main, detune: d, a: 0.01 });
+  s.tone('sine', 110, 40, 0, 0.7, 0.6, { dest: main });
+  s.crackle(0.05, 0.9, 14, 0.12, { f0: 1500, f1: 3200, dest: main });
+  s.noise(0.1, 0.8, 0.2, { type: 'lowpass', f0: 200, dest: main, a: 0.1, hold: 0.2 });
+}
+
+// SP finisher: an electric blast. A crackle storm in the 1.5-6 kHz band over a buzzing arc and a big low boom.
+function lightning(s) {
+  const main = s.bus();
+  const hot = s.bus({ dest: main, drive: 3.5 });
+  s.click(0, 1, main);
+  s.noise(0, 1.2, 1, { type: 'lowpass', f0: 1500, f1: 90, dest: hot, a: 0.004 });
+  s.tone('sine', 90, 28, 0, 1.2, 0.9, { dest: main });
+  const arc = s.filter('bandpass', 2400, 1.2, main);
+  for (const d of [-15, 0, 15]) s.tone('sawtooth', 120, 95, 0, 0.9, 0.14, { dest: s.bus({ dest: arc, drive: 4 }), detune: d, a: 0.01 });
+  for (let i = 0; i < 46; i++) {
+    const t = s.rnd() * s.rnd() * 1.2;
+    s.noise(t, s.r(0.01, 0.05), s.r(0.3, 0.7), { type: 'bandpass', f0: s.r(2000, 7000), q: 2.5, a: 0.0006, dest: main });
+  }
+  s.noise(0, 0.9, 0.3, { type: 'highpass', f0: 3500, dest: main, a: 0.01 });
+  s.noise(0, 0.5, 0.8, { type: 'bandpass', f0: 2300, f1: 1800, q: 1.2, dest: main, a: 0.003 });
+  s.noise(0.2, 1.2, 0.3, { type: 'lowpass', f0: 250, dest: main, a: 0.15, hold: 0.3 });
+}
+
+// Charge SP build-up: a rising buzz and swell under the cyan aura.
+function spcharge(s) {
+  const main = s.bus();
+  const bp = s.filter('bandpass', 500, 2, main);
+  bp.frequency.setValueAtTime(500, 0);
+  bp.frequency.exponentialRampToValueAtTime(3000, 1.1);
+  for (const d of [-10, 0, 10]) s.tone('sawtooth', 110, 330, 0, 0.2, 0.16, { dest: s.bus({ dest: bp, drive: 2.5 }), detune: d, glide: 1.1, a: 0.3, hold: 0.8 });
+  s.noise(0, 0.3, 0.4, { type: 'bandpass', f0: 400, f1: 3000, q: 1, dest: main, a: 0.8 });
+  s.fm(200, 900, 0.5, 1.5, 0, 1.0, 0.06, { dest: main, a: 0.5 });
+  s.crackle(0.3, 0.9, 12, 0.12, { f0: 2000, f1: 5000, dest: main });
+}
+
+// Gundam hammer pass: a heavy whoosh sweeping past and the chain rattling behind it.
+function hammer(s, v) {
+  const main = s.bus({ pan: v % 2 ? [-0.6, 0.6] : [0.6, -0.6], panAt: [0.3] });
+  s.noise(0, 0.32, 0.8, { type: 'bandpass', f0: 800, fm: 2200 * s.r(0.85, 1.15), tm: 0.14, f1: 1000, q: 1.3, dest: main, a: 0.04 });
+  s.noise(0, 0.3, 0.35, { type: 'lowpass', f0: 500, f1: 200, dest: s.bus({ dest: main, drive: 2.5 }), a: 0.05 });
+  for (let i = 0; i < 7; i++) s.metal(0.05 + i * 0.03 + s.r(0, 0.02), s.r(1500, 2600), 0.05, 0.12, { n: 2, q: 30, dest: main });
 }
 
 // ---------------------------------------------------------------- movement
@@ -450,27 +581,36 @@ function skid(s) {
 
 // name: { n: takes, dur: seconds, level: normalized peak, build(synth, takeIndex) }
 export const RECIPES = {
-  slash_a: { n: 5, dur: 0.55, build: blade({ dur: 0.45, base: 82, pan: [-0.55, 0.55], heavy: 0.15 }) },
-  slash_b: { n: 5, dur: 0.55, build: blade({ dur: 0.45, base: 74, pan: [0.55, -0.55], heavy: 0.2, airTop: 3000 }) },
-  slash_h: { n: 4, dur: 0.8, build: blade({ dur: 0.62, base: 58, pan: [0.25, -0.15], heavy: 0.85, peak: 0.09, bright: 2200, airTop: 2600 }) },
-  slash_spin: { n: 3, dur: 0.8, build: blade({ dur: 0.62, base: 66, pan: [-0.7, 0.7, -0.4], panAt: [0.2, 0.45], heavy: 0.4, peak: 0.16, bright: 2400 }) },
-  slash_down: { n: 3, dur: 0.9, build: blade({ dur: 0.7, base: 50, pan: [0, 0], heavy: 1, peak: 0.1, bright: 2000, airTop: 2200 }) },
-  slash_dash: { n: 3, dur: 0.6, build: blade({ dur: 0.5, base: 68, pan: [0.5, -0.6], heavy: 0.5, bright: 3000 }) },
-  slash_fast: { n: 6, dur: 0.35, level: 0.7, build: blade({ dur: 0.26, base: 96, pan: 'alt' }) },
-  slash_thrust: { n: 4, dur: 0.55, build: thrust },
+  slash_a: { n: 5, dur: 0.5, build: blade({ dur: 0.4, pan: [-0.55, 0.55], heavy: 0.15 }) },
+  slash_b: { n: 5, dur: 0.5, build: blade({ dur: 0.4, base: 150, pan: [0.55, -0.55], heavy: 0.2, airTop: 2600 }) },
+  slash_h: { n: 4, dur: 0.7, build: blade({ dur: 0.55, base: 135, pan: [0.25, -0.15], heavy: 0.85, peak: 0.09, bright: 2200, airTop: 2100 }) },
+  slash_spin: { n: 3, dur: 0.75, build: blade({ dur: 0.6, base: 145, pan: [-0.7, 0.7, -0.4], panAt: [0.2, 0.45], heavy: 0.4, peak: 0.16, bright: 2400 }) },
+  slash_down: { n: 3, dur: 0.8, build: blade({ dur: 0.62, base: 125, pan: [0, 0], heavy: 1, peak: 0.1, bright: 2000, airTop: 1900 }) },
+  slash_dash: { n: 3, dur: 0.55, build: blade({ dur: 0.45, base: 150, pan: [0.5, -0.6], heavy: 0.5, bright: 2800 }) },
+  slash_fast: { n: 6, dur: 0.3, level: 0.7, build: blade({ dur: 0.22, base: 170, pan: 'alt', bright: 2900, tail: 1500, lo: 1300, airLo: 1000, body: 0.3 }) },
   slash_rise: { n: 3, dur: 0.8, build: rise },
-  whirl: { n: 2, dur: 1.6, level: 0.6, build: whirl },
   ignite: { n: 3, dur: 0.6, level: 0.6, build: ignite },
   hit: { n: 6, dur: 0.6, build: hit },
   hit_heavy: { n: 4, dur: 1.2, build: hitHeavy },
+  bhit: { n: 5, dur: 0.4, level: 0.8, build: bhit },
   hurt: { n: 4, dur: 0.9, build: hurt },
   ping: { n: 5, dur: 0.3, level: 0.6, build: ping },
   clang: { n: 3, dur: 0.8, build: clang },
   slam: { n: 3, dur: 1.6, level: 1, build: slam },
   boom: { n: 5, dur: 1.8, level: 1, build: boom },
   bigboom: { n: 2, dur: 3, level: 1, build: bigboom },
-  rifle: { n: 3, dur: 1, level: 0.95, build: rifle },
-  mega: { n: 1, dur: 1.9, build: mega },
+  rifle: { n: 4, dur: 0.5, level: 0.8, build: rifle },
+  cshot: { n: 2, dur: 1.0, level: 0.95, build: cshot },
+  javelin: { n: 2, dur: 0.6, build: javelin },
+  bazooka: { n: 3, dur: 0.6, level: 0.9, build: bazooka },
+  bzboom: { n: 4, dur: 1.2, level: 1, build: bzboom },
+  flash: { n: 3, dur: 0.6, level: 0.6, build: flash },
+  burst: { n: 1, dur: 1.0, level: 0.8, build: burst },
+  draw: { n: 2, dur: 0.35, level: 0.55, build: draw },
+  shock: { n: 2, dur: 1.2, level: 1, build: shock },
+  lightning: { n: 1, dur: 1.8, level: 1, build: lightning },
+  spcharge: { n: 1, dur: 1.5, level: 0.7, build: spcharge },
+  hammer: { n: 4, dur: 0.45, level: 0.75, build: hammer },
   mg: { n: 4, dur: 0.35, level: 0.5, build: mg },
   hawk: { n: 3, dur: 0.55, level: 0.55, build: hawk },
   step: { n: 6, dur: 0.6, level: 0.75, build: step },

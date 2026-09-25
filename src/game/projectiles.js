@@ -1,6 +1,5 @@
-// Beam rifle shots, the charged mega beam, Zaku machine-gun tracers.
+// Beam rifle shots (and the charge shot), hyper bazooka rounds, Zaku machine-gun tracers, Guntank ordnance.
 import * as THREE from 'three';
-import { rand } from '../core/util.js';
 
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
@@ -38,14 +37,14 @@ export class Projectiles {
     this.missileMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     scene.add(this.missileMesh);
     this.shellMesh = glowInstanced(scene, 64, new THREE.Color(3, 1.9, 0.7));
-    // mega beam
-    const cyl = new THREE.CylinderGeometry(1, 1, 1, 16, 1, true).rotateX(Math.PI / 2).translate(0, 0, 0.5);
-    this.mega = new THREE.Mesh(cyl, new THREE.MeshBasicMaterial({ color: new THREE.Color(2.8, 0.9, 2.2), toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, side: THREE.DoubleSide }));
-    this.megaCore = new THREE.Mesh(cyl, new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3, 3), toneMapped: false }));
-    this.mega.visible = this.megaCore.visible = false;
-    this.mega.frustumCulled = this.megaCore.frustumCulled = false;
-    scene.add(this.mega, this.megaCore);
-    this.megaState = null;
+    // hyper bazooka rounds: a dark shell with a burning motor
+    this.rockets = [];
+    this.rocketMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x3a4458, roughness: 0.6 }), 32);
+    this.rocketMesh.frustumCulled = false;
+    this.rocketMesh.count = 0;
+    this.rocketMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(this.rocketMesh);
+    this.rocketGlow = glowInstanced(scene, 32, new THREE.Color(3, 1.7, 0.6));
     this.serial = 1e6;
     this._v = new THREE.Vector3();
   }
@@ -55,19 +54,32 @@ export class Projectiles {
     this.bullets.length = 0;
     this.missiles.length = 0;
     this.shells.length = 0;
-    this.megaState = null;
-    this.mega.visible = this.megaCore.visible = false;
+    this.rockets.length = 0;
   }
 
-  heroBeam(from, dir) {
-    this.beams.push({ p: from.clone(), d: dir.clone(), life: 0, max: 0.8, speed: 120, id: ++this.serial, dmg: 38, kills: 0 });
+  // o: { dmg, kb, up, big, w (thickness), r (hit radius), speed, max (lifetime) }
+  heroBeam(from, dir, o = {}) {
+    this.beams.push({
+      p: from.clone(), d: dir.clone(), life: 0, max: o.max ?? 0.8, speed: o.speed ?? 120, id: ++this.serial,
+      dmg: o.dmg ?? 22, kb: o.kb ?? 4, up: o.up ?? 1, big: !!o.big, w: o.w ?? 1, r: o.r ?? 0.8, kills: 0,
+    });
   }
 
-  megaBeam(from, dir) {
-    this.megaState = { p: from.clone(), d: dir.clone(), t: 0, dur: 0.75, id: ++this.serial, ticks: 0, len: 70 };
+  // Hyper bazooka round: flies straight and bursts on the first thing it touches.
+  rocket(owner, from, dir) {
+    this.rockets.push({ p: from.clone(), v: dir.clone().multiplyScalar(52), life: 0, owner, id: ++this.serial });
+  }
+
+  // Bazooka detonation: white flash, fireball, smoke, and a blast that throws everything within r.
+  heroBlast(owner, p, r, dmg, kb, up) {
     const g = this.game;
-    g.fx.ring(from, 0.3, 4, 0xff7ad0, 0.4, from.y);
-    g.fx.light(from, 0xff6fd0, 220, 40, 0.7);
+    const c = this._v.set(p.x, Math.max(0.8, p.y), p.z);
+    g.fx.explode(c, r / 1.9, [0x8a867c, 0x6f6c64, 0x3a3532]);
+    g.fx.star(c, 0xfff0d0, 2.2);
+    g.fx.light(c, 0xffb060, 120, 18, 0.35);
+    g.combat.aoe(owner, c.x, c.y, c.z, r, dmg, kb, up, ++this.serial, true);
+    g.audio.play('bzboom', { at: c });
+    if (g.local === owner) { g.camera.shake(0.3); g.aberr(0.35); }
   }
 
   tankMissile(owner, from, dir, target) {
@@ -109,15 +121,17 @@ export class Projectiles {
       const ax = b.p.x, ay = b.p.y, az = b.p.z;
       b.p.addScaledVector(b.d, b.speed * dt);
       g.fx.streak(this._v.set(ax, ay, az), b.p, 0xff6fd0);
-      combat.beamSweep(ax, ay, az, b.p.x, b.p.y, b.p.z, 0.8, (t, boss) => {
-        const ok = boss ? t.damage(b.dmg * 1.1, 7, 1.5, ax, az, b.id) : g.crowd.damage(t, b.dmg, 7, 1.5, ax, az, b.id);
+      if (b.w > 1.5) g.fx.streak(this._v.set(ax, ay, az), b.p, 0xffc0f0);
+      combat.beamSweep(ax, ay, az, b.p.x, b.p.y, b.p.z, b.r, (t, boss) => {
+        const ok = boss ? t.damage(b.dmg * 1.1, b.kb, b.up, ax, az, b.id) : g.crowd.damage(t, b.dmg, b.kb, b.up, ax, az, b.id, { big: b.big });
         if (ok) {
           b.kills++;
           const hp = this._v.set(t.x ?? t.pos.x, (t.y ?? t.pos.y) + 1.8, t.z ?? t.pos.z);
           g.fx.hit(hp, 0xff7ad0, true);
           g.fx.puff(hp, 2, 0.4, 0.8, 1, 2);
-          combat.registerHits(1, {});
-          if (combat.hitSfxBudget >= 1) { combat.hitSfxBudget--; g.audio.play('hit', { vol: 0.6, pitch: 1.2 }); }
+          if (b.big) g.fx.star(hp, 0xffd0f4, 2);
+          combat.registerHits(1, { big: b.big && b.kills === 1 });
+          if (combat.hitSfxBudget >= 1) { combat.hitSfxBudget--; g.audio.play(b.big ? 'hit_heavy' : 'bhit', { vol: 0.6 }); }
         }
       });
       if (b.life > b.max || g.world.blocked(b.p.x, b.p.z, 0) && b.p.y < 8) {
@@ -127,42 +141,19 @@ export class Projectiles {
         this.beams.splice(i, 1);
       }
     }
-    // mega beam
-    const M = this.megaState;
-    if (M) {
-      M.t += dt;
-      const u = M.t / M.dur;
-      const w = (u < 0.15 ? u / 0.15 : 1 - Math.pow((u - 0.15) / 0.85, 2)) * 1.6;
-      let len = M.len;
-      const yaw = Math.atan2(M.d.x, M.d.z);
-      for (const m of [this.mega, this.megaCore]) {
-        m.visible = w > 0.01;
-        m.position.copy(M.p);
-        m.rotation.set(0, yaw, 0);
+    // hyper bazooka rounds
+    for (let i = this.rockets.length - 1; i >= 0; i--) {
+      const r = this.rockets[i];
+      r.life += dt;
+      const ax = r.p.x, ay = r.p.y, az = r.p.z;
+      r.p.addScaledVector(r.v, dt);
+      if (Math.random() < 0.8) { g.fx.noNet = true; g.fx.puff(r.p, 1, 0.8, 0.45, 0.3, 0.4); g.fx.noNet = false; }
+      let hit = false;
+      combat.beamSweep(ax, ay, az, r.p.x, r.p.y, r.p.z, 1.1, () => { hit = true; });
+      if (hit || r.p.y <= 0.3 || r.life > 0.6 || (g.world.blocked(r.p.x, r.p.z, 0) && r.p.y < 8)) {
+        this.heroBlast(r.owner, r.p, 3.4, 42, 8, 7);
+        this.rockets.splice(i, 1);
       }
-      this.mega.scale.set(w * (1 + Math.sin(M.t * 60) * 0.08), w, len);
-      this.megaCore.scale.set(w * 0.45, w * 0.45, len);
-      // damage ticks
-      const tickEvery = 0.12;
-      if (M.t >= M.ticks * tickEvery && M.ticks < 5) {
-        M.ticks++;
-        const id = ++this.serial;
-        const end = this._v.copy(M.p).addScaledVector(M.d, len);
-        combat.beamSweep(M.p.x, M.p.y, M.p.z, end.x, end.y, end.z, 2.4, (t, boss) => {
-          const ok = boss ? t.damage(60, 10, 5, M.p.x, M.p.z, id) : g.crowd.damage(t, 60, 12, 6, M.p.x, M.p.z, id);
-          if (ok) {
-            const hp = new THREE.Vector3(t.x ?? t.pos.x, (t.y ?? t.pos.y) + 1.8, t.z ?? t.pos.z);
-            g.fx.hit(hp, 0xff7ad0, true);
-            combat.registerHits(1, {});
-          }
-        });
-      }
-      if (Math.random() < 0.8) {
-        const along = rand(0, len);
-        const sp = this._v.copy(M.p).addScaledVector(M.d, along);
-        g.fx.sparks(sp, 3, 0xff8ad8, 10);
-      }
-      if (M.t >= M.dur) { this.megaState = null; this.mega.visible = this.megaCore.visible = false; }
     }
     // Guntank missiles: accelerate, curl onto their target, burst on contact
     for (let i = this.missiles.length - 1; i >= 0; i--) {
@@ -228,14 +219,12 @@ export class Projectiles {
   applyNet(pj) {
     const V = (a, i) => new THREE.Vector3(a[i], a[i + 1], a[i + 2]);
     const rows = (a, f) => { const out = []; for (let i = 0; i < a.length; i += 6) out.push(f(V(a, i), V(a, i + 3))); return out; };
-    this.beams = rows(pj.b, (p, d) => ({ p, d }));
+    this.beams = [];
+    for (let i = 0; i < pj.b.length; i += 7) this.beams.push({ p: V(pj.b, i), d: V(pj.b, i + 3), w: pj.b[i + 6] });
+    this.rockets = rows(pj.rk || [], (p, v) => ({ p, v }));
     this.bullets = rows(pj.u, (p, d) => ({ p, d }));
     this.missiles = rows(pj.mi, (p, v) => ({ p, v }));
     this.shells = rows(pj.sh, (p, v) => ({ p, v }));
-    if (pj.mega) {
-      const m = pj.mega;
-      this.megaState = { p: new THREE.Vector3(m.p.x, m.p.y, m.p.z), d: new THREE.Vector3(m.d.x, m.d.y, m.d.z), t: m.t, dur: m.dur, len: m.len, ticks: 99 };
-    } else this.megaState = null;
   }
 
   // Advance replicated projectiles kinematically between snapshots (no collisions on the guest).
@@ -247,6 +236,10 @@ export class Projectiles {
       g.fx.streak(this._v, b.p, 0xff6fd0);
     }
     for (const b of this.bullets) b.p.addScaledVector(b.d, BULLET_SPEED * dt);
+    for (const r of this.rockets) {
+      r.p.addScaledVector(r.v, dt);
+      if (Math.random() < 0.8) g.fx.puff(r.p, 1, 0.8, 0.45, 0.3, 0.4);
+    }
     for (const m of this.missiles) {
       m.p.addScaledVector(m.v, dt);
       if (Math.random() < 0.7) g.fx.thruster(m.p, { x: -m.v.x / 40, y: -m.v.y / 40, z: -m.v.z / 40 }, 0xffc070, 0.6);
@@ -255,17 +248,6 @@ export class Projectiles {
       s.v.y -= 30 * dt;
       s.p.addScaledVector(s.v, dt);
     }
-    const M = this.megaState;
-    this.mega.visible = this.megaCore.visible = !!M;
-    if (M) {
-      M.t += dt;
-      const u = Math.min(1, M.t / M.dur);
-      const w = (u < 0.15 ? u / 0.15 : 1 - Math.pow((u - 0.15) / 0.85, 2)) * 1.6;
-      const yaw = Math.atan2(M.d.x, M.d.z);
-      for (const m of [this.mega, this.megaCore]) { m.position.copy(M.p); m.rotation.set(0, yaw, 0); }
-      this.mega.scale.set(w, w, M.len);
-      this.megaCore.scale.set(w * 0.45, w * 0.45, M.len);
-    }
   }
 
   render() {
@@ -273,10 +255,11 @@ export class Projectiles {
     for (const b of this.beams) {
       _q.setFromUnitVectors(Zf, b.d);
       _p.copy(b.p).addScaledVector(b.d, -3.2);
-      _s.set(0.36, 0.36, 6.4);
+      const w = b.w || 1;
+      _s.set(0.36 * w, 0.36 * w, 6.4);
       _m.compose(_p, _q, _s);
       this.beamMesh.setMatrixAt(n, _m);
-      _s.set(0.13, 0.13, 6.8);
+      _s.set(0.13 * w, 0.13 * w, 6.8);
       _m.compose(_p, _q, _s);
       this.beamCore.setMatrixAt(n, _m);
       n++;
@@ -313,5 +296,18 @@ export class Projectiles {
     }
     this.shellMesh.count = n;
     this.shellMesh.instanceMatrix.needsUpdate = true;
+    n = 0;
+    for (const r of this.rockets) {
+      _p.copy(r.v).normalize();
+      _q.setFromUnitVectors(Zf, _p);
+      _s.set(0.38, 0.38, 1.0);
+      _m.compose(r.p, _q, _s);
+      this.rocketMesh.setMatrixAt(n, _m);
+      _s.set(0.3, 0.3, 0.7);
+      _m.compose(this._v.copy(r.p).addScaledVector(_p, -0.7), _q, _s);
+      this.rocketGlow.setMatrixAt(n++, _m);
+    }
+    this.rocketMesh.count = this.rocketGlow.count = n;
+    this.rocketMesh.instanceMatrix.needsUpdate = this.rocketGlow.instanceMatrix.needsUpdate = true;
   }
 }

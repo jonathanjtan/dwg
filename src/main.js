@@ -564,7 +564,7 @@ class Game {
       this.pausedAt = performance.now();
       if (open) { this.ignoreUnlock = true; document.exitPointerLock?.(); } else lockPointer(this.canvas);
     }
-    if (act.mute) this.audio.toggleMute();
+    if (act.mute) document.getElementById('mute-btn').textContent = this.audio.toggleMute() ? 'SOUND: OFF' : 'SOUND: ON';
     if (act.recenter) this.camera.recenter(this.tank.heading);
     this.time += rdt;
     this.localSpT = Math.max(0, this.localSpT - rdt);
@@ -745,7 +745,7 @@ class Game {
     const sp = this.localSpT > 0 ? 1 : 0;
     this.post.musou += (sp - this.post.musou) * (sp ? 0.15 : 0.08);
     const L = this.local;
-    const rad = this.mode === 'title' ? 0 : L.state === 'boost' ? 0.7 : L.state === 'musou' && L.spPhase === 1 ? 0.45 : 0;
+    const rad = this.mode === 'title' ? 0 : L.state === 'boost' ? 0.7 : L.state === 'musou' && L.move?.rushFx ? 0.45 : 0;
     this.post.radial += (rad - this.post.radial) * (rad > this.post.radial ? 0.18 : 0.1);
     this.post.aberr *= 0.88;
     this.post.render(this.scene, this.cam, this.time);

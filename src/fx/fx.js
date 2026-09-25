@@ -273,6 +273,37 @@ export class FX {
       scene.add(m);
       this.rings.push({ m, t: 0, dur: 1, r0: 0, r1: 1, c: new THREE.Color(), active: false });
     }
+    // ground shockwave discs: a filled energy disc with a hot rim and radial streaks (C6, SP finishers)
+    this.discs = [];
+    const discGeo = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2);
+    for (let i = 0; i < 3; i++) {
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uColor: { value: new THREE.Color() }, uFade: { value: 1 }, uSpin: { value: 0 } },
+        vertexShader: /* glsl */`
+          varying vec2 vUv;
+          void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+        fragmentShader: /* glsl */`
+          varying vec2 vUv; uniform vec3 uColor; uniform float uFade; uniform float uSpin;
+          void main() {
+            vec2 q = vUv * 2.0 - 1.0;
+            float d = length(q);
+            if (d > 1.0) discard;
+            float rim = smoothstep(0.8, 0.97, d) * (1.0 - smoothstep(0.97, 1.0, d));
+            float body = smoothstep(1.0, 0.7, d) * (0.25 + 0.3 * d);
+            float a = atan(q.y, q.x);
+            float streak = 0.55 + 0.45 * sin(a * 23.0 + uSpin + d * 9.0);
+            float v = (rim * 1.8 + body * streak) * uFade;
+            gl_FragColor = vec4(uColor * v, 1.0);
+          }`,
+        blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, toneMapped: false, side: THREE.DoubleSide,
+      });
+      const m = new THREE.Mesh(discGeo, mat);
+      m.visible = false;
+      m.frustumCulled = false;
+      m.renderOrder = 4;
+      scene.add(m);
+      this.discs.push({ m, t: 0, dur: 1, r: 1, active: false });
+    }
     // spheres (SP blast domes)
     this.domes = [];
     const domeGeo = new THREE.IcosahedronGeometry(1, 1);
@@ -319,6 +350,17 @@ export class FX {
       const rad = r.r0 + (r.r1 - r.r0) * e;
       r.m.scale.set(rad, 1, rad);
       r.m.material.color.copy(r.c).multiplyScalar((1 - t) * (1 - t));
+    }
+    for (const D of this.discs) {
+      if (!D.active) continue;
+      D.t += dt;
+      const t = D.t / D.dur;
+      if (t >= 1) { D.active = false; D.m.visible = false; continue; }
+      const rad = D.r * (1 - Math.pow(1 - Math.min(1, t * 1.6), 3));
+      D.m.scale.set(rad, 1, rad);
+      const u = D.m.material.uniforms;
+      u.uFade.value = t < 0.1 ? t / 0.1 : Math.pow(1 - (t - 0.1) / 0.9, 1.6);
+      u.uSpin.value += dt * 6;
     }
     for (const r of this.domes) {
       if (!r.active) continue;
@@ -371,7 +413,8 @@ export class FX {
     L.dur = dur;
   }
 
-  ring(pos, r0, r1, color, dur, y = 0.08) {
+  // Flat expanding ring at height y; tilt [x, z] (radians) stands it up for the swirl around a charging suit.
+  ring(pos, r0, r1, color, dur, y = 0.08, tilt = null) {
     const r = this.rings.find((x) => !x.active) || this.rings[0];
     r.active = true;
     r.t = 0;
@@ -380,8 +423,68 @@ export class FX {
     r.r1 = r1;
     r.c.set(color);
     r.m.position.set(pos.x, y, pos.z);
+    r.m.rotation.set(tilt ? tilt[0] : 0, 0, tilt ? tilt[1] : 0);
     r.m.scale.set(r0, 1, r0);
     r.m.visible = true;
+  }
+
+  // Ground shockwave: a filled energy disc racing out to radius r.
+  shock(pos, r, color, dur = 0.7) {
+    const D = this.discs.find((x) => !x.active) || this.discs.reduce((a, b) => (a.t / a.dur > b.t / b.dur ? a : b));
+    D.active = true;
+    D.t = 0;
+    D.dur = dur;
+    D.r = r;
+    D.m.material.uniforms.uColor.value.set(color).multiplyScalar(1.6);
+    D.m.position.set(pos.x, 0.12, pos.z);
+    D.m.scale.set(0.01, 1, 0.01);
+    D.m.visible = true;
+  }
+
+  // Lightning: n jagged bolts crackling out of pos to about radius r, with a few forks.
+  bolts(pos, r, color, n = 8) {
+    const c = new THREE.Color(color);
+    const seg = (ax, ay, az, bx, by, bz, w, life) => {
+      const q = this.glow.spawn();
+      const dx = bx - ax, dy = by - ay, dz = bz - az;
+      const len = Math.hypot(dx, dy, dz) || 1e-3;
+      q.x = (ax + bx) / 2; q.y = (ay + by) / 2; q.z = (az + bz) / 2;
+      q.vx = q.vy = q.vz = 0;
+      q.max = life; q.g = 0; q.drag = 0; q.fadePow = 0.7;
+      q.s0 = 1; q.s1 = 1;
+      _q.setFromUnitVectors(Zf, _d.set(dx / len, dy / len, dz / len));
+      _e.setFromQuaternion(_q);
+      q.rx = _e.x; q.ry = _e.y; q.rz = _e.z;
+      q.sx = w; q.sy = w; q.sz = len;
+      q.c0.setRGB(2.6, 2.4, 2.8); q.c1.copy(c).multiplyScalar(1.4);
+    };
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rand(-0.3, 0.3);
+      const reach = r * rand(0.6, 1.1), steps = 6;
+      let x = pos.x, y = pos.y + rand(0.2, 1.2), z = pos.z;
+      const life = rand(0.16, 0.3);
+      for (let s = 1; s <= steps; s++) {
+        const u = s / steps;
+        const nx = pos.x + Math.cos(a) * reach * u + rand(-0.6, 0.6);
+        const nz = pos.z + Math.sin(a) * reach * u + rand(-0.6, 0.6);
+        const ny = Math.max(0.1, pos.y + (1 - u) * rand(0.5, 2.5) + rand(-0.4, 0.4));
+        seg(x, y, z, nx, ny, nz, 0.13 * (1 - u * 0.5), life);
+        if (s === 3 && Math.random() < 0.6) { // fork
+          const fa = a + rand(-0.9, 0.9);
+          seg(nx, ny, nz, nx + Math.cos(fa) * reach * 0.3, ny + rand(0, 1.5), nz + Math.sin(fa) * reach * 0.3, 0.08, life * 0.8);
+        }
+        x = nx; y = ny; z = nz;
+      }
+    }
+    // a couple of bolts straight up out of the blast
+    for (let i = 0; i < 3; i++) {
+      let x = pos.x + rand(-1, 1), y = pos.y, z = pos.z + rand(-1, 1);
+      for (let s = 0; s < 4; s++) {
+        const nx = x + rand(-0.7, 0.7), ny = y + rand(1, 2), nz = z + rand(-0.7, 0.7);
+        seg(x, y, z, nx, ny, nz, 0.1, rand(0.14, 0.24));
+        x = nx; y = ny; z = nz;
+      }
+    }
   }
 
   dome(pos, r0, r1, color, dur) {
