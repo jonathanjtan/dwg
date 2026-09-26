@@ -61,7 +61,7 @@ Staying alive:
 | Attack | J / left click | X / Square | ATK |
 | Charge attack (hold for a charge shot) | K / right click | Y / Triangle | CHG |
 | Jump (hold to hover on the thrusters) | Space | A / Cross | JUMP |
-| Boost dodge (hold to boost dash) | L / Shift | B / Circle | BOOST |
+| Boost dodge (hold to boost dash, keep holding to sprint) | L / Shift | B / Circle | BOOST |
 | SP attack (hold for the charge SP) | I / F | RB / R1 | SP |
 | Pause, sound on/off, hide keys | Esc, M, H | Start | ⏸ (sound lives in the pause menu) |
 
@@ -71,7 +71,7 @@ Sound starts off. Press M, or use the SOUND button in the pause menu, to turn it
 
 ### Touch
 
-Hold the phone sideways. The movement stick appears wherever your left thumb lands and follows it if you drag past the ring, so you never run out of travel; drag anywhere on the right half to swing the camera. The action buttons sit in a diamond under your right thumb and hold exactly like the keys do — hold BOOST to dash, JUMP to hover, CHG to charge a shot, SP for the charge SP. The SP button lights up when the gauge is full. Lock-on is worth leaning on here: it aims your attacks for you and saves a lot of camera work.
+Hold the phone sideways. The movement stick appears wherever your left thumb lands and follows it if you drag past the ring, so you never run out of travel; drag anywhere on the right half to swing the camera. The action buttons sit in a diamond under your right thumb and hold exactly like the keys do — hold BOOST to dash (and keep holding to sprint), JUMP to hover, CHG to charge a shot, SP for the charge SP. The SP button lights up when the gauge is full. Lock-on is worth leaning on here: it aims your attacks for you and saves a lot of camera work.
 
 Tap **FULLSCREEN** on the title screen, or sortie — the game asks for fullscreen and a landscape lock on the way in, which is worth a third of the screen back from the browser's address bar and tab strip. iPhone Safari supports neither, so there the game offers **Share → Add to Home Screen** instead; launched from the home screen it runs without browser chrome. Rendering is capped at 1x device pixels on touch devices and steps down to 0.5x if frames get long.
 
