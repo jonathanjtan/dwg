@@ -32,3 +32,7 @@ Irregular cut-in sheets (like the G Generation Wars ones, busts scattered over a
 bust. Grid frames are numbered left to right, top to bottom. `key` is an RGB background colour made transparent. `cellW` /
 `cellH` override the computed cell size if a sheet's margins differ. The HUD uses `idle`, flaps between `idle` and `talk` while that pilot speaks, shows `shout` on the SP
 cut-in, `hurt` when the Gundam takes a hit, and `blink` every few seconds.
+
+Current sheets, all ripped from SD Gundam G Generation (PS1) and G Generation Wars (PS2) on The Spriters Resource:
+`amuro` (G Generation), `bright`, `hayato`, `kai` and `char` (G Gen Wars cut-ins), and `denim` / `gene`, two
+generic Zeon pilots cut from the G Gen Wars *Mobile Suit Gundam* dialogue sheet (three 256 px cells, 4 px gaps; talk, idle, shout).

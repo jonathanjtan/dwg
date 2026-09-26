@@ -10,5 +10,21 @@
   "hayato": {
     "file": "hayato.png", "holdTalk": true,
     "frames": { "idle": [535, 0, 230, 230], "talk": [856, 60, 300, 300], "shout": [110, 470, 420, 420] }
+  },
+  "kai": {
+    "file": "kai.png", "holdTalk": true,
+    "frames": { "idle": [205, 5, 235, 235], "talk": [590, 0, 255, 255], "shout": [0, 478, 505, 505] }
+  },
+  "char": {
+    "file": "char.png", "holdTalk": true,
+    "frames": { "idle": [228, 10, 230, 230], "talk": [900, 5, 510, 510], "shout": [60, 545, 510, 510] }
+  },
+  "denim": {
+    "file": "denim.png", "holdTalk": true,
+    "frames": { "idle": [290, 10, 200, 200], "talk": [30, 10, 200, 200], "shout": [520, 0, 256, 256] }
+  },
+  "gene": {
+    "file": "gene.png",
+    "frames": { "idle": [295, 10, 200, 200], "talk": [35, 10, 200, 200], "shout": [520, 0, 256, 256] }
   }
 }
