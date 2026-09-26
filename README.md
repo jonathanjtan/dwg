@@ -67,7 +67,7 @@ Staying alive:
 
 Sound starts off. Press M, or use the SOUND button in the pause menu, to turn it on.
 
-**Lock-on** works on commanders only: squad leaders, Denim, Gene and Char. Press R to lock on to the one nearest the middle of the view. The camera swings round behind you to keep it in frame, attacks and shots aim at it while it's in reach, and a red reticle marks it (pinned to the screen edge when it's out of view). Press R again to let go. With no commander around, R recenters the camera.
+**Lock-on** works on commanders only: squad leaders, Denim, Gene and Char. Press R to lock on to the one nearest the middle of the view. The camera swings round behind you to keep it in frame, attacks and shots aim at it while it's in reach, and a red reticle marks it (pinned to the screen edge when it's out of view). While locked on, your suit keeps facing the target: left and right strafe round it, back backs off, and boost dashes, the boost sprint and dodges strafe the same way. Press R again to let go. With no commander around, R recenters the camera.
 
 ## Mobile suits
 

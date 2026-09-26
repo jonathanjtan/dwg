@@ -2,7 +2,7 @@
 // poses, root motion, hit windows, shots, timed effects and sounds) and the SP state machine. Each suit (gundam.js,
 // guncannon.js) supplies its model, stance, moveset and weapons, and fills in the hooks near the bottom of the class.
 import * as THREE from 'three';
-import { RigObject, makePose, lerpPose, poseFrom, RY, RYAW, RPITCH, P } from '../core/rig.js';
+import { RigObject, makePose, lerpPose, poseFrom, RY, RYAW, RPITCH, RROLL, P } from '../core/rig.js';
 import { clamp, damp, angleDamp, wrapAngle, lerp } from '../core/util.js';
 
 const GRAV = 28;
@@ -85,6 +85,7 @@ export class Hero {
     this.rushN = 0;
     this.armorFlash = 0;
     this.boost = 1;
+    this.moveYaw = 0; // direction of travel during a dash (the suit may face elsewhere while strafing)
     this.boostWait = 0;
     this.hovering = false;
     this.hpRed = 0; // damage that recovers if the suit avoids being hit for a while
@@ -162,6 +163,20 @@ export class Hero {
     const z = fz * my + rz * mx;
     const l = Math.hypot(x, z);
     return { x: x / l, z: z / l, mag: Math.min(1, Math.hypot(mx, my)) };
+  }
+
+  // Locked on to a commander: the bearing to it, which the suit keeps facing while it strafes. Null otherwise.
+  lockYaw() {
+    const t = this.game.lockTarget?.(this);
+    return t ? Math.atan2(t.x - this.pos.x, t.z - this.pos.z) : null;
+  }
+
+  // Direction of travel relative to where the suit faces: 0 ahead, +-PI/2 to its right / left, PI straight back.
+  travelAngle(vx, vz) {
+    const h = this.heading;
+    const f = vx * Math.sin(h) + vz * Math.cos(h);
+    const r = -vx * Math.cos(h) + vz * Math.sin(h);
+    return Math.atan2(r, f);
   }
 
   setState(s) {
@@ -273,6 +288,12 @@ export class Hero {
   }
 
   groundMove(dt, dir, speedMul = 1) {
+    // locked on, the suit keeps its chest to the target: the stick strafes it round and backs it off, a little slower
+    const face = this.lockYaw();
+    if (face !== null && dir) {
+      const f = dir.x * Math.sin(face) + dir.z * Math.cos(face);
+      speedMul *= f >= 0 ? 1 - 0.1 * (1 - f) : 0.9 - 0.14 * -f;
+    }
     const want = dir ? this.run * dir.mag * speedMul : 0;
     const tx = dir ? dir.x * want : 0, tz = dir ? dir.z * want : 0;
     // a mobile suit has mass: it builds up to a run and plants its feet to stop
@@ -284,7 +305,8 @@ export class Hero {
       this.vel.x += (dx / dl) * step;
       this.vel.z += (dz / dl) * step;
     }
-    if (dir) this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 8, dt);
+    if (face !== null) this.heading = angleDamp(this.heading, face, 10, dt);
+    else if (dir) this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 8, dt);
     this.pos.x += this.vel.x * dt;
     this.pos.z += this.vel.z * dt;
   }
@@ -308,13 +330,20 @@ export class Hero {
       if (g.local === this) g.camera.thud(0.07 * w * (this.suit.stepVol || 1));
     }
     if (this.pos.y > 0) this.pos.y = Math.max(0, this.pos.y - dt * 4);
-    this.locomotion(dt, sp);
+    this.locomotion(dt, sp, sp > 0.5 ? this.travelAngle(this.vel.x, this.vel.z) : 0);
   }
 
-  locomotion(dt, sp) {
+  // Run cycle. `a` is the direction of travel relative to the facing (see travelAngle): strafing, the hips turn
+  // toward the step while the chest stays on the target; backing off, the stride runs in reverse and the suit leans
+  // back a little.
+  locomotion(dt, sp, a = 0) {
     const w = clamp(sp / this.run, 0, 1);
-    const ph = this.phase;
+    const ca = Math.cos(a);
+    const back = ca < -0.35;
+    const ph = back ? -this.phase : this.phase;
     const s = Math.sin(ph), c = Math.cos(ph);
+    const twist = back ? 0 : -clamp(a, -1.3, 1.3) * 0.42;
+    const lean = 0.32 * Math.max(0, ca) - 0.12 * Math.max(0, -ca);
     const t = this.target;
     t.set(this.stance);
     const idle = Math.sin(this.game.time * 2.2) * 0.02;
@@ -325,9 +354,9 @@ export class Hero {
       t[i + 1] = lerp(t[i + 1], y, w);
       t[i + 2] = lerp(t[i + 2], z, w);
     };
-    set('torso', 0.32, -0.15 + s * 0.18, 0);
-    set('head', -0.25, 0.12 - s * 0.12, 0);
-    set('hips', 0, -s * 0.12, 0);
+    set('torso', lean, -0.15 + s * 0.18 - twist, 0);
+    set('head', -0.25 * Math.max(0.3, ca), 0.12 - s * 0.12, 0);
+    set('hips', 0, -s * 0.12 + twist, 0);
     set('thighR', -0.9 * s - 0.1, 0, -0.06);
     set('thighL', 0.9 * s - 0.1, 0, 0.06);
     set('shinR', 0.25 + 1.2 * Math.max(0, c), 0, 0);
@@ -377,11 +406,13 @@ export class Hero {
     if (act.attack && this.airAttacks < 2) return this.startMove('JA', dir);
     if (act.charge) return this.startMove('JC', dir);
     if (act.dodge) return this.dodge(dir);
+    const face = this.lockYaw();
     if (dir) {
       this.vel.x = damp(this.vel.x, dir.x * this.run, 2.2, dt);
       this.vel.z = damp(this.vel.z, dir.z * this.run, 2.2, dt);
-      this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 5, dt);
+      if (face === null) this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 5, dt);
     }
+    if (face !== null) this.heading = angleDamp(this.heading, face, 8, dt);
     // hold jump past the apex to hover on the backpack thrusters
     if (input?.key('jump') && this.stateT > 0.3 && this.vel.y < 1.5 && this.boost > 0.02) {
       this.hovering = true;
@@ -429,8 +460,11 @@ export class Hero {
     this.setState('dodge');
     this.blendDur = 0.05;
     this.dodgeDir = { x: dx, z: dz };
-    this.dodgeBack = !dir;
-    if (dir) this.heading = Math.atan2(dx, dz);
+    this.moveYaw = Math.atan2(dx, dz);
+    const face = this.lockYaw();
+    if (face !== null) this.heading = face; // locked on: a side step or back step, still facing the target
+    else if (dir) this.heading = Math.atan2(dx, dz);
+    this.dodgeBack = !dir || (face !== null && Math.cos(this.travelAngle(dx, dz)) < -0.35);
     this.invuln = 0.3;
     this.airDodge = this.pos.y > 0.2;
     // quick boost: the exhaust detonates out of the backpack and the view lurches with it
@@ -459,9 +493,12 @@ export class Hero {
     }
     this.thrust(1.4, false);
     if (Math.random() < 0.5) g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), 1, 0.6);
-    const lean = this.dodgeBack ? -0.35 : 0.55;
+    const face = this.lockYaw();
+    if (face !== null) this.heading = angleDamp(this.heading, face, 12, dt);
+    const side = face !== null ? Math.sin(this.travelAngle(this.dodgeDir.x, this.dodgeDir.z)) : 0;
+    const lean = this.dodgeBack ? -0.35 : 0.55 * (1 - Math.abs(side));
     this.target.set(poseFrom({
-      torso: [lean, 0, 0], head: [-lean * 0.5, 0, 0], y: -0.25,
+      torso: [lean, 0, 0], head: [-lean * 0.5, 0, 0], y: -0.25, roll: side * 0.3,
       thighR: [0.5, 0, -0.1], shinR: [0.8, 0, 0], thighL: [0.2, 0, 0.1], shinL: [0.6, 0, 0],
       uArmR: [0.5, 0, -0.5], fArmR: [-0.4, 0, 0], hand: [0.8, 0, 0], uArmL: [0.3, 0, 0.5], fArmL: [-0.6, 0, 0],
     }, this.stance));
@@ -653,6 +690,7 @@ export class Hero {
   // ---------- boost dash ----------
   startBoost() {
     const g = this.game;
+    if (this.state !== 'dodge') this.moveYaw = this.heading;
     this.setState('boost');
     this.blendDur = 0.14;
     this.boostSfxT = 0;
@@ -682,19 +720,20 @@ export class Hero {
       g.audio.play('skid', { vol: 0.6 });
       return;
     }
-    if (dir) this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 3.2, dt);
+    this.steerDash(dt, dir, 3.2);
     const sp = this.suit.boostSpeed * Math.min(1, 0.65 + this.stateT * 2.5);
-    this.vel.x = Math.sin(this.heading) * sp;
-    this.vel.z = Math.cos(this.heading) * sp;
+    this.vel.x = Math.sin(this.moveYaw) * sp;
+    this.vel.z = Math.cos(this.moveYaw) * sp;
     this.vel.y = 0;
     this.pos.x += this.vel.x * dt;
     this.pos.z += this.vel.z * dt;
     if (!air) this.pos.y = damp(this.pos.y, 0.3, 8, dt); // skim just above the ground
     this.thrust(1.8, false);
-    if (!air && Math.random() < 0.7) g.fx.dust(this._v.set(this.pos.x - Math.sin(this.heading) * 1.5, 0.1, this.pos.z - Math.cos(this.heading) * 1.5), 1, 1.0);
+    if (!air && Math.random() < 0.7) g.fx.dust(this._v.set(this.pos.x - Math.sin(this.moveYaw) * 1.5, 0.1, this.pos.z - Math.cos(this.moveYaw) * 1.5), 1, 1.0);
     if (g.local === this) g.camera.kick(6);
     this.target.set(this.boostPose);
     this.target[RY] = -0.15 + Math.sin(this.stateT * 9) * 0.03;
+    this.dashLean(this.target);
     this.blendPose(dt);
   }
 
@@ -703,6 +742,7 @@ export class Hero {
   // get from one field to the next. It costs no gauge (which refills meanwhile, so a fresh tap of boost dashes
   // again), and attacks come out of it as dash attacks.
   startSprint() {
+    if (this.state !== 'dodge' && this.state !== 'boost') this.moveYaw = this.heading;
     this.setState('sprint');
     this.blendDur = 0.22;
     this.hovering = false;
@@ -723,23 +763,43 @@ export class Hero {
       g.fx.dust(this._v.set(this.pos.x + Math.sin(this.heading) * 1.2, 0.1, this.pos.z + Math.cos(this.heading) * 1.2), 6, 0.9);
       return;
     }
-    if (dir) this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 4.5, dt);
+    this.steerDash(dt, dir, 4.5);
     // ease down from the dash (or up from a walk) to sprint speed
     const want = this.suit.sprintSpeed ?? this.run * 1.9;
     const cur = Math.hypot(this.vel.x, this.vel.z);
     const sp = cur > want ? damp(cur, want, 2.5, dt) : Math.min(want, cur + 28 * dt);
-    this.vel.x = Math.sin(this.heading) * sp;
-    this.vel.z = Math.cos(this.heading) * sp;
+    this.vel.x = Math.sin(this.moveYaw) * sp;
+    this.vel.z = Math.cos(this.moveYaw) * sp;
     this.vel.y = 0;
     this.pos.x += this.vel.x * dt;
     this.pos.z += this.vel.z * dt;
     this.pos.y = damp(this.pos.y, 0.22, 8, dt);
     this.thrust(1.1, false);
-    if (Math.random() < 0.45) g.fx.dust(this._v.set(this.pos.x - Math.sin(this.heading) * 1.4, 0.1, this.pos.z - Math.cos(this.heading) * 1.4), 1, 0.8);
+    if (Math.random() < 0.45) g.fx.dust(this._v.set(this.pos.x - Math.sin(this.moveYaw) * 1.4, 0.1, this.pos.z - Math.cos(this.moveYaw) * 1.4), 1, 0.8);
     if (g.local === this) g.camera.kick(2.5);
     this.target.set(this.boostPose);
     this.target[RY] = -0.12 + Math.sin(this.stateT * 7) * 0.035;
+    this.dashLean(this.target);
     this.blendPose(dt);
+  }
+
+  // Dash steering: the stick turns the direction of travel. Locked on, the suit keeps facing its target, so a
+  // dash to the side circles it and a dash back backs off; otherwise it turns to face where it's going.
+  steerDash(dt, dir, turn) {
+    const face = this.lockYaw();
+    if (dir) this.moveYaw = angleDamp(this.moveYaw, Math.atan2(dir.x, dir.z), face !== null ? turn * 1.8 : turn, dt);
+    this.heading = face !== null ? angleDamp(this.heading, face, 10, dt) : this.moveYaw;
+  }
+
+  // A strafing dash leans into its direction of travel instead of forward (and back, when backing off).
+  dashLean(t) {
+    const a = wrapAngle(this.moveYaw - this.heading);
+    if (Math.abs(a) < 0.05) return;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const i = P.torso * 3;
+    t[i] = t[i] * Math.max(0, ca) - 0.2 * Math.max(0, -ca);
+    t[RPITCH] = (t[RPITCH] || 0) * Math.max(0, ca);
+    t[RROLL] = (t[RROLL] || 0) + sa * 0.32;
   }
 
   impact(radius, shake, huge = false) {
