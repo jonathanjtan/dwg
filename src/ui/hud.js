@@ -31,7 +31,11 @@ export class HUD {
       marker: $('objmarker'), omLabel: $('om-label'), omDist: $('om-dist'),
       lock: $('lockon'), lockName: document.querySelector('#lockon .lk-name'), guide: $('guide'), guideBtn: $('guide-btn'),
     };
-    try { this.guideOn = localStorage.getItem('gmusou.guide') !== '0'; } catch (e) { this.guideOn = true; }
+    // The guide is a big chunk of a phone screen, so on touch it starts off and waits behind the pause
+    // menu toggle; on a desktop it stays on by default.
+    let savedGuide = null;
+    try { savedGuide = localStorage.getItem('gmusou.guide'); } catch (e) { /* private mode */ }
+    this.guideOn = savedGuide === null ? !isTouch() : savedGuide !== '0';
     this.guideFor = null;
     this.guideRows = new Map();
     this.guideState = '';
@@ -117,7 +121,8 @@ export class HUD {
   }
 
   buildGuide(info) {
-    const names = isTouch() ? GUIDE_TOUCH : GUIDE_KEYS;
+    const touch = isTouch();
+    const names = touch ? GUIDE_TOUCH : GUIDE_KEYS;
     const el = this.el.guide;
     el.innerHTML = '<div class="gd-head">COMBOS · C</div>';
     this.guideRows.clear();
@@ -133,7 +138,8 @@ export class HUD {
       }
       const v = document.createElement('div');
       v.className = 'gd-v';
-      v.textContent = text;
+      // descriptions name keys too ("keep pressing J"), so they follow the same translation
+      v.textContent = touch ? text.replace(/\bJ\b/g, 'ATK').replace(/\bK\b/g, 'CHG') : text;
       row.append(k, v);
       el.appendChild(row);
       this.guideRows.set(id, row);
@@ -147,6 +153,8 @@ export class HUD {
     const info = h.moves && h.suit ? suitInfo(h.suit.id) : null;
     const show = this.guideOn && !!info?.guide;
     this.el.guide.classList.toggle('hidden', !show);
+    // on a phone the guide sits where a radio line lands; the line wins while it is up
+    this.el.guide.classList.toggle('ducked', !this.el.dialogue.classList.contains('hidden'));
     if (!show) return;
     if (this.guideFor !== info.id) this.buildGuide(info);
     const busy = h.state === 'attack' || h.state === 'musou';

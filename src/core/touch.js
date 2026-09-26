@@ -65,6 +65,7 @@ export class TouchControls {
     addEventListener('pointerup', (e) => this.up(e));
     addEventListener('pointercancel', (e) => this.up(e));
     addEventListener('blur', () => this.releaseAll());
+    refuseZoomGestures();
   }
 
   // ---------- buttons ----------
@@ -167,6 +168,33 @@ export class TouchControls {
     this.boostEl.classList.toggle('low', (local.boost ?? 1) < 0.25);
   }
 
+}
+
+// Safari on iOS ignores `user-scalable=no` and `maximum-scale`, so a stray double tap zooms the page and
+// leaves the game in a viewport it cannot draw to. touch-action stops it over the canvas; these cover the
+// rest, including the menus, where a tap has to keep working.
+let lastTapT = 0;
+let lastTapX = 0;
+let lastTapY = 0;
+
+function refuseZoomGestures() {
+  document.addEventListener('touchend', (e) => {
+    const t = e.changedTouches[0];
+    if (!t) return;
+    const now = performance.now();
+    const near = Math.abs(t.clientX - lastTapX) < 40 && Math.abs(t.clientY - lastTapY) < 40;
+    // A second tap in the same spot within the double-tap window is the zoom gesture, never a real
+    // second press: swallowing it costs nothing, and the far-apart taps that menus rely on still land.
+    if (now - lastTapT < 350 && near && !e.target.closest('input, textarea, select, a')) e.preventDefault();
+    lastTapT = now;
+    lastTapX = t.clientX;
+    lastTapY = t.clientY;
+  }, { passive: false });
+  document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+  // Safari's own pinch events, which touch-action does not reach
+  for (const t of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(t, (e) => e.preventDefault(), { passive: false });
+  }
 }
 
 // ---------------------------------------------------------------------------
