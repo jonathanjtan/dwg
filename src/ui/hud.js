@@ -142,7 +142,7 @@ export class HUD {
     this.guideState = '';
   }
 
-  // Light the move in progress and the charge attack K would start right now; the saber string counts its hits.
+  // Light the move in progress and, mid-combo, the charge attack K would start next; the saber string counts its hits.
   updateGuide(h) {
     const info = h.moves && h.suit ? suitInfo(h.suit.id) : null;
     const show = this.guideOn && !!info?.guide;
@@ -151,11 +151,8 @@ export class HUD {
     if (this.guideFor !== info.id) this.buildGuide(info);
     const busy = h.state === 'attack' || h.state === 'musou';
     const on = busy && h.moveName ? guideRow(h.moveName) : '';
-    let next = '';
-    if (h.state === 'attack') next = h.move?.charge ? guideRow(h.move.charge) : '';
-    else if (h.state === 'move') next = 'C1';
-    else if (h.state === 'air') next = 'JC';
-    else if (h.state === 'dodge' || h.state === 'boost' || h.state === 'sprint') next = 'DC';
+    // only mid-combo: at rest nothing is lit, so the guide never looks like a key is being held
+    const next = h.state === 'attack' && h.move?.charge ? guideRow(h.move.charge) : '';
     const hits = on === 'N' ? +h.moveName.slice(1) : 0;
     const state = `${on}|${next}|${hits}`;
     if (state === this.guideState) return;
