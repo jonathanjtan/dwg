@@ -21,7 +21,7 @@ const SABER_TRAIL = 0xff5fd0;
 
 export const X1KAI = {
   id: 'x1kai', pilot: 'tobia', def: x1kaiDef, moves: MOVES, stance: STANCE,
-  hp: 1080, run: 9.4, boostSpeed: 23, boostTime: 1.9, sprintSpeed: 18, defense: 1.22, power: 1.08,
+  hp: 1080, run: 9.4, boostSpeed: 23, boostTime: 1.9, sprintSpeed: 18, defense: 1.28, power: 1.03,
   nozzles: [[0.62, 0.44, -0.44], [-0.62, 0.44, -0.44], [0.62, -0.18, -0.44], [-0.62, -0.18, -0.44]],
   debris: [0xc4c9d6, 0x122c58, 0x1a1a20], spAirY: 4.2, spAirReach: 6.5,
   impactColor: 0xff5fd0, ringColor: 0xffb0e0, impactLight: 0xff6fd0, domeColor: 0xff4fc0,

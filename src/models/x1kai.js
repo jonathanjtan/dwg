@@ -127,7 +127,9 @@ function x1Thrusters() {
   for (const [dx, dy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
     for (let r = 1; r <= 6; r++) {
       const c = r > 4 ? X.K : X.GR;
-      m.box(dx * r - (dx > 0 ? 0 : 1), dy * r - (dy > 0 ? 0 : 1), -1, dx * r - (dx > 0 ? 0 : 1), dy * r - (dy > 0 ? 0 : 1), 1, c);
+      const x0 = dx > 0 ? r - 1 : -r, x1 = dx > 0 ? r : -r + 1;
+      const y0 = dy > 0 ? r - 1 : -r, y1 = dy > 0 ? r : -r + 1;
+      m.box(x0, y0, -1, x1, y1, 1, c); // a thick staircase block at each step, so the arm reads as solid
     }
     m.set(dx * 7 - (dx > 0 ? 0 : 1), dy * 7 - (dy > 0 ? 0 : 1), 0, 0xff8a40, { glow: 2, jitter: 0.1 });
   }
