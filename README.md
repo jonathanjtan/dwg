@@ -1,6 +1,6 @@
 # Gundam Musou: Side 7
 
-A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. Pick Amuro's RX-78-2 Gundam, Kai's RX-77-2 Guncannon or an RB-79 Ball and fight off a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
+A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. Pick Amuro's RX-78-2 Gundam, Kai's RX-77-2 Guncannon, an RB-79 Ball or Riddhe's MSN-001A1 Delta Plus and fight off a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
 
 Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Models, animation, effects, audio and music are procedural and written from scratch. The only image assets are the pilot portrait sheets and the SD unit renders.
 
@@ -18,7 +18,7 @@ Then visit http://localhost:8766.
 
 ## Co-op: up to three pilots
 
-Click **HOST CO-OP** on the title screen and send the invite link to up to two friends. Each guest picks a mobile suit on joining: the Gundam, the Guncannon, the Ball, or the co-op-only Guntank. Two players can fly the same suit. Guests can join from the lobby or mid-mission, and can change suits from the lobby between sorties. The host runs the whole simulation. Each guest's browser streams its input to the host and renders snapshots, peer to peer over WebRTC. [PeerJS](https://peerjs.com)'s free public broker is only used for the initial handshake.
+Click **HOST CO-OP** on the title screen and send the invite link to up to two friends. Each guest picks a mobile suit on joining: any of the playable suits, or the co-op-only Guntank. Two players can fly the same suit. Guests can join from the lobby or mid-mission, and can change suits from the lobby between sorties. The host runs the whole simulation. Each guest's browser streams its input to the host and renders snapshots, peer to peer over WebRTC. [PeerJS](https://peerjs.com)'s free public broker is only used for the initial handshake.
 
 The Guntank is Hayato's long-range support unit:
 
@@ -129,13 +129,29 @@ The Federation's mass-produced space pod: a sphere with a 180mm recoilless canno
 
 SP attacks: on the ground, both arms flail in a blur while the pod pushes forward, and a point-blank shell ends it. Hold SP through the starburst for the charge SP: the rest of the Ball squadron drops in from the colony sky, forms up round its leader and fires six volleys before peeling off. In the air, the Ball dives at its target and blasts it point-blank.
 
+### MSN-001A1 Delta Plus (Riddhe Marcenas)
+
+A Zeta-lineage transformable suit from a full generation after everything else on this field, and taller than the Gundam (the game's spec sheet: melee 600, shot 600, defense 480, armor 10000, mobility 728, thruster 1000). It carries a beam saber and rifle, and a grenade launcher built into its shield. Its biggest attacks fold it into its waverider flight mode to ram straight through the line.
+
+- **J × 6**: a beam saber string (rising cut, forehand, overhead chop, backhand, a shield bash into a thrust), then a thruster hop into a launching spin
+- **K**: the beam rifle. Mash it for a shot combo, or hold it for a charge shot behind the shield
+- **J K**: a rising cut into a full spin, rings of light winding round the blade
+- **J J K**: a saber flurry, then the shield swings round and the grenade launcher goes off point-blank
+- **J J J K**: folds into waverider mode and rams through the target in a long spinning arc, landing in a shockwave
+- **J J J J K**: a big rising double cut that carries the target skyward
+- **J J J J J K**: the shield plants forward and the grenade launcher fans three rounds out
+- In the air: **J** a saber slash, **K** a plunging stab
+- During a boost dash: **J** a paired-cut rush (keep pressing J) that finishes by folding into waverider mode and ramming through with the rifle blazing, **K** a spin into a point-blank grenade blast
+
+SP attacks: a starburst, then a saber-and-rifle flurry under pulses of the Bio Sensor's light, and the suit folds into waverider mode and rams the length of the field through its target. Hold SP through the flurry for the charge SP: a longer transformation run that circles the battlefield before the final ram. In the air, it hovers and fans grenades out beneath it.
+
 The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest. Keep holding boost after the dash runs out and the suit settles into a **boost sprint**, skating on its thrusters at about twice its running speed without using the gauge. It's the quick way from one field to the next, and attacks come out of it as dash attacks.
 
 ## How it's built
 
 - `src/core/voxel.js`: voxel models authored with box, ellipsoid and mirror operations, then meshed with face culling, baked ambient occlusion, and greedy merging for the static town.
 - `src/core/rig.js`: a 13-part humanoid rig with keyframed pose clips. It drives both Object3D rigs (the player suits and the commanders) and `InstancedMesh` crowds of up to 300 Zakus.
-- `src/game/`: the player suit controller (`hero.js`: locomotion, boost, the attack runner and the SP state machine), the three suits (`gundam.js`, `guncannon.js` and `ball.js`, with their movesets in `moves.js`, `guncannon_moves.js` and `ball_moves.js`: poses, hit shapes, weapon timelines, timed effects), the roster every player picks from (`roster.js`), the Guntank (`tank.js`), squad AI with attack tokens, a front-rank cap, rationed and telegraphed gunfire, and grabs (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
+- `src/game/`: the player suit controller (`hero.js`: locomotion, boost, the attack runner and the SP state machine), the playable suits (`gundam.js`, `guncannon.js`, `ball.js`, `deltaplus.js`..., each with its moveset in a `*_moves.js`: poses, hit shapes, weapon timelines, timed effects; newer suits keep their models in `src/models/<id>.js`), the roster every player picks from (`roster.js`), the Guntank (`tank.js`), squad AI with attack tokens, a front-rank cap, rationed and telegraphed gunfire, and grabs (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
 - `src/net/net.js`: co-op networking for the host and up to two guests. Guest input arrives as a world-space move direction plus pressed and held buttons. The crowd is packed into an Int16Array per snapshot, and effect, sound and HUD events are replicated.
 - `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke, embers and debris, anime impact stars, beam afterglow, ground scorch decals, shockwave rings and the Catmull-Rom smoothed saber ribbon trail.
 - `src/audio/sfx.js`: the sound bank. Every effect is synthesized at load in an `OfflineAudioContext`, several takes per sound, each tuned differently, so no two triggers in a row are identical. Each saber move has its own voice, and the slash sweeps across the stereo field with the blade. Hits, footsteps, boosts and explosions are layered from a transient, a saturated body, ringing armor resonances, debris crackle and a low push. The weapon voices are tuned to *DW: Gundam Reborn*'s gameplay audio, measured band by band. Beams buzz around 160 Hz. Saber hits crunch near 2 kHz and ring at the game's armor partials between 0.7 and 1.15 kHz. There is little air above 6 kHz. The Guncannon's blows are a 300-400 Hz thump with a thin swish on top, and its 240mm cannons boom at 100-200 Hz under a bright 1.5-4 kHz blast. The Ball's claws clank with a ring near 1 kHz, and its 180mm recoilless cannon sits mostly under 300 Hz with a 2-3 kHz crack and the hiss of its back-blast.

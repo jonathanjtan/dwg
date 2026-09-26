@@ -5,6 +5,7 @@
 import { Gundam, GUNDAM } from './gundam.js';
 import { Guncannon, GUNCANNON } from './guncannon.js';
 import { Ball, BALL } from './ball.js';
+import { DeltaPlus, DELTAPLUS } from './deltaplus.js';
 import { Tank } from './tank.js';
 
 export const ROSTER = [
@@ -97,6 +98,36 @@ export const ROSTER = [
       ['U K', 'Cannon at the ground', 'JC'],
       ['S', 'Claw frenzy, point-blank shell · hold: squadron', 'SP'],
       ['U S', 'Ram and blast', 'SPA'],
+    ],
+  },
+  {
+    id: 'deltaplus', cls: DeltaPlus, cfg: DELTAPLUS, pilot: 'riddhe',
+    unit: 'MSN-001A1 DELTA PLUS', unitShort: 'DELTA PLUS', unitJp: 'デルタプラス', pilotName: 'RIDDHE MARCENAS', pilotJp: 'リディ・マーセナス',
+    stats: { MELEE: 600, SHOT: 600, DEFENSE: 480, ARMOR: 10000, MOBILITY: 728, THRUSTER: 1000 },
+    equipment: ['Beam Saber', 'Beam Rifle', 'Grenade Launcher'],
+    role: 'Transformable ace machine. Taller and later than the rest of the field; folds into its waverider mode to ram straight through the line, then a shield-mounted grenade launcher for whatever is still standing.',
+    moves: [
+      ['J ×6', 'Beam saber string, ending in a launching spin'],
+      ['K', 'Beam rifle: mash it, or hold for a charge shot'],
+      ['J K', 'Rising cut into a full spin'],
+      ['J J K', 'Saber flurry, then the grenade launcher point-blank'],
+      ['J J J K', 'Folds into waverider mode and rams straight through'],
+      ['SP (hold)', 'A field-length transformation run'],
+    ],
+    guide: [
+      ['J J J J J J', 'Saber string, launching spin', 'N'],
+      ['K', 'Beam rifle · mash, or hold for charge shot', 'C1'],
+      ['J K', 'Rising cut into a full spin', 'C2'],
+      ['J J K', 'Saber flurry, grenade launcher blast', 'C3'],
+      ['J J J K', 'Transform and ram straight through', 'C4'],
+      ['J J J J K', 'Rising crescent', 'C5'],
+      ['J J J J J K', 'Shield bash, grenade launcher fan', 'C6'],
+      ['B J', 'Dash rush · keep pressing J', 'DA'],
+      ['B K', 'Spin, then point-blank grenade', 'DC'],
+      ['U J', 'Air slash', 'JA'],
+      ['U K', 'Plunging stab', 'JC'],
+      ['S', 'Saber-and-rifle flurry, then a transform ram · hold: a longer run', 'SP'],
+      ['U S', 'Grenade launcher barrage', 'SPA'],
     ],
   },
   {
