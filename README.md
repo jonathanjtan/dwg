@@ -105,7 +105,7 @@ Slower, with less armor but more defense than the Gundam (the game's spec sheet:
 
 SP attacks: on the ground, a storm of punches that walks forward (afterimage fists) and a last blow that blasts the target away. Hold SP through the starburst for the charge SP: shells fired out in every direction while the suit turns on the spot, then a ring of blasts. In the air, the Guncannon hovers low and shells its target point-blank.
 
-The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest.
+The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest. Keep holding boost after the dash runs out and the suit settles into a **boost sprint**, skating on its thrusters at about twice its running speed without using the gauge. It's the quick way from one field to the next, and attacks come out of it as dash attacks.
 
 ## How it's built
 

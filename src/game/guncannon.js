@@ -19,7 +19,7 @@ const TRAIL_COLOR = 0xcfe4ff;
 
 export const GUNCANNON = {
   id: 'guncannon', pilot: 'kai', def: guncannonDef, moves: GC_MOVES, stance: GC_STANCE,
-  hp: 1010, run: 8.4, boostSpeed: 20.5, boostTime: 1.55, defense: 0.86,
+  hp: 1010, run: 8.4, boostSpeed: 20.5, boostTime: 1.55, sprintSpeed: 16.2, defense: 0.86,
   nozzles: [[-0.25, 0.1, -0.86], [0.25, 0.1, -0.86]],
   debris: [0xc8342a, 0x3f8f8c, 0x565c69], spAirY: 2.8, spAirReach: 5, stepVol: 1.15, stepPitch: 0.9,
   impactColor: 0xff9a40, ringColor: 0xffd2a0, impactLight: 0xffa050, domeColor: 0xff8a40,

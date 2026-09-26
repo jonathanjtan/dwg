@@ -26,7 +26,7 @@ export function curve(keys, t) {
   return keys[keys.length - 1][1];
 }
 
-// suit: { id, pilot, def, moves, stance, hp, run, boostSpeed, boostTime, defense, nozzles, flameColor, impactColor,
+// suit: { id, pilot, def, moves, stance, hp, run, boostSpeed, boostTime, sprintSpeed, defense, nozzles, flameColor, impactColor,
 //         spColor, spAura, spAirY, spAirReach, debris }
 export class Hero {
   constructor(game, suit) {
@@ -255,6 +255,7 @@ export class Hero {
       case 'attack': this.updateAttack(dt, act, dir); break;
       case 'dodge': this.updateDodge(dt, act, dir, input); break;
       case 'boost': this.updateBoost(dt, act, dir, input); break;
+      case 'sprint': this.updateSprint(dt, act, dir, input); break;
       case 'hurt': this.updateHurt(dt); break;
       case 'down': this.updateDown(dt, act); break;
       case 'musou': this.updateMusou(dt, act, dir, input); break;
@@ -441,8 +442,11 @@ export class Hero {
 
   updateDodge(dt, act, dir, input) {
     const g = this.game;
-    // keep holding boost to carry the dash into a sustained thruster run
-    if (this.stateT > 0.16 && input?.key('dodge') && this.boost > 0.08) return this.startBoost();
+    // keep holding boost to carry the dash into a sustained thruster run (or, with the gauge spent, a boost sprint)
+    if (this.stateT > 0.16 && input?.key('dodge')) {
+      if (this.boost > 0.08) return this.startBoost();
+      if (!this.airDodge) return this.startSprint();
+    }
     const T = 0.36;
     const u = this.stateT / T;
     const sp = 30 * Math.pow(1 - Math.min(1, u), 1.5) + 2;
@@ -665,6 +669,8 @@ export class Hero {
     if (act.charge) { this.comboStep = 0; return this.startMove('DC', dir); }
     if (act.jump && this.pos.y < 1) return this.jump(dir, true);
     const air = this.pos.y > 1;
+    // gauge spent with boost still held: settle into a boost sprint across the ground
+    if (input?.key('dodge') && this.boost <= 0 && !air) return this.startSprint();
     if (!input?.key('dodge') || this.boost <= 0) {
       // cut the thrusters: skid to a stop (or fall, if airborne)
       if (air) { this.setState('air'); this.vel.y = 0; this.stateT = 0.3; return; }
@@ -689,6 +695,50 @@ export class Hero {
     if (g.local === this) g.camera.kick(6);
     this.target.set(this.boostPose);
     this.target[RY] = -0.15 + Math.sin(this.stateT * 9) * 0.03;
+    this.blendPose(dt);
+  }
+
+  // ---------- boost sprint ----------
+  // Holding boost once the dash is spent keeps the suit skating on its thrusters at about twice its run: the way to
+  // get from one field to the next. It costs no gauge (which refills meanwhile, so a fresh tap of boost dashes
+  // again), and attacks come out of it as dash attacks.
+  startSprint() {
+    this.setState('sprint');
+    this.blendDur = 0.22;
+    this.hovering = false;
+    this.boostSfxT = 0;
+  }
+
+  updateSprint(dt, act, dir, input) {
+    const g = this.game;
+    if (act.musou && this.sp >= this.maxSp) return this.startMusou();
+    if (act.attack) { this.comboStep = 1; this.rushN = 1; return this.startMove('DA', dir); }
+    if (act.charge) { this.comboStep = 0; return this.startMove('DC', dir); }
+    if (act.jump) return this.jump(dir, true);
+    if (!input?.key('dodge')) {
+      this.setState('move');
+      this.blendDur = 0.2;
+      this.vel.x *= 0.7;
+      this.vel.z *= 0.7;
+      g.fx.dust(this._v.set(this.pos.x + Math.sin(this.heading) * 1.2, 0.1, this.pos.z + Math.cos(this.heading) * 1.2), 6, 0.9);
+      return;
+    }
+    if (dir) this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 4.5, dt);
+    // ease down from the dash (or up from a walk) to sprint speed
+    const want = this.suit.sprintSpeed ?? this.run * 1.9;
+    const cur = Math.hypot(this.vel.x, this.vel.z);
+    const sp = cur > want ? damp(cur, want, 2.5, dt) : Math.min(want, cur + 28 * dt);
+    this.vel.x = Math.sin(this.heading) * sp;
+    this.vel.z = Math.cos(this.heading) * sp;
+    this.vel.y = 0;
+    this.pos.x += this.vel.x * dt;
+    this.pos.z += this.vel.z * dt;
+    this.pos.y = damp(this.pos.y, 0.22, 8, dt);
+    this.thrust(1.1, false);
+    if (Math.random() < 0.45) g.fx.dust(this._v.set(this.pos.x - Math.sin(this.heading) * 1.4, 0.1, this.pos.z - Math.cos(this.heading) * 1.4), 1, 0.8);
+    if (g.local === this) g.camera.kick(2.5);
+    this.target.set(this.boostPose);
+    this.target[RY] = -0.12 + Math.sin(this.stateT * 7) * 0.035;
     this.blendPose(dt);
   }
 

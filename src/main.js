@@ -818,7 +818,7 @@ class Game {
   updateSoundscape(rdt, playable) {
     const h = this.hero;
     const live = playable && h.alive;
-    const jet = h.state === 'boost' ? 1 : h.hovering ? 0.75 : Math.min(0.6, h.flameK * 0.5);
+    const jet = h.state === 'boost' ? 1 : h.hovering ? 0.75 : h.state === 'sprint' ? 0.62 : Math.min(0.6, h.flameK * 0.5);
     this.audio.loops(live ? h.saberScale : 0, h.tipSpeed, live ? jet : 0);
     const L = this.local;
     this.lowHpT -= rdt;
@@ -842,7 +842,7 @@ class Game {
     const sp = this.localSpT > 0 ? 1 : 0;
     this.post.musou += (sp - this.post.musou) * (sp ? 0.15 : 0.08);
     const L = this.local;
-    const rad = this.mode === 'title' ? 0 : L.state === 'boost' ? 0.7 : L.state === 'musou' && L.move?.rushFx ? 0.45 : 0;
+    const rad = this.mode === 'title' ? 0 : L.state === 'boost' ? 0.7 : L.state === 'sprint' ? 0.32 : L.state === 'musou' && L.move?.rushFx ? 0.45 : 0;
     this.post.radial += (rad - this.post.radial) * (rad > this.post.radial ? 0.18 : 0.1);
     this.post.aberr *= 0.88;
     this.post.render(this.scene, this.cam, this.time);
