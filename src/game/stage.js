@@ -1,5 +1,6 @@
 // Mission 01: Side 7. Clear the plaza, take the three Zeon landing zones, then face the officers and Char.
 // Enemies come as squads: garrisons hold their posts until a pilot comes near, hunters march on the pilots.
+// A reserve of squads stands in the distant streets; hunters are drawn from it, so new arrivals are seen coming.
 import { commanderDef, charDef, captainDef, CMD_COLORS, CHAR_COLORS, CAPT_COLORS } from '../models/suits.js';
 import { rand, randi } from '../core/util.js';
 import { ARENA } from '../world/world.js';
@@ -51,18 +52,20 @@ export function officerCfg(which) {
   return { ...c, def: c.def() };
 }
 
-// Per-phase pacing: cap on living Zaku, how many engaged soldiers near the pilot before hunters are sent,
-// and seconds between hunter squads.
+// Per-phase pacing: cap on living Zaku (not counting the reserve), how many engaged soldiers near the pilot
+// before hunters are sent, seconds between hunter squads, and how many soldiers stand in reserve out in the distance.
 // Reborn keeps a mob of a few dozen Zaku around the pilot, so the caps are generous.
 const PACE = {
-  plaza: { cap: 64, want: 24, every: 5 },
-  bases: { cap: 999, want: 8, every: 18 }, // the yards' own garrisons do the fighting here
-  predenim: { cap: 44, want: 14, every: 8 },
-  denim: { cap: 54, want: 20, every: 8 },
-  gene: { cap: 54, want: 20, every: 8 },
-  prechar: { cap: 36, want: 12, every: 9 },
-  char: { cap: 40, want: 14, every: 10 },
+  plaza: { cap: 64, want: 24, every: 5, reserve: 40 },
+  bases: { cap: 999, want: 8, every: 18, reserve: 24 }, // the yards' own garrisons do the fighting here
+  predenim: { cap: 44, want: 14, every: 8, reserve: 32 },
+  denim: { cap: 54, want: 20, every: 8, reserve: 32 },
+  gene: { cap: 54, want: 20, every: 8, reserve: 32 },
+  prechar: { cap: 36, want: 12, every: 9, reserve: 32 },
+  char: { cap: 40, want: 14, every: 10, reserve: 32 },
 };
+// Reserve squads stand this far from the pilots; past RECYCLE they are quietly pulled and re-posted nearer.
+const RESERVE_MIN = 70, RESERVE_MAX = 130, RECYCLE = 190;
 
 export class Stage {
   constructor(game) {
@@ -79,6 +82,7 @@ export class Stage {
     this.squads = [];
     this.huntT = 4;
     this.leashT = 0;
+    this.reserveT = 0;
     this.dropMeter = 0;
     this.plazaKos = 0;
     this.zonesTaken = 0;
@@ -105,6 +109,81 @@ export class Stage {
       const a = (i / 4) * TAU + 0.45;
       this.garrison(Math.sin(a) * 26, Math.cos(a) * 26, 11, null);
     }
+    // and the streets beyond it already hold Zaku, visible in the distance before they ever join the fight
+    for (let i = 0; i < 5; i++) {
+      const at = this.findSpot(RESERVE_MIN, RESERVE_MAX, null);
+      if (at) this.garrison(at.x, at.z, 8, null).reserve = true;
+    }
+  }
+
+  // A clear spot between `min` and `max` from the local pilot (and at least `min` from every pilot).
+  // view 'in' keeps it in front of the camera so the arrival is seen; 'out' keeps it behind or beside the camera
+  // so nothing pops into view. null: anywhere.
+  findSpot(min, max, view, clear = 3) {
+    const g = this.game, h = g.local.pos, yaw = g.camera.yaw;
+    for (let tries = 0; tries < 24; tries++) {
+      const a = view === 'in' ? yaw + rand(-0.45, 0.45) : view === 'out' ? yaw + Math.PI + rand(-1.8, 1.8) : rand(0, TAU);
+      const r = rand(min, max);
+      const x = h.x + Math.sin(a) * r, z = h.z + Math.cos(a) * r;
+      if (Math.abs(x) > ARENA - 6 || Math.abs(z) > ARENA - 6 || g.world.blocked(x, z, clear)) continue;
+      if (g.players.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < min)) continue;
+      return { x, z };
+    }
+    return null;
+  }
+
+  nearestPilot(x, z) {
+    let d = Infinity;
+    for (const p of this.game.players) d = Math.min(d, Math.hypot(p.pos.x - x, p.pos.z - z));
+    return d;
+  }
+
+  // Keep the distant streets stocked: post fresh reserve squads out of sight, pull ones the pilots left far behind.
+  tendReserves(pace) {
+    const g = this.game, crowd = g.crowd, yaw = g.camera.yaw, h = g.local.pos;
+    let n = 0;
+    for (const sq of this.squads) {
+      if (!sq.reserve || sq.engaged) continue;
+      const behind = Math.cos(Math.atan2(sq.x - h.x, sq.z - h.z) - yaw) < 0.2;
+      if (behind && this.nearestPilot(sq.x, sq.z) > RECYCLE) {
+        for (let i = crowd.list.length - 1; i >= 0; i--) if (crowd.list[i].squad === sq) crowd.remove(crowd.list[i]);
+        continue;
+      }
+      n += sq.n;
+    }
+    if (n >= pace.reserve || crowd.count > g.difficulty.maxAlive - 16) return n;
+    const at = this.findSpot(RESERVE_MIN, RESERVE_MAX, 'out');
+    if (!at) return n;
+    const sq = this.garrison(at.x, at.z, 8, null);
+    sq.reserve = true;
+    return n + sq.n;
+  }
+
+  reserveCount() {
+    let n = 0;
+    for (const sq of this.squads) if (sq.reserve && !sq.engaged) n += sq.n;
+    return n;
+  }
+
+  // Send the pilots a hunter squad: march a reserve squad in from the distance (one on screen if possible),
+  // post a fresh one out of sight when none is free, or drop one out of the colony sky where the pilot can see it.
+  sendHunters(n, drop) {
+    if (drop) return this.huntSquad(n, true);
+    const g = this.game, h = g.local.pos, yaw = g.camera.yaw;
+    let best = null, bestScore = -Infinity;
+    for (const sq of this.squads) {
+      if (!sq.reserve || sq.engaged || sq.n < 4) continue;
+      const d = this.nearestPilot(sq.x, sq.z);
+      if (d < 40 || d > 120) continue;
+      const score = Math.cos(Math.atan2(sq.x - h.x, sq.z - h.z) - yaw) * 60 - d;
+      if (score > bestScore) { bestScore = score; best = sq; }
+    }
+    if (best) {
+      best.reserve = false;
+      best.engaged = best.hunt = true;
+      return best.n;
+    }
+    return this.huntSquad(n, false);
   }
 
   newSquad(x, z, o = {}) {
@@ -132,15 +211,10 @@ export class Stage {
   huntSquad(n, drop = false) {
     const g = this.game;
     const hero = g.hero.pos;
-    let x = 0, z = 0, ok = false;
-    for (let tries = 0; tries < 14 && !ok; tries++) {
-      const a = rand(0, TAU);
-      const r = drop ? rand(16, 26) : rand(40, 62);
-      x = hero.x + Math.sin(a) * r;
-      z = hero.z + Math.cos(a) * r;
-      ok = Math.abs(x) < ARENA - 4 && Math.abs(z) < ARENA - 4 && !g.world.blocked(x, z, 3);
-    }
-    if (!ok) return 0;
+    // drops come down in front of the camera so the pilot watches them land; marchers start out of sight
+    const at = drop ? this.findSpot(26, 42, 'in') : this.findSpot(60, 85, 'out');
+    if (!at) return 0;
+    const { x, z } = at;
     const sq = this.newSquad(x, z, { hunt: true, engaged: true });
     const gunners = Math.random() < 0.6 ? 1 : 0;
     const face = Math.atan2(hero.x - x, hero.z - z);
@@ -294,7 +368,7 @@ export class Stage {
         g.hud.setObjective('Defeat Gene');
         this.addOfficer('gene');
         g.hud.say('gene', 'GENE', "Sergeant Denim?! You'll pay for that! This one's mine!", 3.2);
-        for (let i = 0; i < 2; i++) this.huntSquad(8, true);
+        for (let i = 0; i < 2; i++) this.sendHunters(8, true);
       });
     } else if (c.name === 'gene') {
       this.phase = 'prechar';
@@ -349,14 +423,19 @@ export class Stage {
     }
     // hunters keep some pressure on the pilots when nothing is close by
     const pace = PACE[this.phase];
+    this.reserveT -= dt;
+    if (pace && this.reserveT <= 0) {
+      this.reserveT = 1.5;
+      this.tendReserves(pace);
+    }
     this.huntT -= dt;
     if (pace && this.huntT <= 0) {
       const cap = Math.min(pace.cap, D.maxAlive);
       const hero = g.hero.pos;
       let near = 0;
       for (const e of g.crowd.grid.query(hero.x, hero.z, 26, g.combat.tmp)) if (!e.squad || e.squad.engaged) near++;
-      if (g.crowd.count < cap && near < pace.want) {
-        this.huntSquad(randi(8, 12), Math.random() < 0.3);
+      if (g.crowd.count - this.reserveCount() < cap && g.crowd.count < D.maxAlive && near < pace.want) {
+        this.sendHunters(randi(8, 12), Math.random() < 0.3);
         this.huntT = pace.every * D.reinforce;
       } else this.huntT = 1.5;
     }
