@@ -210,12 +210,14 @@ export class Ball extends Hero {
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
     if (shot.kind === 'pb') {
       // point-blank: the shell bursts on the target a stride in front
-      this.report(true);
       const tgt = this.aimAt(this.heading, 6, 0.7);
+      if (tgt) this.faceShot(Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
+      const ax = Math.sin(this.heading), az = Math.cos(this.heading);
+      this.report(true);
       const d = tgt ? clamp(Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z), 2.4, 4) : 3.2;
-      g.projectiles.heroBlast(this, this._w.set(this.pos.x + fx * d, this.pos.y + 1.8, this.pos.z + fz * d), 3.8, 58, 14, 8, { big: true, sound: 'cboom' });
-      this.vel.x -= fx * 6;
-      this.vel.z -= fz * 6;
+      g.projectiles.heroBlast(this, this._w.set(this.pos.x + ax * d, this.pos.y + 1.8, this.pos.z + az * d), 3.8, 58, 14, 8, { big: true, sound: 'cboom' });
+      this.vel.x -= ax * 6;
+      this.vel.z -= az * 6;
       return;
     }
     if (shot.kind === 'aa') {
@@ -229,11 +231,11 @@ export class Ball extends Hero {
     }
     // 'shell' / 'heavy' / 'dn': a 180mm shell with a smoke trail
     const heavy = shot.kind === 'heavy';
-    const from = this.report(heavy).clone();
     const o = heavy ? HEAVY_SHELL : shot.sp ? SP_SHELL : SHELL;
     let aim = this.heading;
     const tgt = this.aimAt(aim, shot.kind === 'dn' ? 22 : 36, 0.6);
-    if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
+    if (tgt) this.faceShot(aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
+    const from = this.report(heavy).clone();
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     if (shot.kind === 'dn') {
       const tx = tgt ? tgt.x : this.pos.x + dir.x * 6, tz = tgt ? tgt.z : this.pos.z + dir.z * 6;
@@ -244,8 +246,8 @@ export class Ball extends Hero {
       const d = tgt ? Math.max(3, Math.hypot(tgt.x - from.x, tgt.z - from.z)) : 20;
       dir.y = (ty - from.y) / d;
       dir.normalize();
-      this.vel.x -= fx * (heavy ? 5 : 2.5);
-      this.vel.z -= fz * (heavy ? 5 : 2.5);
+      this.vel.x -= Math.sin(aim) * (heavy ? 5 : 2.5);
+      this.vel.z -= Math.cos(aim) * (heavy ? 5 : 2.5);
     }
     g.projectiles.shell(this, from, dir, o);
   }
