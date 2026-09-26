@@ -16,11 +16,11 @@ python3 tools/serve.py 8766
 
 Then visit http://localhost:8766.
 
-## Co-op: RX-75 Guntank
+## Co-op: up to three pilots
 
-Click **HOST CO-OP** on the title screen and send the invite link to a friend. They join as Hayato Kobayashi in the Guntank, either from the lobby or mid-mission. The host runs the whole simulation. The guest's browser streams input to the host and renders snapshots, peer to peer over WebRTC. [PeerJS](https://peerjs.com)'s free public broker is only used for the initial handshake.
+Click **HOST CO-OP** on the title screen and send the invite link to up to two friends. Each guest picks a mobile suit on joining: the Gundam, the Guncannon, or the co-op-only Guntank. Two players can fly the same suit. Guests can join from the lobby or mid-mission, and can change suits from the lobby between sorties. The host runs the whole simulation. Each guest's browser streams its input to the host and renders snapshots, peer to peer over WebRTC. [PeerJS](https://peerjs.com)'s free public broker is only used for the initial handshake.
 
-The Guntank is a long-range support unit:
+The Guntank is Hayato's long-range support unit:
 
 | Action | Keys |
 | --- | --- |
@@ -30,9 +30,11 @@ The Guntank is a long-range support unit:
 | Thruster hop / tread boost | Space / L, Shift |
 | Full-burst SP attack | I / F |
 
-If the Guntank is destroyed it redeploys after 8 seconds. The mission fails only if the host's suit falls. The host picks the Gundam or the Guncannon as usual; the guest always pilots the Guntank.
+A guest whose suit is destroyed redeploys after 8 seconds. The mission fails only if the host's suit falls.
 
-Connectivity: players connect directly, which works on most home networks. There's no TURN relay, so two players who are both behind strict or symmetric NATs (some corporate or mobile networks) may not be able to connect. For local testing, add `?localnet` to the URL to use a same-browser BroadcastChannel transport between two tabs.
+To add a playable suit, write a `Hero` subclass (see `gundam.js`) and add an entry to `ROSTER` in `roster.js`. The select screens and co-op pick it up from there. Entries marked `coop` are only offered to guests.
+
+Connectivity: players connect directly, which works on most home networks. There's no TURN relay, so two players who are both behind strict or symmetric NATs (some corporate or mobile networks) may not be able to connect. For local testing, add `?localnet` to the URL to use a same-browser BroadcastChannel transport between tabs.
 
 ## The mission
 
@@ -117,8 +119,8 @@ The boost gauge under the SP bar drains while you dash or hover and refills once
 
 - `src/core/voxel.js`: voxel models authored with box, ellipsoid and mirror operations, then meshed with face culling, baked ambient occlusion, and greedy merging for the static town.
 - `src/core/rig.js`: a 13-part humanoid rig with keyframed pose clips. It drives both Object3D rigs (the player suits and the commanders) and `InstancedMesh` crowds of up to 300 Zakus.
-- `src/game/`: the player suit controller (`hero.js`: locomotion, boost, the attack runner and the SP state machine), the two suits (`gundam.js` and `guncannon.js` with their movesets in `moves.js` and `guncannon_moves.js`: poses, hit shapes, weapon timelines, timed effects), the select screen roster (`roster.js`), the Guntank (`tank.js`), squad AI with attack tokens, a front-rank cap, rationed and telegraphed gunfire, and grabs (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
-- `src/net/net.js`: co-op networking. The crowd is packed into an Int16Array per snapshot, and effect, sound and HUD events are replicated.
+- `src/game/`: the player suit controller (`hero.js`: locomotion, boost, the attack runner and the SP state machine), the two suits (`gundam.js` and `guncannon.js` with their movesets in `moves.js` and `guncannon_moves.js`: poses, hit shapes, weapon timelines, timed effects), the roster every player picks from (`roster.js`), the Guntank (`tank.js`), squad AI with attack tokens, a front-rank cap, rationed and telegraphed gunfire, and grabs (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
+- `src/net/net.js`: co-op networking for the host and up to two guests. Guest input arrives as a world-space move direction plus pressed and held buttons. The crowd is packed into an Int16Array per snapshot, and effect, sound and HUD events are replicated.
 - `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke, embers and debris, anime impact stars, beam afterglow, ground scorch decals, shockwave rings and the Catmull-Rom smoothed saber ribbon trail.
 - `src/audio/sfx.js`: the sound bank. Every effect is synthesized at load in an `OfflineAudioContext`, several takes per sound, each tuned differently, so no two triggers in a row are identical. Each saber move has its own voice, and the slash sweeps across the stereo field with the blade. Hits, footsteps, boosts and explosions are layered from a transient, a saturated body, ringing armor resonances, debris crackle and a low push. The weapon voices are tuned to *DW: Gundam Reborn*'s gameplay audio, measured band by band. Beams buzz around 160 Hz. Saber hits crunch near 2 kHz and ring at the game's armor partials between 0.7 and 1.15 kHz. There is little air above 6 kHz. The Guncannon's blows are a 300-400 Hz thump with a thin swish on top, and its 240mm cannons boom at 100-200 Hz under a bright 1.5-4 kHz blast.
 - `src/audio/audio.js`: plays the bank's takes, panned against the camera and dulled with distance, through a generated colony-hall reverb. It also runs the continuous beam-saber hum and thruster roar, and falls back to live synthesis until the bank is ready.

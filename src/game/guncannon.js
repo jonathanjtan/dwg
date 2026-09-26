@@ -281,7 +281,7 @@ export class Guncannon extends Hero {
       if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
       const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
       const from = this.muzzle(new THREE.Vector3(), 'rifle');
-      g.projectiles.heroBeam(from, dir, RIFLE_SHOT);
+      g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
       g.fx.muzzle(from, dir, 0xff8ad8, 1);
       g.audio.play('rifle');
       g.camera.shake(0.1);
@@ -413,7 +413,6 @@ export class Guncannon extends Hero {
     this.trailOn = {};
     ['L', 'R', 'FL', 'FR'].forEach((key, i) => { if (s.tr & (1 << i)) this.trailOn[key] = true; });
     this.rig.root.updateMatrixWorld(true);
-    this.move = s.bl ? { blur: true } : null;
     this.postVisuals(dt, !!s.bl);
   }
 }

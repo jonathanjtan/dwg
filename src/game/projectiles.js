@@ -60,9 +60,9 @@ export class Projectiles {
   }
 
   // o: { dmg, kb, up, big, w (thickness), r (hit radius), speed, max (lifetime) }
-  heroBeam(from, dir, o = {}) {
+  heroBeam(owner, from, dir, o = {}) {
     this.beams.push({
-      p: from.clone(), d: dir.clone(), life: 0, max: o.max ?? 0.8, speed: o.speed ?? 120, id: ++this.serial,
+      owner, p: from.clone(), d: dir.clone(), life: 0, max: o.max ?? 0.8, speed: o.speed ?? 120, id: ++this.serial,
       dmg: o.dmg ?? 22, kb: o.kb ?? 4, up: o.up ?? 1, big: !!o.big, w: o.w ?? 1, r: o.r ?? 0.8, kills: 0,
     });
   }
@@ -96,7 +96,8 @@ export class Projectiles {
     }
     g.combat.aoe(owner, c.x, c.y, c.z, r, dmg, kb, up, ++this.serial, o.big ?? true, !!o.sp);
     g.audio.play(o.sound || 'bzboom', { at: c, vol: o.lite ? 0.6 : 1 });
-    if (g.local === owner) { g.camera.shake(o.lite ? 0.03 : 0.3); if (!o.lite) g.aberr(0.35); }
+    g.shakeFor(owner, o.lite ? 0.03 : 0.3);
+    if (!o.lite && g.local === owner) g.aberr(0.35);
   }
 
   tankMissile(owner, from, dir, target) {
@@ -117,7 +118,7 @@ export class Projectiles {
     g.fx.explode(this._v.set(p.x, Math.max(0.6, p.y), p.z), s, [0x8a867c, 0x6f6c64, 0x3a3532]);
     g.combat.aoe(owner, p.x, 0, p.z, r, dmg, kb, up, ++this.serial, big);
     g.audio.play(big ? 'boom' : 'hit', { vol: big ? 0.8 : 0.4, pitch: big ? 0.8 : 1.4, at: p });
-    if (big && g.local === owner) g.camera.shake(0.15);
+    if (big) g.shakeFor(owner, 0.15);
   }
 
   enemyBullet(from, dir, mul = 1) {
@@ -147,7 +148,7 @@ export class Projectiles {
           g.fx.hit(hp, 0xff7ad0, true);
           g.fx.puff(hp, 2, 0.4, 0.8, 1, 2);
           if (b.big) g.fx.star(hp, 0xffd0f4, 2);
-          combat.registerHits(1, { big: b.big && b.kills === 1 });
+          combat.registerHits(1, { big: b.big && b.kills === 1 }, b.owner);
           if (combat.hitSfxBudget >= 1) { combat.hitSfxBudget--; g.audio.play(b.big ? 'hit_heavy' : 'bhit', { vol: 0.6 }); }
         }
       });

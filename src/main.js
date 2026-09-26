@@ -4,7 +4,7 @@ import { Input, lockPointer } from './core/input.js';
 import { isTouch, isStandalone, isFullscreen, fullscreenAvailable, enterFullscreen, toggleFullscreen } from './core/touch.js';
 import { World } from './world/world.js';
 import { FX } from './fx/fx.js';
-import { ROSTER, suitInfo } from './game/roster.js';
+import { ROSTER, SOLO_ROSTER, suitInfo } from './game/roster.js';
 import { Crowd } from './game/crowd.js';
 import { Commanders } from './game/commander.js';
 import { Combat } from './game/combat.js';
@@ -12,13 +12,14 @@ import { Projectiles } from './game/projectiles.js';
 import { Items } from './game/items.js';
 import { LandingZones } from './game/bases.js';
 import { Stage, officerCfg } from './game/stage.js';
-import { Tank } from './game/tank.js';
-import { Net, GRUNT_STATES, GF, LOCALNET } from './net/net.js';
+import { Net, RemoteInput, GRUNT_STATES, GF, LOCALNET, MAX_PLAYERS } from './net/net.js';
 import { CameraRig } from './camera.js';
 import { HUD } from './ui/hud.js';
 import { SuitSelect } from './ui/select.js';
 import { Audio } from './audio/audio.js';
 import { rand, wrapAngle } from './core/util.js';
+import { unitSprite } from './ui/units.js';
+import { portrait, renderingFor } from './ui/portraits.js';
 
 // maxPress: engaged Zaku allowed to close in and swing at once (the rest ring you from further out)
 // dropEvery: KOs per repair kit / E-cap (halved when hurt); recover: share of damage that heals back if you avoid hits
@@ -29,9 +30,13 @@ const DIFFICULTY = {
   hard: { dmgTaken: 1.5, dmgDealt: 0.9, enemyHp: 1.25, aggression: 1.4, speed: 1.15, maxAlive: 150, maxPress: 18, dropEvery: 40, recover: 0.3, reinforce: 0.75 },
 };
 const NO_INPUT = { move: { x: 0, y: 0 }, key: () => false };
-const savedSuit = () => {
-  try { return localStorage.getItem('gmusou.suit') || ROSTER[0].id; } catch (e) { return ROSTER[0].id; }
+const saved = (key, roster) => {
+  let id = null;
+  try { id = localStorage.getItem(key); } catch (e) { /* private mode */ }
+  return roster.some((r) => r.id === id) ? id : roster[0].id;
 };
+const savedSuit = () => saved('gmusou.suit', SOLO_ROSTER);
+const $ = (id) => document.getElementById(id);
 
 class Game {
   constructor() {
@@ -76,21 +81,24 @@ class Game {
     this.commanders = new Commanders(this);
     this.crowd = new Crowd(this);
     this.heroes = {};
-    this.players = [];
+    this.players = []; // every suit in the fight; the host's own is players[0]
+    // Co-op, host side: slots[n] is guest n (the host is slot 0 and flies this.hero). Guest side: puppets[n] mirrors
+    // player n from the host's snapshots, and this.local is the guest's own.
+    this.slots = [];
+    this.puppets = [];
     this.setSuit(savedSuit());
-    this.tank = new Tank(this);
-    this.remoteInput = { x: 0, z: 0, mag: 0, edges: 0 };
     this.net = new Net(this);
     this.netEvent = (...e) => this.net.event(...e);
+    this.guestSuit = saved('gmusou.coopSuit', ROSTER);
+    this.guestPicked = false;
     this.localSpT = 0;
     this.hud = new HUD(this);
-    this.hud.setPilot(this.hero.suit.pilot);
+    this.hud.setPilot(this.hero.suit.id);
     this.select = new SuitSelect(this);
     this.stage = new Stage(this);
     this.stats = this.freshStats();
     this.combo = { count: 0, timer: 0, max: 0 };
     this.mode = 'title';
-    this.stopT = 0;
     this.slowT = 0;
     this.slowScale = 1;
     this.worldSlowT = 0;
@@ -128,10 +136,11 @@ class Game {
     return { kos: 0, time: 0, maxCombo: 0, damageTaken: 0, officers: 0 };
   }
 
-  // Switch the player's mobile suit (select screen, or a co-op guest following the host's pick). Each suit is built
-  // once and kept; only the chosen one is in the scene.
+  // Switch the host's mobile suit (the select screen; on a guest, the preview standing behind its select screen).
+  // Each suit is built once and kept; only the chosen one is in the scene.
   setSuit(id) {
     const info = suitInfo(id);
+    if (info.coop) return; // nothing to preview for the co-op-only suits
     const next = this.heroes[info.id] || (this.heroes[info.id] = new info.cls(this));
     const prev = this.hero;
     if (prev === next) return;
@@ -143,12 +152,11 @@ class Game {
     }
     next.attach(true);
     this.hero = next;
+    if (this.net?.role === 'guest') return;
     this.players = this.players.length ? this.players.map((p) => (p === prev ? next : p)) : [next];
-    if (!this.local || this.local === prev) {
-      this.local = next;
-      this.hud?.setPilot(info.pilot);
-    }
-    if (this.net?.role !== 'guest') { try { localStorage.setItem('gmusou.suit', info.id); } catch (e) { /* private mode */ } }
+    this.local = next;
+    this.hud?.setPilot(info.id);
+    try { localStorage.setItem('gmusou.suit', info.id); } catch (e) { /* private mode */ }
   }
 
   // The visible area on a phone is whatever the browser's chrome leaves behind, and it changes as the
@@ -197,6 +205,7 @@ class Game {
       setTimeout(() => ($('coop-copy').textContent = 'COPY LINK'), 1500);
     });
     $('lobby-leave').addEventListener('click', () => this.leaveCoop());
+    $('lobby-suit').addEventListener('click', () => this.openGuestSelect());
     $('mute-btn').addEventListener('click', () => {
       const m = this.audio.toggleMute();
       $('mute-btn').textContent = m ? 'SOUND: OFF' : 'SOUND: ON';
@@ -301,16 +310,15 @@ class Game {
     this.camera.target.set(0, 3, -14);
     this.mode = 'play';
     this.hud.show(true);
-    this.tank.hp = this.tank.maxHp;
-    this.tank.sp = 30;
-    if (this.net.role === 'host' && this.net.connected) {
-      this.players = [this.hero, this.tank];
-      this.tank.spawn(5, -20);
-      this.net.send({ y: 'start' });
-    } else {
-      this.tank.remove();
-      this.players = [this.hero];
-    }
+    // guests who have picked a suit drop in on either side of the host
+    this.players = [this.hero];
+    this.slots.forEach((s, n) => {
+      if (!s?.unit) return;
+      s.unit.deploy(n % 2 ? 5 : -5, -20);
+      s.input = new RemoteInput();
+      this.players.push(s.unit);
+    });
+    if (this.net.role === 'host') this.net.send({ y: 'start' });
     this.stage.begin();
     this.canvas.focus();
     // sortie is a tap, so this is inside the gesture fullscreen needs
@@ -334,7 +342,8 @@ class Game {
     document.exitPointerLock?.();
     this.setupTitle();
     if (this.net.role === 'guest') this.leaveCoop();
-    this.tank.remove();
+    for (const s of this.slots) s?.unit?.attach(false);
+    this.players = [this.hero];
     if (this.net.role === 'host') this.net.send({ y: 'title' });
   }
 
@@ -383,10 +392,6 @@ class Game {
   }
 
   // ---------- events ----------
-  // Hit-stop freezes the hero only; victims shudder a few frames and the world keeps moving.
-  hitstop(d) {
-    this.stopT = Math.max(this.stopT, d);
-  }
   // chromatic aberration pulse (heavy blows, big impacts)
   aberr(v) {
     this.post.aberr = Math.max(this.post.aberr, v);
@@ -481,14 +486,24 @@ class Game {
     this.camera.lockOn = this.lock ? this.lock.pos : null;
   }
 
-  // Where the local pilot's attacks aim while locked on (the hero asks through Hero.aimAt).
+  // Where a pilot's attacks aim while locked on (the hero asks through Hero.aimAt). Guests send their lock-on target
+  // with their input.
   lockTarget(who) {
-    const c = this.lock;
-    if (!c || who !== this.local || !this.lockable(c)) return null;
+    let c = this.lock;
+    if (who !== this.local) {
+      const id = this.slots[this.slotOf(who)]?.input.lock;
+      c = id ? this.commanders.list.find((x) => x.netId === id) : null;
+    }
+    if (!c || !this.lockable(c)) return null;
     return { x: c.pos.x, y: c.pos.y, z: c.pos.z };
   }
 
-  onHeroDeath() {
+  // A suit's armor is gone. The host's ends the mission; a guest redeploys (see Hero.updateDead, Tank.update).
+  onHeroDeath(who = this.hero) {
+    if (who !== this.hero) {
+      this.hud.announce(`${suitInfo(who.suit.id).unitShort} DOWN`, `REDEPLOYING IN ${Math.round(who.respawnT)} SECONDS`, true);
+      return;
+    }
     this.hud.announce('MISSION FAILED', `THE ${suitInfo(this.hero.suit.id).unitShort} HAS FALLEN`, true);
     this.audio.stinger('defeat');
     this.netEvent('stinger', 'defeat');
@@ -496,16 +511,48 @@ class Game {
     this.stage.phase = 'lose';
     this.timers.push({ t: 3.5, fn: () => this.finish(false) });
   }
-  onHeroLanded() {
-    this.stage.onHeroLanded();
+  onRedeploy(who) {
+    this.hud.toast(`${suitInfo(who.suit.id).unitShort} REDEPLOYED`, '#7fd6e8');
   }
-  onMusou(who = this.hero) {
-    if (who === this.local) this.localMusou(who === this.tank ? 'hayato' : who.suit.pilot);
-    else this.hud.toast(who === this.tank ? 'HAYATO: FULL BURST!' : `${suitInfo(who.suit.id).pilotName.split(' ')[0]}: SP ATTACK!`, '#ffd1f1');
+  onHeroLanded(who) {
+    if (who === this.hero) this.stage.onHeroLanded();
+  }
+  onMusou(who) {
+    const slot = this.slotOf(who);
+    if (who === this.local) this.localMusou(who.suit.pilot);
+    else this.spToast(who.suit.id);
     // freezing the world only makes sense solo
     if (who === this.hero && this.players.length === 1) this.worldSlowT = 1.0;
     this.audio.duckMusic(0.35, 0.8);
-    this.netEvent('sp', who === this.tank ? 'tank' : 'hero');
+    this.netEvent('sp', slot, who.suit.id);
+  }
+
+  // Someone else's SP: a line in the corner (the SP pilot gets the cut-in instead, so this isn't replicated).
+  spToast(suitId) {
+    const info = suitInfo(suitId);
+    this.hud.noNet = true;
+    this.hud.toast(`${info.pilotName.split(' ')[0]}: ${info.coop ? 'FULL BURST' : 'SP ATTACK'}!`, '#ffd1f1');
+    this.hud.noNet = false;
+  }
+
+  // Which player a suit belongs to: 0 for the host's, n for guest n, -1 for none.
+  slotOf(unit) {
+    return unit === this.hero ? 0 : this.slots.findIndex((s) => s?.unit === unit);
+  }
+
+  // Camera shake / hurt flash / anything else only the pilot of `who` should feel: here if it's ours, else sent to
+  // that guest.
+  netEventFor(who, ...e) {
+    const slot = this.slotOf(who);
+    if (slot > 0 && this.net.role === 'host') this.net.eventFor(slot, ...e);
+  }
+  shakeFor(who, v) {
+    if (who === this.local) this.camera.shake(v);
+    else this.netEventFor(who, 'shake', v);
+  }
+  hurtFor(who) {
+    if (who === this.local) this.hud.hurt();
+    else this.netEventFor(who, 'hurt');
   }
 
   localMusou(pilot) {
@@ -515,9 +562,8 @@ class Game {
     this.camera.cinematic({ dur: 1.1, yaw: 2.3, pitch: 0.22, dist: 7.5, fov: 46 });
   }
 
-  // ---------- co-op ----------
+  // ---------- co-op: host ----------
   async hostCoop() {
-    const $ = (id) => document.getElementById(id);
     this.audio.resume();
     $('coop-panel').classList.remove('hidden');
     $('host-btn').disabled = true;
@@ -526,67 +572,169 @@ class Game {
     try {
       const code = await this.net.host();
       $('coop-link').value = `${location.origin}${location.pathname}?join=${code}${LOCALNET ? '&localnet' : ''}`;
-      $('coop-status').textContent = `Room ${code} is open. Waiting for the Guntank pilot…`;
+      this.coopStatus();
     } catch (e) {
       $('coop-status').textContent = `Couldn't open a room (${e.type || e.message}). Try again.`;
       $('host-btn').disabled = false;
     }
   }
 
-  onGuestJoined() {
-    const $ = (id) => document.getElementById(id);
-    $('coop-status').textContent = 'Hayato is in the Guntank. Press LAUNCH when ready.';
-    $('coop-status').className = 'ok';
-    this.players = [this.hero, this.tank];
-    this.audio.play('pickup');
-    if (this.mode === 'play' || this.mode === 'paused') {
-      const h = this.hero.pos;
-      this.tank.hp = this.tank.maxHp;
-      this.tank.spawn(h.x + 5, h.z - 4);
-      this.hud.announce('REINFORCEMENTS', 'RX-75 GUNTANK INBOUND');
-      this.net.send({ y: 'start' });
+  // Who is in the room and what they fly, under the co-op link.
+  coopStatus() {
+    const el = $('coop-status');
+    const guests = this.slots.filter(Boolean);
+    const free = MAX_PLAYERS - 1 - guests.length;
+    if (!guests.length) {
+      el.textContent = `Room ${this.net.code} is open. Waiting for up to ${free} pilots…`;
+      el.className = '';
+      return;
     }
+    const names = guests.map((s) => {
+      if (!s.suit) return 'someone choosing a suit';
+      const info = suitInfo(s.suit);
+      return `${info.pilotName.split(' ')[0]} (${info.unitShort})`;
+    });
+    el.textContent = `In the room: ${names.join(', ')}.${free ? ` Room for ${free} more.` : ''} Press LAUNCH when ready.`;
+    el.className = 'ok';
   }
 
-  onGuestLeft() {
-    const $ = (id) => document.getElementById(id);
-    this.tank.remove();
-    this.players = [this.hero];
-    $('coop-status').textContent = 'The Guntank pilot left. Waiting for someone to join…';
-    $('coop-status').className = '';
-    if (this.mode !== 'title') this.hud.toast('GUNTANK DISCONNECTED', '#ff8a8a');
+  onGuestJoined(n) {
+    this.slots[n] = { input: new RemoteInput(), suit: null, units: {}, unit: null };
+    this.audio.play('pickup');
+    this.coopStatus();
   }
 
+  // A guest picked (or changed) their suit. Mid-mission, they drop in right away.
+  onGuestSuit(n, id) {
+    const s = this.slots[n];
+    if (!s) return;
+    const info = suitInfo(id);
+    const unit = s.units[info.id] || (s.units[info.id] = new info.cls(this));
+    const prev = s.unit;
+    s.suit = info.id;
+    if (prev && prev !== unit) {
+      prev.attach(false);
+      this.players = this.players.filter((p) => p !== prev);
+    }
+    s.unit = unit;
+    this.coopStatus();
+    if (this.mode !== 'play' && this.mode !== 'paused') return;
+    if (!this.players.includes(unit)) {
+      const h = this.hero.pos;
+      unit.deploy(h.x + (n % 2 ? 5 : -5), h.z - 4);
+      s.input = new RemoteInput();
+      this.players.push(unit);
+      this.hud.announce('REINFORCEMENTS', `${info.unit} INBOUND`);
+      this.stage.wingmanSay(unit);
+    }
+    this.net.sendTo(n, { y: 'start' });
+  }
+
+  onGuestLeft(n) {
+    const s = this.slots[n];
+    if (!s) return;
+    this.slots[n] = null;
+    if (s.unit) {
+      s.unit.attach(false);
+      this.players = this.players.filter((p) => p !== s.unit);
+      if (this.mode !== 'title') this.hud.toast(`${suitInfo(s.unit.suit.id).unitShort} DISCONNECTED`, '#ff8a8a');
+    }
+    this.coopStatus();
+  }
+
+  // ---------- co-op: guest ----------
   async startGuest(code) {
-    const $ = (id) => document.getElementById(id);
     this.mode = 'lobby';
-    this.local = this.tank;
-    this.players = [this.hero, this.tank];
+    this.players = [];
     this.crowd.clear();
     $('title').classList.add('hidden');
     $('lobby').classList.remove('hidden');
-    $('lobby-portrait').src = this.hud.portraitFor('hayato');
+    $('lobby-suit').classList.add('hidden');
+    this.lobbyArt();
     $('lobby-status').textContent = `Joining room ${code.toUpperCase()}…`;
-    this.hud.setPilot('hayato');
     try {
       await this.net.join(code);
-      $('lobby-status').textContent = 'Connected. Waiting for the host to launch…';
+      if (this.roomFull) return;
+      $('lobby-status').textContent = 'Connected.';
+      this.openGuestSelect();
     } catch (e) {
       $('lobby-status').textContent = e.type === 'peer-unavailable' ? "That room doesn't exist (or the host closed it)." : `Couldn't connect (${e.type || e.message}).`;
     }
   }
 
+  // The guest's suit select: the whole roster, the Guntank included. READY sends the pick to the host.
+  openGuestSelect() {
+    if (this.net.role !== 'guest' || this.mode === 'guest') return;
+    this.mode = 'select';
+    $('lobby').classList.add('hidden');
+    this.select.show({
+      roster: ROSTER,
+      current: this.guestSuit,
+      onPick: (id) => this.setSuit(id),
+      onGo: (id) => this.pickGuestSuit(id),
+      onBack: () => (this.guestPicked ? this.showLobby() : this.leaveCoop()),
+      go: 'READY',
+      hint: `A / D or ← → to choose · Enter when ready · Esc ${this.guestPicked ? 'to go back' : 'to leave'}`,
+    });
+  }
+
+  pickGuestSuit(id) {
+    this.guestSuit = id;
+    this.guestPicked = true;
+    try { localStorage.setItem('gmusou.coopSuit', id); } catch (e) { /* private mode */ }
+    this.audio.resume();
+    this.audio.play('ui');
+    this.net.send({ y: 'suit', id });
+    this.showLobby('Ready. Waiting for the host to launch…');
+  }
+
+  showLobby(status) {
+    this.select.hide();
+    this.mode = 'lobby';
+    $('lobby').classList.remove('hidden');
+    $('lobby-suit').classList.toggle('hidden', !this.net.connected);
+    if (status) $('lobby-status').textContent = status;
+    this.lobbyArt();
+  }
+
+  // The lobby card: the guest's pilot, suit and its controls.
+  lobbyArt() {
+    const info = suitInfo(this.guestSuit);
+    const img = $('lobby-portrait');
+    img.src = portrait(info.pilot);
+    img.style.imageRendering = renderingFor(info.pilot);
+    $('lobby-unit').src = unitSprite(info.id);
+    $('lobby-name').textContent = `${info.unit} · ${info.pilotName}`;
+    $('lobby-controls').innerHTML = info.moves.map(([k, v]) => `<div><b>${k}</b> ${v}</div>`).join('');
+  }
+
+  // The lobby's list of who else is in, from the host's snapshots: suit ids by slot (null: still choosing, false:
+  // nobody there).
+  lobbyTeam(ready) {
+    const key = (ready || []).join('|');
+    if (key === this.teamKey) return;
+    this.teamKey = key;
+    $('lobby-team').innerHTML = (ready || []).map((id, n) => {
+      if (n === this.net.slot || id === false) return ''; // us, or an empty slot
+      if (!id) return `<div>Player ${n + 1}: choosing a suit…</div>`;
+      const info = suitInfo(id);
+      return `<div>${n === 0 ? 'Host' : `Player ${n + 1}`}: <b>${info.pilotName}</b> · ${info.unit}</div>`;
+    }).join('');
+  }
+
   leaveCoop() {
     this.net.close();
+    this.dropPuppets();
+    this.select.hide();
+    this.hero.attach(true);
     this.local = this.hero;
     this.players = [this.hero];
-    this.tank.remove();
-    this.hud.setPilot(this.hero.suit.pilot);
-    this.select = new SuitSelect(this);
+    this.guestPicked = false;
+    this.hud.setPilot(this.hero.suit.id);
     history.replaceState(null, '', location.pathname);
-    document.getElementById('lobby').classList.add('hidden');
-    document.getElementById('results').classList.add('hidden');
-    document.getElementById('pause').classList.add('hidden');
+    $('lobby').classList.add('hidden');
+    $('results').classList.add('hidden');
+    $('pause').classList.add('hidden');
     this.crowd.clear();
     this.commanders.clear();
     this.projectiles.clear();
@@ -599,15 +747,32 @@ class Game {
 
   onHostLeft() {
     if (this.net.role !== 'guest') return;
+    if (this.roomFull) {
+      // turned away: stay on the lobby card, which says why, until they leave
+      this.roomFull = false;
+      this.net.close();
+      this.showLobby(`That room already has ${MAX_PLAYERS} pilots.`);
+      return;
+    }
     this.leaveCoop();
     this.hud.toast('HOST DISCONNECTED', '#ff8a8a');
   }
 
+  dropPuppets() {
+    for (const p of this.puppets) {
+      if (!p) continue;
+      p.unit?.attach(false);
+      p.unit = null;
+    }
+  }
+
   enterGuestPlay() {
-    const $ = (id) => document.getElementById(id);
+    if (!this.guestPicked) return; // still at the suit select; the host sends 'start' again once we pick
     this.audio.resume();
+    this.select.hide();
     $('lobby').classList.add('hidden');
     $('results').classList.add('hidden');
+    this.hero.attach(false); // the select-screen preview
     this.hud.reset();
     this.hud.show(true);
     this.mode = 'guest';
@@ -620,18 +785,27 @@ class Game {
 
   // Guest: messages from the host.
   onNet(d) {
-    const $ = (id) => document.getElementById(id);
     switch (d.y) {
-      case 'hello': this.difficultyName = d.difficulty; break;
-      case 'full': $('lobby-status').textContent = 'That room already has a Guntank pilot.'; break;
+      case 'hello':
+        this.difficultyName = d.difficulty;
+        this.net.slot = d.slot;
+        break;
+      case 'full': this.roomFull = true; break;
       case 'start': this.enterGuestPlay(); break;
       case 'title':
-        this.mode = 'lobby';
         this.hud.show(false);
         this.audio.stopMusic();
+        this.lock = null;
+        this.dropPuppets();
+        this.players = [];
+        this.local = this.hero;
+        this.hero.attach(true);
         $('results').classList.add('hidden');
-        $('lobby').classList.remove('hidden');
-        $('lobby-status').textContent = 'The host is back at the title screen. Waiting for launch…';
+        $('pause').classList.add('hidden');
+        this.ignoreUnlock = true;
+        document.exitPointerLock?.();
+        if (this.mode === 'select') break;
+        this.showLobby('The host is back at the title screen. Waiting for launch…');
         break;
       case 'res':
         $('res-title').textContent = d.title;
@@ -648,8 +822,10 @@ class Game {
   }
 
   applySnapshot(d) {
-    if (d.mode === 'play' && this.mode === 'lobby') this.enterGuestPlay();
-    if (d.hero.suit && d.hero.suit !== this.hero.suit.id) this.setSuit(d.hero.suit);
+    if (this.mode === 'lobby' || this.mode === 'select') this.lobbyTeam(d.ready);
+    // joined mid-mission and already picked: drop straight in
+    if (this.mode === 'lobby' && d.mode === 'play' && d.pl.some((p) => p.slot === this.net.slot)) this.enterGuestPlay();
+    if (this.mode !== 'guest') return;
     this.netAge = 0;
     const stash = (obj, s) => {
       obj.net = obj.net || { pose: new Float32Array(s.pose.length), npose: new Float32Array(s.pose.length) };
@@ -658,8 +834,30 @@ class Game {
       else { n.px = s.x; n.py = s.y; n.pz = s.z; n.ph = s.h; n.pose.set(s.pose); n.init = true; }
       n.nx = s.x; n.ny = s.y; n.nz = s.z; n.h = s.h; n.npose.set(s.pose); n.s = s;
     };
-    stash(this.hero, d.hero);
-    stash(this.tank, d.tank);
+    // a puppet per player, rebuilt when they change suits
+    const seen = new Set();
+    for (const p of d.pl) {
+      const pup = this.puppets[p.slot] || (this.puppets[p.slot] = { units: {}, unit: null });
+      const info = suitInfo(p.suit);
+      const unit = pup.units[info.id] || (pup.units[info.id] = new info.cls(this));
+      if (pup.unit !== unit) {
+        pup.unit?.attach(false);
+        pup.unit = unit;
+        unit.net = null;
+        unit.attach(true);
+      }
+      seen.add(p.slot);
+      stash(unit, p.s);
+    }
+    this.puppets.forEach((pup, n) => {
+      if (pup?.unit && !seen.has(n)) { pup.unit.attach(false); pup.unit = null; }
+    });
+    this.players = this.puppets.filter((p) => p?.unit).map((p) => p.unit);
+    const mine = this.puppets[this.net.slot]?.unit;
+    if (mine && this.local !== mine) {
+      this.local = mine;
+      this.hud.setPilot(mine.suit.id);
+    }
     this.commanders.applyNet(d.cmd, (n) => officerCfg(n));
     for (const c of this.commanders.list) if (c.netTarget) stash(c, c.netTarget);
     this.crowd.applyNet(Net.decodeCrowd(d.crowd), GRUNT_STATES, GF);
@@ -680,15 +878,16 @@ class Game {
   replay(e) {
     const [tag, name, ...args] = e;
     try {
-      if (tag === 'f') this.fx[name](...args);
+      if (tag === '@') { if (name === this.net.slot) this.replay(args); } // meant for one guest
+      else if (tag === 'f') this.fx[name](...args);
       else if (tag === 'h') this.hud[name](...args);
       else if (tag === 'a') this.audio.play(name, { vol: args[0], pitch: args[1], at: args[2] !== null ? { x: args[2], z: args[3] } : null });
       else if (tag === 'toast') this.hud.toast(name, args[0]);
       else if (tag === 'hurt') this.hud.hurt();
       else if (tag === 'shake') this.camera.shake(name);
       else if (tag === 'sp') {
-        if (name === 'tank') this.localMusou('hayato');
-        else this.hud.toast(`${suitInfo(this.hero.suit.id).pilotName.split(' ')[0]}: SP ATTACK!`, '#ffd1f1');
+        if (name === this.net.slot) this.localMusou(suitInfo(args[0]).pilot);
+        else this.spToast(args[0]);
       } else if (tag === 'stinger') this.audio.stinger(name);
       else if (tag === 'show') {
         const c = this.commanders.list.find((x) => x.netId === name);
@@ -702,37 +901,41 @@ class Game {
 
   // Guest frame: no simulation, just interpolate the host's world and send input.
   guestFrame(rdt, act) {
+    const L = this.local;
     if (act.pause && performance.now() - (this.pausedAt || 0) > 350) {
-      const p = document.getElementById('pause');
+      const p = $('pause');
       const open = p.classList.contains('hidden');
       p.classList.toggle('hidden', !open);
-      document.getElementById('restart').classList.add('hidden');
+      $('restart').classList.add('hidden');
       this.pausedAt = performance.now();
       if (open) { this.ignoreUnlock = true; document.exitPointerLock?.(); } else lockPointer(this.canvas);
     }
-    if (act.mute) document.getElementById('mute-btn').textContent = this.audio.toggleMute() ? 'SOUND: OFF' : 'SOUND: ON';
-    if (act.recenter) this.camera.recenter(this.tank.heading);
+    if (act.mute) $('mute-btn').textContent = this.audio.toggleMute() ? 'SOUND: OFF' : 'SOUND: ON';
+    if (act.help) this.hud.toggleKeys();
+    if (act.guide) this.hud.toggleGuide();
+    if (act.recenter) this.camera.recenter(L.heading);
     if (act.lock) this.toggleLock();
     this.updateLock();
     this.time += rdt;
     this.localSpT = Math.max(0, this.localSpT - rdt);
-    const menuOpen = !document.getElementById('pause').classList.contains('hidden');
+    const menuOpen = !$('pause').classList.contains('hidden');
     const dir = menuOpen ? null : this.hero.inputDir(this.input, this.camera.forward());
-    this.net.guestTick(rdt, menuOpen ? {} : act, dir);
+    this.net.guestTick(rdt, menuOpen ? {} : act, dir, menuOpen ? 0 : Net.heldBits(this.input, act), this.lock?.netId || 0);
     this.netAge = (this.netAge || 0) + rdt;
     const k = Math.min(1, this.netAge / 0.05);
     const place = (obj) => {
       const n = obj.net;
       if (!n) return null;
       obj.pos.set(n.px + (n.nx - n.px) * k, n.py + (n.ny - n.py) * k, n.pz + (n.nz - n.pz) * k);
+      obj.netSpeed = Math.hypot(n.nx - n.px, n.nz - n.pz) * 20; // one snapshot is 1/20 s
       n.cur = n.cur || new Float32Array(n.pose.length);
       for (let i = 0; i < n.cur.length; i++) n.cur[i] = n.pose[i] + (n.npose[i] - n.pose[i]) * k;
       return { ...n.s, h: n.ph + wrapAngle(n.h - n.ph) * k, pose: n.cur };
     };
-    const hs = place(this.hero);
-    if (hs) this.hero.applyNet(hs, rdt);
-    const ts = place(this.tank);
-    if (ts) this.tank.applyNet(ts, rdt);
+    for (const p of this.players) {
+      const ps = place(p);
+      if (ps) p.applyNet(ps, rdt);
+    }
     for (const c of this.commanders.list) {
       const cs = place(c);
       if (cs) c.applyNet(cs, rdt);
@@ -742,13 +945,12 @@ class Game {
     this.items.netAnimate(rdt);
     this.lz.guestAnimate(rdt);
     this.fx.update(rdt);
-    const t = this.tank;
-    const crowdN = this.crowd.grid.query(t.pos.x, t.pos.z, 12, this._near).length;
-    this.camera.yFollow = 0.7;
-    this.camera.update(rdt, rdt, t.pos, t.heading, menuOpen ? null : this.input, Math.hypot(t.vel.x, t.vel.z) > 2, crowdN);
-    this.world.follow(t.pos);
+    const crowdN = this.crowd.grid.query(L.pos.x, L.pos.z, 12, this._near).length;
+    this.camera.yFollow = L.state === 'intro' || L.state === 'drop' ? 0.95 : 0.7;
+    this.camera.update(rdt, rdt, L.pos, L.heading, menuOpen ? null : this.input, (L.netSpeed || 0) > 2, crowdN);
+    this.world.follow(L.pos);
     this.world.fadeNear(this.cam.position);
-    this.audio.listener = t.pos;
+    this.audio.listener = L.pos;
     this.audio.listenerYaw = this.camera.yaw;
     this.audio.loops(0, 0, 0);
     this.crowd.render(rdt);
@@ -819,9 +1021,8 @@ class Game {
     }
     if (this.mode === 'results') this.audio.loops(0, 0, 0);
 
-    // time scaling: hit-stop, slow-mo, SP cut-in freeze for the world
-    let scale = 1, heroScale = 1;
-    if (this.stopT > 0) { this.stopT -= rdt; heroScale = 0.04; }
+    // time scaling: slow-mo, SP cut-in freeze for the world (hit-stop is per suit, in Hero.update)
+    let scale = 1;
     if (this.slowT > 0) { this.slowT -= rdt; scale = Math.min(scale, this.slowScale); }
     const dt = rdt * scale;
     let wdt = dt;
@@ -838,12 +1039,10 @@ class Game {
     const playable = this.mode === 'play';
     this.cutsceneT = Math.max(0, this.cutsceneT - rdt);
     const heroCtl = playable && this.cutsceneT <= 0;
-    this.hero.update(dt * heroScale, heroCtl ? act : {}, heroCtl ? this.input : NO_INPUT);
-    if (this.players.length > 1) {
-      const ri = this.remoteInput;
-      const tAct = playable ? { attack: !!(ri.edges & 1), charge: !!(ri.edges & 2), jump: !!(ri.edges & 4), dodge: !!(ri.edges & 8), musou: !!(ri.edges & 16) } : {};
-      ri.edges = 0;
-      this.tank.update(dt, tAct, playable && ri.mag > 0.05 ? { x: ri.x, z: ri.z, mag: ri.mag } : null);
+    this.hero.update(dt, heroCtl ? act : {}, heroCtl ? this.input : NO_INPUT);
+    for (const s of this.slots) {
+      if (!s?.unit || !this.players.includes(s.unit)) continue;
+      s.unit.update(dt, s.input.take(heroCtl), heroCtl ? s.input : NO_INPUT);
     }
     this.localSpT = Math.max(0, this.localSpT - rdt);
     this.crowd.update(wdt);

@@ -130,7 +130,7 @@ export class Items {
         g.fx.ring(hero.pos, 0.5, it.type === 'hpL' ? 4.5 : 3, it.type === 'sp' ? 0xff7ad8 : 0x7dff96, 0.4);
         g.audio.play('pickup');
         if (hero === g.local) g.hud.toast(T.label, T.color);
-        else g.netEvent('toast', T.label, T.color);
+        else g.netEventFor(hero, 'toast', T.label, T.color);
         g.scene.remove(it.mesh);
         this.list.splice(i, 1);
       } else if (it.t > 40) {

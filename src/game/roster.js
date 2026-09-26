@@ -1,7 +1,10 @@
 // Playable mobile suits: what the select screen shows (Reborn's spec sheet, loadout, a few moves) and the class that
-// pilots each one.
+// pilots each one. Every player picks from this list, host and co-op guests alike, and two players may fly the same
+// suit. Entries marked `coop` are only offered to guests. To add a suit: a Hero subclass (see gundam.js) and an entry
+// here; co-op picks it up from the id.
 import { Gundam } from './gundam.js';
 import { Guncannon } from './guncannon.js';
+import { Tank } from './tank.js';
 
 export const ROSTER = [
   {
@@ -65,6 +68,24 @@ export const ROSTER = [
       ['U S', 'Hover and shell', 'SPA'],
     ],
   },
+  {
+    id: 'guntank', cls: Tank, pilot: 'hayato', coop: true,
+    unit: 'RX-75 GUNTANK', unitShort: 'GUNTANK', unitJp: 'ガンタンク', pilotName: 'HAYATO KOBAYASHI', pilotJp: 'ハヤト・コバヤシ',
+    stats: { MELEE: 300, SHOT: 700, DEFENSE: 600, ARMOR: 10000, MOBILITY: 450, THRUSTER: 500 },
+    equipment: ['4-tube Missile Launchers', '120mm Cannons'],
+    role: 'Co-op support. Missiles that find their own targets and cannon shells lobbed from the back line.',
+    moves: [
+      ['J', 'Four-missile burst (4th press: eight)'],
+      ['K', 'Twin 120mm cannons'],
+      ['J J K', 'Six-shell barrage'],
+      ['Jump', 'Thruster hop'],
+      ['Boost', 'Tread boost'],
+      ['SP', 'Full burst: missiles and shells all round'],
+    ],
+  },
 ];
+
+// Suits the host can fly (the select screen) and the ones a guest can (everything).
+export const SOLO_ROSTER = ROSTER.filter((r) => !r.coop);
 
 export const suitInfo = (id) => ROSTER.find((r) => r.id === id) || ROSTER[0];

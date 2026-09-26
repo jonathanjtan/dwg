@@ -7,12 +7,13 @@ import { ARENA, ROADS, fieldAt } from '../world/world.js';
 import { LZ_SITES } from './bases.js';
 import { suitInfo } from './roster.js';
 
-// Radio chatter that depends on who is flying: Amuro in the Gundam, or Kai in the Guncannon.
+// Radio chatter that depends on who is flying: Amuro in the Gundam, or Kai in the Guncannon. `wing` is what a pilot
+// says dropping in beside someone else in co-op ({lead} is the host's pilot).
 const LINES = {
   amuro: {
     order: 'Zeon mobile suits are inside the colony! Amuro, get that Gundam moving!',
     launch: 'I can pilot it. I know I can. Gundam, launching!',
-    hayato: "Guntank's rolling out too! I'll cover you from the back, Amuro!",
+    wing: "Gundam, moving out! I'll back you up, {lead}!",
     bases: 'Three of them... Right. One at a time.',
     denim: 'It moved just like the manual said. I did it!',
     zone: 'Good work, Amuro! Their supply line is cracking. Keep moving!',
@@ -25,7 +26,7 @@ const LINES = {
   kai: {
     order: 'Zeon mobile suits are inside the colony! Kai, get the Guncannon out there!',
     launch: "Yeah, yeah, I'm going. Guncannon, heading out!",
-    hayato: "Guntank's rolling out too! I've got your back, Kai!",
+    wing: "Fine, fine, I'm coming too. Don't make me regret this, {lead}.",
     bases: 'Three landing zones? You have got to be kidding me...',
     denim: 'Heh. Not bad for a guy who never wanted to be here.',
     zone: 'Good work, Kai! Their supply line is cracking. Keep moving!',
@@ -34,6 +35,9 @@ const LINES = {
     meet: 'The Red Comet?! Great. Just great... Fine. Eat 240 millimeters!',
     kit: "Kai, we've dropped you a repair kit. Finish this!",
     bye: "Hmph. The Federation has more than one good pilot. We'll meet again.",
+  },
+  hayato: {
+    wing: "Guntank's rolling out too! I'll cover you from the back, {lead}!",
   },
 };
 
@@ -93,6 +97,15 @@ export class Stage {
   pilotSay(key, dur) {
     const g = this.game, info = suitInfo(g.hero.suit.id);
     g.hud.say(info.pilot, info.pilotName, this.lines[key], dur);
+  }
+
+  // A co-op wingman's radio call as they drop in.
+  wingmanSay(unit) {
+    const g = this.game, info = suitInfo(unit.suit.id), lead = suitInfo(g.hero.suit.id);
+    const line = LINES[info.pilot]?.wing;
+    if (!line || info.pilot === lead.pilot) return;
+    const first = lead.pilotName.split(' ')[0];
+    g.hud.say(info.pilot, info.pilotName, line.replace('{lead}', first[0] + first.slice(1).toLowerCase()), 3.2);
   }
 
   begin() {
@@ -213,7 +226,7 @@ export class Stage {
   onHeroLanded() {
     const g = this.game;
     if (this.phase !== 'launch') return;
-    if (g.players.length > 1) g.hud.say('hayato', 'HAYATO KOBAYASHI', this.lines.hayato, 3.2);
+    for (const p of g.players) if (p !== g.hero) this.wingmanSay(p);
     this.phase = 'plaza';
     // only the plaza garrison sees the Gundam come down; the rest of the colony holds its posts
     for (const sq of this.squads) if (Math.hypot(sq.x - g.hero.pos.x, sq.z - g.hero.pos.z) < 45) sq.engaged = true;
@@ -370,8 +383,7 @@ export class Stage {
     g.hud.setObjective('Side 7 secured');
     g.audio.stinger('victory');
     g.netEvent('stinger', 'victory');
-    g.tank.invuln = 99;
-    g.hero.invuln = 99;
+    for (const p of g.players) p.invuln = 99;
     // with their ace gone the remaining Zaku go up in a chain of explosions
     const left = [...g.crowd.list].sort((a, b) => Math.hypot(a.x - g.hero.pos.x, a.z - g.hero.pos.z) - Math.hypot(b.x - g.hero.pos.x, b.z - g.hero.pos.z));
     left.forEach((e, i) => setTimeoutGame(g, 1.2 + i * 0.05, () => { if (e.alive && e.state !== 'dying') g.crowd.kill(e); }));

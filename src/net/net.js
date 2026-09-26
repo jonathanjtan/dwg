@@ -1,22 +1,52 @@
-// Online co-op over WebRTC (PeerJS). The host runs the whole simulation; the guest pilots the Guntank.
-// Host -> guest: 20 Hz snapshots (players, commanders, crowd packed into an Int16Array, projectiles, items,
-// stats) plus replicated one-shot events (effects, sounds, HUD lines). Guest -> host: input at ~30 Hz.
+// Online co-op over WebRTC (PeerJS). The host runs the whole simulation for up to MAX_PLAYERS pilots; each guest picks
+// a suit, streams its input to the host and renders what the host sends back.
+// Host -> guests: 20 Hz snapshots (players, commanders, crowd packed into an Int16Array, projectiles, items, stats)
+// plus replicated one-shot events (effects, sounds, HUD lines). Guest -> host: input at ~30 Hz and the suit it picked.
 // PeerJS's public broker is only used for the handshake; game data flows peer to peer.
 const PEER_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/+esm';
 const PREFIX = 'gundam-musou-side7-';
 const SNAP_HZ = 20;
-// ?localnet: same-browser BroadcastChannel transport for testing co-op in two tabs (no WebRTC).
+export const MAX_PLAYERS = 3; // the host and two guests
+// ?localnet: same-browser BroadcastChannel transport for testing co-op in several tabs (no WebRTC).
 export const LOCALNET = new URLSearchParams(location.search).has('localnet');
 
-function bcConn(bc, dir) {
+// A BroadcastChannel dressed as a PeerJS connection. `to` addresses one guest (every guest reads the channel).
+function bcConn(bc, dir, to) {
   const handlers = {};
   return {
     open: true,
-    send: (d) => bc.postMessage({ dir, d }),
-    close() { this.open = false; bc.postMessage({ dir, bye: true }); handlers.close?.(); },
+    send: (d) => bc.postMessage({ dir, to, d }),
+    close() { this.open = false; bc.postMessage({ dir, to, bye: true }); handlers.close?.(); },
     on(ev, fn) { handlers[ev] = fn; },
     handlers,
   };
+}
+
+// Guest buttons: pressed since the last message (edges) and held down (held), one bit each.
+const BTN = { attack: 1, charge: 2, jump: 4, dodge: 8, musou: 16 };
+
+// The host's view of a guest's controls, in the shape Hero.update / Tank.update read: `dir` is the move direction in
+// world space (the guest's camera already applied), key() the held buttons.
+export class RemoteInput {
+  constructor() {
+    this.dir = null;
+    this.held = 0;
+    this.edges = 0;
+    this.lock = 0; // netId of the commander the guest is locked on to
+  }
+
+  key(action) {
+    return !!(this.held & BTN[action]);
+  }
+
+  // This frame's button presses (cleared once the sim has seen them).
+  take(live) {
+    const e = live ? this.edges : 0;
+    this.edges = 0;
+    const act = { chargeHeld: live && this.key('charge') };
+    for (const k in BTN) act[k] = !!(e & BTN[k]);
+    return act;
+  }
 }
 
 export const GRUNT_STATES = ['idle', 'approach', 'charge', 'windup', 'strike', 'aim', 'fire', 'stagger', 'air', 'down', 'getup', 'dying', 'drop', 'held'];
@@ -42,17 +72,19 @@ export class Net {
     this.game = game;
     this.role = null; // 'host' | 'guest'
     this.peer = null;
-    this.conn = null;
+    this.conn = null; // guest: the link to the host
+    this.guests = []; // host: { slot, conn }
+    this.slot = 0; // guest: which player this browser is (the host is 0)
     this.ev = [];
     this.depth = 0;
     this.snapT = 0;
     this.inputT = 0;
-    this.pending = { b: 0 };
-    this.onStatus = () => {};
+    this.pending = 0;
+    this.sent = null;
   }
 
   get connected() {
-    return !!(this.conn && this.conn.open);
+    return this.role === 'host' ? this.guests.length > 0 : !!(this.conn && this.conn.open);
   }
 
   async loadPeer() {
@@ -66,15 +98,17 @@ export class Net {
     this.code = code6();
     if (LOCALNET) {
       const bc = (this.bc = new BroadcastChannel('gmusou-' + this.code));
+      const byId = new Map();
       bc.onmessage = (e) => {
         const m = e.data;
-        if (m.join && !this.connected) {
-          this.conn = bcConn(bc, 'h2g');
-          this.hookRecorders();
-          this.game.onGuestJoined();
-          this.send({ y: 'hello', difficulty: this.game.difficultyName, mode: this.game.mode });
+        if (m.join) {
+          const conn = bcConn(bc, 'h2g', m.join);
+          if (!this.accept(conn)) return;
+          byId.set(m.join, conn);
         } else if (m.dir === 'g2h') {
-          if (m.bye) { this.conn = null; this.game.onGuestLeft(); } else this.onHostData(m.d);
+          const conn = byId.get(m.from);
+          if (!conn) return;
+          if (m.bye) { byId.delete(m.from); conn.open = false; this.drop(conn); } else this.onGuestData(conn, m.d);
         }
       };
       return this.code;
@@ -86,32 +120,53 @@ export class Net {
       this.peer.on('error', reject);
     });
     this.peer.on('connection', (conn) => {
-      if (this.connected) { conn.on('open', () => { conn.send({ y: 'full' }); setTimeout(() => conn.close(), 300); }); return; }
-      conn.on('open', () => {
-        this.conn = conn;
-        this.hookRecorders();
-        this.game.onGuestJoined();
-        this.send({ y: 'hello', difficulty: this.game.difficultyName, mode: this.game.mode });
-      });
-      conn.on('data', (d) => this.onHostData(d));
-      conn.on('close', () => { if (this.conn === conn) { this.conn = null; this.game.onGuestLeft(); } });
+      conn.on('open', () => this.accept(conn));
+      conn.on('data', (d) => this.onGuestData(conn, d));
+      conn.on('close', () => this.drop(conn));
       conn.on('error', () => {});
     });
     this.peer.on('disconnected', () => this.peer.reconnect?.());
     return this.code;
   }
 
-  onHostData(d) {
-    if (d.y === 'i') {
-      const inp = this.game.remoteInput;
-      inp.x = d.x;
-      inp.z = d.z;
-      inp.mag = d.m;
-      inp.edges |= d.b; // accumulate presses until the sim consumes them
+  // A guest's link is open: give it the lowest free slot, or turn it away when the room is full.
+  accept(conn) {
+    const used = new Set(this.guests.map((x) => x.slot));
+    let slot = 1;
+    while (used.has(slot)) slot++;
+    if (slot >= MAX_PLAYERS) {
+      conn.send({ y: 'full' });
+      setTimeout(() => conn.close(), 300);
+      return false;
     }
+    this.guests.push({ slot, conn });
+    this.hookRecorders();
+    conn.send({ y: 'hello', slot, difficulty: this.game.difficultyName, mode: this.game.mode });
+    this.game.onGuestJoined(slot);
+    return true;
   }
 
-  // Wrap effect / sound / HUD calls so one-shot events replay on the guest.
+  drop(conn) {
+    const i = this.guests.findIndex((x) => x.conn === conn);
+    if (i < 0) return;
+    const [g] = this.guests.splice(i, 1);
+    this.game.onGuestLeft(g.slot);
+  }
+
+  onGuestData(conn, d) {
+    const guest = this.guests.find((x) => x.conn === conn);
+    if (!guest) return;
+    if (d.y === 'i') {
+      const inp = this.game.slots[guest.slot]?.input;
+      if (!inp) return;
+      inp.dir = d.m > 0.05 ? { x: d.x, z: d.z, mag: d.m } : null;
+      inp.held = d.h;
+      inp.edges |= d.b; // accumulate presses until the sim consumes them
+      inp.lock = d.lk || 0;
+    } else if (d.y === 'suit') this.game.onGuestSuit(guest.slot, d.id);
+  }
+
+  // Wrap effect / sound / HUD calls so one-shot events replay on the guests.
   hookRecorders() {
     if (this.hooked) return;
     this.hooked = true;
@@ -141,6 +196,11 @@ export class Net {
     if (this.role === 'host' && this.connected) this.ev.push(e);
   }
 
+  // An event only one guest acts on (their camera shakes, their portrait winces).
+  eventFor(slot, ...e) {
+    this.event('@', slot, ...e);
+  }
+
   hostTick(dt) {
     if (!this.connected) return;
     this.snapT -= dt;
@@ -152,7 +212,6 @@ export class Net {
 
   snapshot() {
     const g = this.game;
-    const h = g.hero, t = g.tank;
     const crowd = new Int16Array(g.crowd.list.length * GF);
     g.crowd.list.forEach((e, i) => {
       const o = i * GF;
@@ -176,8 +235,9 @@ export class Net {
       y: 's',
       mode: g.mode,
       paused: g.mode === 'paused',
-      hero: h.netState(),
-      tank: t.netState(),
+      // every pilot in the fight, by slot; `ready` is each slot's suit for the lobby (null: choosing, false: empty)
+      pl: g.players.map((p) => ({ slot: g.slotOf(p), suit: p.suit.id, s: p.netState() })),
+      ready: Array.from({ length: MAX_PLAYERS }, (_, i) => (i === 0 ? g.hero.suit.id : g.slots[i] ? g.slots[i].suit : false)),
       cmd: g.commanders.list.map((c) => c.netState()),
       crowd: crowd.buffer,
       pj: {
@@ -203,15 +263,19 @@ export class Net {
     this.code = code.toUpperCase();
     if (LOCALNET) {
       const bc = (this.bc = new BroadcastChannel('gmusou-' + this.code));
+      const id = code6() + code6();
       return new Promise((resolve, reject) => {
         bc.onmessage = (e) => {
           const m = e.data;
-          if (m.dir !== 'h2g') return;
-          if (!this.conn) { this.conn = bcConn(bc, 'g2h'); resolve(); }
-          if (m.bye) { this.conn = null; this.game.onHostLeft(); return; }
+          if (m.dir !== 'h2g' || (m.to && m.to !== id)) return;
+          if (m.bye) { if (this.conn) { this.conn = null; this.game.onHostLeft(); } return; }
+          if (!this.conn) {
+            this.conn = { open: true, send: (d) => bc.postMessage({ dir: 'g2h', from: id, d }), close() { this.open = false; bc.postMessage({ dir: 'g2h', from: id, bye: true }); } };
+            resolve();
+          }
           this.game.onNet(m.d);
         };
-        bc.postMessage({ join: true });
+        bc.postMessage({ join: id });
         setTimeout(() => { if (!this.conn) reject(new Error('timeout')); }, 5000);
       });
     }
@@ -236,29 +300,46 @@ export class Net {
     });
   }
 
-  // Buttons pressed since the last send, plus the current world-space move vector.
-  guestTick(dt, act, dir) {
+  // Buttons pressed since the last send, the ones held down, the world-space move vector and the lock-on target.
+  // Sent at 30 Hz while anything is going on, and at least every quarter second regardless.
+  guestTick(dt, act, dir, held, lock) {
     if (!this.connected) return;
-    const p = this.pending;
-    p.b |= (act.attack ? 1 : 0) | (act.charge ? 2 : 0) | (act.jump ? 4 : 0) | (act.dodge ? 8 : 0) | (act.musou ? 16 : 0);
+    for (const k in BTN) if (act[k]) this.pending |= BTN[k];
     this.inputT -= dt;
     const moving = !!dir;
-    if (this.inputT > 0 && !p.b && moving === this.wasMoving) return;
+    const state = `${moving}|${held}|${lock}`;
+    const news = this.pending || state !== this.sent;
+    if (!news && this.inputT > (moving ? 0 : -0.22)) return;
     this.inputT = 1 / 30;
-    this.wasMoving = moving;
-    this.send({ y: 'i', x: dir ? dir.x : 0, z: dir ? dir.z : 0, m: dir ? dir.mag : 0, b: p.b });
-    p.b = 0;
+    this.sent = state;
+    this.send({ y: 'i', x: dir ? dir.x : 0, z: dir ? dir.z : 0, m: dir ? dir.mag : 0, b: this.pending, h: held, lk: lock });
+    this.pending = 0;
   }
 
+  static heldBits(input, act) {
+    let h = 0;
+    for (const k in BTN) if (input.key(k)) h |= BTN[k];
+    if (act.chargeHeld) h |= BTN.charge;
+    return h;
+  }
+
+  // Host: to every guest. Guest: to the host.
   send(msg) {
-    if (this.connected) this.conn.send(msg);
+    if (this.role === 'host') { for (const x of this.guests) if (x.conn.open) x.conn.send(msg); } else if (this.connected) this.conn.send(msg);
+  }
+
+  sendTo(slot, msg) {
+    const x = this.guests.find((q) => q.slot === slot);
+    if (x && x.conn.open) x.conn.send(msg);
   }
 
   close() {
+    for (const x of this.guests) { try { x.conn.close(); } catch (e) { /* ignore */ } }
     try { this.conn?.close(); } catch (e) { /* ignore */ }
     try { this.bc?.close(); } catch (e) { /* ignore */ }
     this.bc = null;
     try { this.peer?.destroy(); } catch (e) { /* ignore */ }
+    this.guests = [];
     this.conn = null;
     this.peer = null;
     this.role = null;

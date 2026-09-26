@@ -24,7 +24,7 @@ export class HUD {
       dlgPortrait: $('dlg-portrait'), dlgName: $('dlg-name'), dlgText: $('dlg-text'), bossBars: $('boss-bars'),
       tags: $('tags'), vignette: $('vignette'), flash: $('flash'), cutin: $('cutin'), cutinPortrait: $('cutin-portrait'),
       toasts: $('toasts'), objective: $('objective'), keys: $('keys'), portrait: $('portrait'), playerUnit: $('player-unit'),
-      ally: $('ally'), allyUnit: $('ally-unit'), allyName: $('ally-name'), allyFill: $('ally-fill'), allyState: $('ally-state'),
+      ally: $('ally'),
       pilotJp: $('pilot-jp'), pilotEn: $('pilot-en'),
       hpRed: $('hp-red'), boostBar: $('boost-bar'), boostFill: $('boost-fill'), speedlines: $('speedlines'),
       letterbox: $('letterbox'), namecard: $('namecard'), ncJp: $('nc-jp'), ncEn: $('nc-en'), ncUnit: $('nc-unit'),
@@ -37,6 +37,8 @@ export class HUD {
     this.guideState = '';
     this.el.guideBtn.textContent = `COMBO GUIDE: ${this.guideOn ? 'ON' : 'OFF'}`;
     this.pilot = 'amuro';
+    this.suitId = 'gundam';
+    this.allyRows = [];
     this.el.portrait.src = portrait('amuro');
     this.el.cutinPortrait.src = portrait('amuro', null);
     this.faceExpr = 'idle';
@@ -44,9 +46,8 @@ export class HUD {
     this.hurtFaceT = 0;
     loadPortraits().then((any) => {
       if (!any) return;
-      this.setPilot(this.pilot);
-      const lobby = document.getElementById('lobby-portrait');
-      if (lobby) { lobby.src = portrait('hayato'); lobby.style.imageRendering = renderingFor('hayato'); }
+      this.setPilot(this.suitId);
+      game.lobbyArt?.();
       document.body.classList.toggle('sheet-portraits', hasSheet('amuro'));
     });
     this.mapCtx = this.el.map.getContext('2d');
@@ -85,16 +86,15 @@ export class HUD {
     return portrait(name, '#0b1424', expr);
   }
 
-  setPilot(name) {
+  // The local pilot's name plate, portrait and cut-in, from the suit they fly.
+  setPilot(suitId) {
+    const info = suitInfo(suitId);
+    const name = info.pilot;
     this.pilot = name;
-    const labels = {
-      amuro: ['アムロ・レイ', 'AMURO RAY · RX-78-2'],
-      kai: ['カイ・シデン', 'KAI SHIDEN · RX-77-2'],
-      hayato: ['ハヤト・コバヤシ', 'HAYATO KOBAYASHI · RX-75'],
-    };
-    this.el.pilotJp.textContent = labels[name][0];
-    this.el.pilotEn.textContent = labels[name][1];
-    this.el.playerUnit.src = unitSprite({ amuro: 'gundam', kai: 'guncannon', hayato: 'guntank' }[name]);
+    this.suitId = info.id;
+    this.el.pilotJp.textContent = info.pilotJp;
+    this.el.pilotEn.textContent = `${info.pilotName} · ${info.unit.split(' ')[0]}`;
+    this.el.playerUnit.src = unitSprite(info.id);
     this.faceExpr = '';
     this.el.portrait.style.imageRendering = renderingFor(name);
     this.el.cutinPortrait.src = portrait(name, null, 'shout');
@@ -305,18 +305,31 @@ export class HUD {
     if (this.mapT <= 0) { this.mapT = 1 / 20; this.drawMap(); }
   }
 
-  // Teammate's health under your own bars in co-op.
+  // Teammates' health under your own bars in co-op, one row each.
   updateAlly() {
     const g = this.game;
-    const coop = g.players.length > 1 && g.mode !== 'title';
-    this.el.ally.classList.toggle('hidden', !coop);
-    if (!coop) return;
-    const a = g.local === g.hero ? g.tank : g.hero;
-    this.el.allyName.textContent = a === g.tank ? 'GUNTANK · HAYATO' : a.suit.id === 'guncannon' ? 'GUNCANNON · KAI' : 'GUNDAM · AMURO';
-    const unit = unitSprite(a === g.tank ? 'guntank' : a.suit.id);
-    if (this.el.allyUnit.getAttribute('src') !== unit) this.el.allyUnit.src = unit;
-    this.el.allyFill.style.width = Math.max(0, a.hp / a.maxHp) * 100 + '%';
-    this.el.allyState.textContent = a.state === 'dead' ? `REDEPLOY ${Math.max(0, Math.ceil(a.respawnT || 0))}` : '';
+    const allies = g.mode === 'title' ? [] : g.players.filter((p) => p !== g.local);
+    this.el.ally.classList.toggle('hidden', !allies.length);
+    while (this.allyRows.length < allies.length) {
+      const row = document.createElement('div');
+      row.className = 'ally-row';
+      row.innerHTML = '<img class="ally-unit" alt=""><span class="ally-name"></span><div class="ally-bar"><div class="ally-fill"></div></div><span class="ally-state"></span>';
+      this.el.ally.appendChild(row);
+      this.allyRows.push({ row, unit: row.children[0], name: row.children[1], fill: row.children[2].firstChild, state: row.children[3], suit: null });
+    }
+    this.allyRows.forEach((r, i) => {
+      const a = allies[i];
+      r.row.style.display = a ? '' : 'none';
+      if (!a) return;
+      if (r.suit !== a.suit.id) {
+        r.suit = a.suit.id;
+        const info = suitInfo(a.suit.id);
+        r.name.textContent = `${info.unitShort} · ${info.pilotName.split(' ')[0]}`;
+        r.unit.src = unitSprite(info.id);
+      }
+      r.fill.style.width = Math.max(0, a.hp / a.maxHp) * 100 + '%';
+      r.state.textContent = a.state === 'dead' ? `REDEPLOY ${Math.max(0, Math.ceil(a.respawnT || 0))}` : '';
+    });
   }
 
   // Player portrait: wince when hit, talk while the local pilot speaks, blink now and then.
@@ -545,18 +558,16 @@ export class HUD {
     // items
     ctx.fillStyle = '#5dff7a';
     for (const it of g.items.list) ctx.fillRect(tx(it.x) - 2.5, tz(it.z) - 2.5, 5, 5);
-    // teammate
-    if (g.players.length > 1) {
-      const a = g.local === g.hero ? g.tank : g.hero;
-      if (a.alive) {
-        ctx.fillStyle = '#9fe6ff';
-        ctx.beginPath();
-        ctx.arc(tx(a.pos.x), tz(a.pos.z), 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#0b1424';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
+    // teammates
+    for (const a of g.players) {
+      if (a === g.local || !a.alive) continue;
+      ctx.fillStyle = '#9fe6ff';
+      ctx.beginPath();
+      ctx.arc(tx(a.pos.x), tz(a.pos.z), 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#0b1424';
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
     // commanders
     for (const c of g.commanders.list) {

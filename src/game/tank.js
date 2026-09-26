@@ -1,4 +1,4 @@
-// Hayato's RX-75 Guntank: the co-op player's long-range support unit.
+// Hayato's RX-75 Guntank: a long-range support unit co-op guests can pick.
 // J: 4-missile bursts (4th press: 8-missile salvo). K: twin 120mm cannon lob; after two bursts, a 6-shell barrage.
 // Space: thruster hop. L/Shift: tread boost. I/F: full-burst SP. Treads turn the hull; the torso tracks targets.
 import * as THREE from 'three';
@@ -16,6 +16,7 @@ const TSTANCE = poseFrom({
 export class Tank {
   constructor(game) {
     this.game = game;
+    this.suit = { id: 'guntank', pilot: 'hayato' };
     this.rig = new RigObject(guntankDef());
     game.scene.add(this.rig.root);
     this.pos = new THREE.Vector3();
@@ -28,7 +29,7 @@ export class Tank {
     this.maxSp = 100;
     this.sp = 30;
     this.spRate = 1.1;
-    this.state = 'dead';
+    this.state = 'off';
     this.stateT = 0;
     this.combo = 0;
     this.comboT = 0;
@@ -68,6 +69,19 @@ export class Tank {
     this.rig.root.visible = false;
   }
 
+  // Into the mission at full strength (spawn() alone is the redeploy, which keeps the damage).
+  deploy(x, z) {
+    this.hp = this.maxHp;
+    this.sp = 30;
+    this.queue.length = 0;
+    this.spawn(x, z);
+  }
+
+  // Same shape as Hero.attach, for the co-op slots that hold either.
+  attach(on) {
+    if (!on) this.remove();
+  }
+
   // ---------- targeting ----------
   pickTargets(n, range, cone) {
     const g = this.game;
@@ -98,9 +112,11 @@ export class Tank {
   }
 
   // ---------- main update ----------
-  update(dt, act, dir) {
+  // input: a co-op guest's (world-space move direction in `dir`)
+  update(dt, act, input) {
     const g = this.game;
     if (this.state === 'off') return;
+    const dir = input?.dir || null;
     this.stateT += dt;
     this.invuln = Math.max(0, this.invuln - dt);
     this.flash = Math.max(0, this.flash - dt * 5);
@@ -116,7 +132,7 @@ export class Tank {
         if (this.respawnT <= 0 && g.mode === 'play') {
           const h = g.hero.pos;
           this.spawn(h.x + rand(-6, 6), h.z + rand(-6, 6));
-          g.netEvent?.('toast', 'GUNTANK REDEPLOYED', '#7fd6e8');
+          g.onRedeploy(this);
         }
         return;
       case 'drop': {
@@ -301,8 +317,7 @@ export class Tank {
       g.audio.play('rifle', { vol: 0.7, pitch: 0.55, at: from });
       g.audio.play('slam', { vol: 0.5, at: from });
       this.pitchKick = 1;
-      if (g.local === this) g.camera.shake(0.12);
-      else g.netEvent('shake', 0.12);
+      g.shakeFor(this, 0.12);
     }
   }
 
@@ -372,7 +387,7 @@ export class Tank {
     this.hp = Math.max(0, this.hp - dmg);
     this.sp = Math.min(this.maxSp, this.sp + dmg * 0.08);
     this.flash = kind === 'bullet' ? 0.35 : 1;
-    if (kind !== 'bullet') { if (g.local === this) g.hud.hurt(); else g.netEvent('hurt'); }
+    if (kind !== 'bullet') g.hurtFor(this);
     if (kind !== 'bullet') g.fx.hit(this._v.set(this.pos.x, this.pos.y + 1.6, this.pos.z), 0xffa040);
     if (kind === 'bullet') g.audio.play('ping', { vol: 0.4, at: this.pos });
     else g.audio.play('hurt', { vol: 0.9, at: this.pos });
@@ -394,7 +409,7 @@ export class Tank {
     this.rig.root.visible = false;
     g.fx.explode(this._v.set(this.pos.x, 1.4, this.pos.z), 1.8, [0x2f55b0, 0xdde2ea, 0x2a2c30]);
     g.audio.play('bigboom', { at: this.pos });
-    g.hud.announce('GUNTANK DOWN', 'REDEPLOYING IN 8 SECONDS', true);
+    g.onHeroDeath(this);
   }
 
   // ---------- visuals ----------

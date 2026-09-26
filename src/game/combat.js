@@ -99,13 +99,15 @@ export class Combat {
     const g = this.game;
     g.addCombo(n);
     if (who.state !== 'musou') who.sp = Math.min(who.maxSp, who.sp + n * (who.spRate || 0.9));
-    if (who !== g.hero) return;
+    if (!who.moves) return; // the Guntank's volleys don't hit-stop
     // hero hit-stop: 2 frames per tick (+1 per 4 extra victims, max 5); heavy contact 10 frames with a zoom punch.
     // Flurries set their own (1 frame) and SP rapid hits skip it so they keep their rhythm.
     // No camera shake on normal hits; only heavy blows kick the camera.
     if (spec.sp && !spec.big) return;
-    g.hitstop(spec.big ? 10 / 60 : (spec.stop ?? Math.min(5, 2 + Math.floor((n - 1) / 4))) / 60);
-    if (spec.big && g.local === g.hero) { g.camera.shake(0.35); g.camera.punch(3.5); g.aberr(0.55); }
+    who.stopT = Math.max(who.stopT || 0, (spec.big ? 10 : spec.stop ?? Math.min(5, 2 + Math.floor((n - 1) / 4))) / 60);
+    if (!spec.big) return;
+    g.shakeFor(who, 0.35);
+    if (g.local === who) { g.camera.punch(3.5); g.aberr(0.55); }
   }
 
   // Area blast (Guntank shells and missiles): damage falls off toward the edge.

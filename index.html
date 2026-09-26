@@ -59,7 +59,7 @@
         <div class="bar boost" id="boost-bar"><div id="boost-fill"></div><span class="boost-label">BOOST</span></div>
       </div>
     </div>
-    <div id="ally" class="hidden"><img id="ally-unit" alt=""><span id="ally-name">GUNTANK · HAYATO</span><div class="ally-bar"><div id="ally-fill"></div></div><span id="ally-state"></span></div>
+    <div id="ally" class="hidden"></div>
 
     <div id="dialogue" class="hidden">
       <img id="dlg-portrait" alt="">
@@ -101,12 +101,12 @@
       </div>
       <div class="row">
         <button id="launch" class="big">LAUNCH</button>
-        <button id="host-btn" class="coop-btn">HOST CO-OP<small>+ RX-75 GUNTANK</small></button>
+        <button id="host-btn" class="coop-btn">HOST CO-OP<small>UP TO 3 PILOTS</small></button>
       </div>
       <div id="coop-panel" class="hidden">
         <div id="coop-status">Opening a room…</div>
         <div class="coop-link"><input id="coop-link" readonly><button id="coop-copy">COPY LINK</button></div>
-        <div class="coop-note">Send the link to a friend. They drop in as Hayato's Guntank, even mid-mission.</div>
+        <div class="coop-note">Send the link to up to two friends. Each picks a mobile suit (the Guntank too) and drops in, even mid-mission.</div>
       </div>
       <div class="hint">Press <b>Enter</b> or click · Gamepad supported</div>
       <div id="touch-help">
@@ -141,16 +141,13 @@
   <div id="lobby" class="screen hidden">
     <div class="panel wide">
       <div class="panel-title">CO-OP</div>
-      <div class="lobby-art"><img id="lobby-portrait" alt=""><img id="lobby-unit" src="assets/units/guntank.png" alt=""></div>
-      <div class="lobby-unit">RX-75 GUNTANK · HAYATO KOBAYASHI</div>
+      <div class="lobby-art"><img id="lobby-portrait" alt=""><img id="lobby-unit" alt=""></div>
+      <div class="lobby-unit" id="lobby-name"></div>
       <div id="lobby-status">Connecting…</div>
-      <div class="controls lobby-controls">
-        <div><b>WASD</b> Drive</div><div><b>J / Left click</b> Missile burst</div>
-        <div><b>K / Right click</b> 120mm cannons</div><div><b>J J K</b> Cannon barrage</div>
-        <div><b>Space</b> Thruster hop</div><div><b>L / Shift</b> Tread boost</div>
-        <div><b>I / F</b> Full-burst SP</div><div><b>Mouse / Q E</b> Camera</div>
-      </div>
-      <button id="lobby-leave">LEAVE</button>
+      <div id="lobby-team"></div>
+      <div class="controls lobby-controls" id="lobby-controls"></div>
+      <div class="hint">WASD move · J attack · K charge · Space jump · Shift boost · I SP · R lock on · Esc pause</div>
+      <div class="row"><button id="lobby-suit" class="coop-btn hidden">CHANGE SUIT</button><button id="lobby-leave">LEAVE</button></div>
     </div>
   </div>
 

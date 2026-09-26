@@ -3,13 +3,14 @@
 // guncannon.js) supplies its model, stance, moveset and weapons, and fills in the hooks near the bottom of the class.
 import * as THREE from 'three';
 import { RigObject, makePose, lerpPose, poseFrom, RY, RYAW, RPITCH, RROLL, P } from '../core/rig.js';
-import { clamp, damp, angleDamp, wrapAngle, lerp } from '../core/util.js';
+import { clamp, damp, angleDamp, wrapAngle, lerp, rand } from '../core/util.js';
 
 const GRAV = 28;
 const ATK_RATE = 0.86; // swings play a touch under keyframed speed: heavier, more deliberate
 const REGEN_DELAY = 3.5; // seconds unhit before damaged armor starts to recover
 const CHARGE_HOLD = 0.3; // seconds of held charge that turn a rifle shot into a charge shot
 const RUSH_MAX = 6; // paired blows in a dash combo before the launching finisher
+const REDEPLOY = 8; // seconds before a fallen co-op guest drops back in
 // Charge-attack swirl colours (gold for most, violet / pink / red on some).
 export const FLASH = { gold: 0xffc860, violet: 0xc27aff, red: 0xff5a30, pink: 0xff7ad8 };
 
@@ -91,6 +92,8 @@ export class Hero {
     this.hpRed = 0; // damage that recovers if the suit avoids being hit for a while
     this.regenWait = 0;
     this.wpn = null; // weapon in hand right now (per suit)
+    this.stopT = 0; // hit-stop left on this suit
+    this.respawnT = 0;
 
     // backpack flame jets: an outer cone around a white core, shown while the thrusters fire
     const cone = (r, h) => new THREE.ConeGeometry(r, h, 8, 1, true).rotateX(Math.PI).translate(0, -h / 2, 0).rotateX(Math.PI / 2);
@@ -150,6 +153,14 @@ export class Hero {
     this.wpn = null;
     this.spKind = null;
     this.invuln = 0;
+    this.stopT = 0;
+  }
+
+  // Into the mission: drop out of the colony sky onto (x, z).
+  deploy(x, z) {
+    this.reset();
+    this.attach(true);
+    this.startIntro(x, z);
   }
 
   // ---------- helpers ----------
@@ -246,8 +257,11 @@ export class Hero {
   }
 
   // ---------- main update ----------
+  // input: the local Input (move stick read against the camera), or a co-op guest's, which carries its world-space
+  // direction in `dir`. Either answers key(action) for held buttons.
   update(dt, act, input) {
     const g = this.game;
+    if (this.stopT > 0) { this.stopT -= dt; dt *= 0.04; }
     this.stateT += dt;
     this.invuln = Math.max(0, this.invuln - dt);
     this.poiseT = Math.max(0, (this.poiseT || 0) - dt);
@@ -255,8 +269,7 @@ export class Hero {
     this.preUpdate(dt);
     // hold charge through a rifle shot for a charge shot
     this.chargeHeldT = act.chargeHeld ? this.chargeHeldT + dt : 0;
-    const camFwd = g.camera.forward();
-    const dir = this.inputDir(input, camFwd);
+    const dir = input.dir !== undefined ? input.dir : this.inputDir(input, g.camera.forward());
     // boost gauge refills once the thrusters have rested
     this.boostWait -= dt;
     if (this.state !== 'boost' && !this.hovering && this.boostWait <= 0) this.boost = Math.min(1, this.boost + dt * (this.pos.y < 0.3 ? 0.62 : 0.2));
@@ -819,7 +832,7 @@ export class Hero {
     g.fx.scorch(c.x, c.z, radius * (huge ? 0.7 : 0.45), huge ? 20 : 10);
     if (g.local === this) g.aberr(huge ? 1.2 : 0.45);
     if (huge) g.fx.dome(this._v.set(c.x, 0, c.z), 1, radius, this.suit.domeColor ?? 0xff4fc0, 0.9);
-    if (shake) g.camera.shake(huge ? 1.0 : 0.45);
+    if (shake) g.shakeFor(this, huge ? 1.0 : 0.45);
     g.audio.play(huge ? 'bigboom' : 'slam');
   }
 
@@ -851,11 +864,11 @@ export class Hero {
     this.sp = Math.min(this.maxSp, this.sp + dmg * 0.08);
     this.flash = kind === 'bullet' ? 0.35 : 1;
     g.stats.damageTaken += dmg;
-    if (kind !== 'bullet') g.hud.hurt();
+    if (kind !== 'bullet') g.hurtFor(this);
     if (kind !== 'bullet' || Math.random() < 0.3) g.fx.hit(this._v.set(this.pos.x, this.pos.y + 1.8, this.pos.z), 0xffa040);
     if (kind === 'bullet') g.audio.play('ping', { vol: 0.45 });
     else g.audio.play('hurt', { vol: heavy ? 1 : 0.85 });
-    g.camera.shake(heavy ? 0.5 : kind === 'bullet' ? 0.05 : 0.2);
+    g.shakeFor(this, heavy ? 0.5 : kind === 'bullet' ? 0.05 : 0.2);
     if (heavy && g.local === this) g.aberr(1);
     if (this.hp <= 0) {
       this.die(fromX, fromZ);
@@ -912,7 +925,7 @@ export class Hero {
         this.stateT = 0;
         g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), 12, 1.3);
         g.audio.play('land');
-        g.camera.shake(0.3);
+        g.shakeFor(this, 0.3);
       }
     } else if (this.downPhase === 'lie') {
       this.vel.x = damp(this.vel.x, 0, 6, dt);
@@ -946,11 +959,22 @@ export class Hero {
     this.hpRed = 0;
     this.downPhase = 'fly';
     this.vel.set(-Math.sin(this.heading) * 6, 9, -Math.cos(this.heading) * 6);
-    g.onHeroDeath();
+    this.respawnT = REDEPLOY;
+    g.onHeroDeath(this);
   }
 
   updateDead(dt) {
     const g = this.game;
+    // a co-op guest drops back in beside the host (the host going down ends the mission instead)
+    if (this !== g.hero && g.mode === 'play') {
+      this.respawnT -= dt;
+      if (this.respawnT <= 0) {
+        this.deploy(g.hero.pos.x + rand(-6, 6), g.hero.pos.z + rand(-6, 6));
+        this.hp = Math.round(this.maxHp * 0.6);
+        g.onRedeploy(this);
+        return;
+      }
+    }
     if (this.pos.y > 0 || this.vel.y > 0) {
       this.vel.y -= GRAV * dt;
       this.pos.addScaledVector(this.vel, dt);
@@ -962,10 +986,10 @@ export class Hero {
   }
 
   // Launch intro: descend from the colony sky with thrusters.
-  startIntro() {
+  startIntro(x = 0, z = -16) {
     this.state = 'intro';
     this.stateT = 0;
-    this.pos.set(0, 26, -16);
+    this.pos.set(x, 26, z);
     this.vel.set(0, -18, 5);
   }
 
@@ -984,7 +1008,7 @@ export class Hero {
       this.pos.y = 0;
       this.impact(4, true);
       this.setState('move');
-      g.onHeroLanded();
+      g.onHeroLanded(this);
     }
   }
 
@@ -1009,7 +1033,7 @@ export class Hero {
     g.combat.heroStrike(this, { shape: 'circle', range: 7, hy: 8, dmg: 5, kb: 12, up: 3, sp: true }, ++this.hitSerial);
     g.fx.ring(this.pos, 0.5, 8, this.suit.spColor ?? 0xff5fd0, 0.6);
     g.fx.dome(this._v.set(this.pos.x, this.pos.y, this.pos.z), 1, 6, this.suit.spDome ?? 0xff7ad8, 0.5);
-    g.onMusou();
+    g.onMusou(this);
     g.audio.play('sp');
   }
 
@@ -1119,9 +1143,10 @@ export class Hero {
     return {
       suit: this.suit.id,
       x: this.pos.x, y: this.pos.y + this.lie * 0.45, z: this.pos.z, h: this.heading, st: this.state,
-      hp: this.hp, hr: this.hpRed, mhp: this.maxHp, sp: this.sp, fl: Math.max(this.flash, this.armorFlash),
+      hp: this.hp, hr: this.hpRed, mhp: this.maxHp, sp: this.sp, fl: Math.max(this.flash, this.armorFlash), rt: this.respawnT,
       pose: Array.from(this.pose),
       thr: this.thrustAt && this.game.time - this.thrustAt < 0.06 ? (this.thrustUp ? 2 : 1) : 0,
+      bo: this.boost, mv: this.state === 'attack' || this.state === 'musou' ? this.moveName : '',
       ...this.netExtras(),
     };
   }
@@ -1134,6 +1159,10 @@ export class Hero {
     this.hpRed = s.hr || 0;
     this.maxHp = s.mhp;
     this.sp = s.sp;
+    this.respawnT = s.rt || 0;
+    this.boost = s.bo ?? this.boost;
+    this.moveName = s.mv || '';
+    this.move = s.mv ? this.moves[s.mv] || null : null; // the combo guide follows the move
     this.heading = s.h;
     this.pose.set(s.pose);
     const rig = this.rig;

@@ -198,7 +198,7 @@ export class Gundam extends Hero {
         this.vel.z -= dir.z * 5;
       }
     } else if (shot.kind === 'cshot') {
-      g.projectiles.heroBeam(from, dir, CHARGE_SHOT);
+      g.projectiles.heroBeam(this, from, dir, CHARGE_SHOT);
       g.fx.muzzle(from, dir, 0xff8ad8, 2);
       g.fx.ring(from, 0.3, 3, FLASH.gold, 0.3, from.y);
       g.audio.play('cshot');
@@ -208,7 +208,7 @@ export class Gundam extends Hero {
       this.vel.x -= dir.x * 7;
       this.vel.z -= dir.z * 7;
     } else {
-      g.projectiles.heroBeam(from, dir, RIFLE_SHOT);
+      g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
       g.fx.muzzle(from, dir, 0xff8ad8, 1);
       g.audio.play('rifle');
       g.camera.shake(0.1);
