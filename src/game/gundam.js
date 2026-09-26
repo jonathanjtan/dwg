@@ -18,7 +18,7 @@ const SABER_TRAIL = 0xff4fb8;
 
 export const GUNDAM = {
   id: 'gundam', pilot: 'amuro', def: gundamDef, moves: MOVES, stance: STANCE,
-  hp: 1200, run: 9.4, boostSpeed: 23, boostTime: 1.9, defense: 1,
+  hp: 1200, run: 9.4, boostSpeed: 23, boostTime: 1.9, sprintSpeed: 18, defense: 1,
   debris: [0xe8eaf0, 0x2346a6, 0xcc2230], spAirY: 4.5, spAirReach: 7,
 };
 

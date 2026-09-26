@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e16">
 <title>Gundam Musou: Side 7</title>
 <meta name="description" content="A voxel Dynasty Warriors: Gundam tribute in three.js. The RX-78-2 Gundam and RX-77-2 Guncannon versus a Zeon invasion of Side 7.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -68,7 +72,7 @@
     <div id="tags"></div>
     <div id="keys">
       <span><b>WASD</b> move</span><span><b>J</b>/<b>LMB</b> attack</span><span><b>K</b>/<b>RMB</b> charge (hold: charge shot)</span>
-      <span><b>Space</b> jump (hold: hover)</span><span><b>L</b>/<b>Shift</b> boost (hold: dash)</span><span><b>I</b>/<b>F</b> SP (hold: charge SP)</span>
+      <span><b>Space</b> jump (hold: hover)</span><span><b>L</b>/<b>Shift</b> boost (hold: dash, then sprint)</span><span><b>I</b>/<b>F</b> SP (hold: charge SP)</span>
       <span><b>R</b>/<b>MMB</b> lock on</span><span><b>Q E</b>/mouse camera</span><span><b>H</b> hide</span>
     </div>
   </div>
@@ -103,10 +107,17 @@
         <div class="coop-note">Send the link to a friend. They drop in as Hayato's Guntank, even mid-mission.</div>
       </div>
       <div class="hint">Press <b>Enter</b> or click · Gamepad supported</div>
+      <div id="touch-help">
+        <div class="th-row"><b>Left thumb</b> drag anywhere to move</div>
+        <div class="th-row"><b>Right thumb</b> drag to look · buttons to fight</div>
+        <div class="th-row"><b>Hold</b> BOOST to dash (keep holding to sprint), JUMP to hover, CHG to charge a shot, SP for the charge SP</div>
+        <button type="button" id="fs-btn" class="coop-btn">FULLSCREEN<small>more screen to fight in</small></button>
+        <div id="a2hs" class="hidden">For a full screen on iPhone, tap <b>Share</b> → <b>Add to Home Screen</b> and launch it from there.</div>
+      </div>
       <div class="controls">
         <div><b>WASD</b> Move</div><div><b>J / Left click</b> Attack</div>
         <div><b>K / Right click</b> Charge attack · hold to charge shot</div><div><b>Space</b> Jump · hold to hover</div>
-        <div><b>L / Shift</b> Boost · hold to dash</div><div><b>I / F</b> SP attack · hold for the charge SP</div>
+        <div><b>L / Shift</b> Boost · hold to dash, keep holding to sprint</div><div><b>I / F</b> SP attack · hold for the charge SP</div>
         <div><b>Mouse / Q E</b> Camera</div><div><b>R / Middle click</b> Lock on to a commander</div>
         <div><b>Esc</b> Pause · <b>M</b> Sound</div>
       </div>
@@ -147,6 +158,7 @@
       <button id="resume" class="big">RESUME</button>
       <button id="restart">RESTART MISSION</button>
       <button id="mute-btn">SOUND: OFF</button>
+      <button id="fs-btn-pause" class="hidden">FULLSCREEN</button>
       <button id="to-title">QUIT TO TITLE</button>
     </div>
   </div>
@@ -165,7 +177,7 @@
   </div>
 
   <div id="loading" class="screen"><div class="spinner"></div><div>Preparing Side 7…</div></div>
-  <div id="touch-warn" class="hidden">Keyboard, mouse or gamepad required.</div>
+  <div id="rotate"><div class="rot-icon"></div><div class="rot-text">Turn your device sideways</div><div class="rot-sub">Side 7 is a widescreen war.</div></div>
 </div>
 <script type="module" src="src/main.js"></script>
 </body>

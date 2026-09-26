@@ -6,7 +6,7 @@ Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yu
 
 ## Play
 
-**https://jonathanjtan.github.io/dwg/** (desktop browser with keyboard, mouse or gamepad)
+**https://jonathanjtan.github.io/dwg/** — keyboard, mouse, gamepad, or touch on a phone or tablet.
 
 To run it locally, serve the folder with any static file server:
 
@@ -53,25 +53,31 @@ Staying alive:
 
 ## Controls
 
-| Action | Keyboard / mouse | Gamepad |
-| --- | --- | --- |
-| Move | WASD | Left stick |
-| Camera | Mouse (click to lock), Q / E, wheel to zoom | Right stick (LT recenters) |
-| Lock on to a commander (again to release) | R / middle click | Right stick click |
-| Attack | J / left click | X / Square |
-| Charge attack (hold for a charge shot) | K / right click | Y / Triangle |
-| Jump (hold to hover on the thrusters) | Space | A / Cross |
-| Boost dodge (hold to boost dash) | L / Shift | B / Circle |
-| SP attack (hold for the charge SP) | I / F | RB / R1 |
-| Pause, sound on/off, hide keys | Esc, M, H | Start |
+| Action | Keyboard / mouse | Gamepad | Touch |
+| --- | --- | --- | --- |
+| Move | WASD | Left stick | Left thumb, anywhere on the left half |
+| Camera | Mouse (click to lock), Q / E, wheel to zoom | Right stick (LT recenters) | Drag the right half |
+| Lock on to a commander (again to release) | R / middle click | Right stick click | LOCK |
+| Attack | J / left click | X / Square | ATK |
+| Charge attack (hold for a charge shot) | K / right click | Y / Triangle | CHG |
+| Jump (hold to hover on the thrusters) | Space | A / Cross | JUMP |
+| Boost dodge (hold to boost dash, keep holding to sprint) | L / Shift | B / Circle | BOOST |
+| SP attack (hold for the charge SP) | I / F | RB / R1 | SP |
+| Pause, sound on/off, hide keys | Esc, M, H | Start | ⏸ (sound lives in the pause menu) |
 
 Sound starts off. Press M, or use the SOUND button in the pause menu, to turn it on.
 
-**Lock-on** works on commanders only: squad leaders, Denim, Gene and Char. Press R to lock on to the one nearest the middle of the view. The camera swings round behind you to keep it in frame, attacks and shots aim at it while it's in reach, and a red reticle marks it (pinned to the screen edge when it's out of view). Press R again to let go. With no commander around, R recenters the camera.
+**Lock-on** works on commanders only: squad leaders, Denim, Gene and Char. Press R to lock on to the one nearest the middle of the view. The camera swings round behind you to keep it in frame, attacks and shots aim at it while it's in reach, and a red reticle marks it (pinned to the screen edge when it's out of view). While locked on, your suit keeps facing the target: left and right strafe round it, back backs off, and boost dashes, the boost sprint and dodges strafe the same way. Press R again to let go. With no commander around, R recenters the camera.
+
+### Touch
+
+Hold the phone sideways. The movement stick appears wherever your left thumb lands and follows it if you drag past the ring, so you never run out of travel; drag anywhere on the right half to swing the camera. The action buttons sit in a diamond under your right thumb and hold exactly like the keys do — hold BOOST to dash (and keep holding to sprint), JUMP to hover, CHG to charge a shot, SP for the charge SP. The SP button lights up when the gauge is full. Lock-on is worth leaning on here: it aims your attacks for you and saves a lot of camera work.
+
+Tap **FULLSCREEN** on the title screen, or sortie — the game asks for fullscreen and a landscape lock on the way in, which is worth a third of the screen back from the browser's address bar and tab strip. iPhone Safari supports neither, so there the game offers **Share → Add to Home Screen** instead; launched from the home screen it runs without browser chrome. Rendering is capped at 1x device pixels on touch devices and steps down to 0.5x if frames get long.
 
 ## Mobile suits
 
-LAUNCH opens the mobile suit select. A / D or the arrow keys choose, Enter sorties, and the choice is remembered for next time. Both movesets follow *Dynasty Warriors: Gundam Reborn*, with reach scaled from gameplay footage in suit heights. Charge attacks change with how far into the combo you are.
+LAUNCH opens the mobile suit select. A / D or the arrow keys choose, Enter sorties, and the choice is remembered for next time. On touch, tap a card to select it and SORTIE to launch; the combos are listed as button names rather than keys. Both movesets follow *Dynasty Warriors: Gundam Reborn*, with reach scaled from gameplay footage in suit heights. Charge attacks change with how far into the combo you are.
 
 ### RX-78-2 Gundam (Amuro Ray)
 
@@ -105,7 +111,7 @@ Slower, with less armor but more defense than the Gundam (the game's spec sheet:
 
 SP attacks: on the ground, a storm of punches that walks forward (afterimage fists) and a last blow that blasts the target away. Hold SP through the starburst for the charge SP: shells fired out in every direction while the suit turns on the spot, then a ring of blasts. In the air, the Guncannon hovers low and shells its target point-blank.
 
-The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest.
+The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest. Keep holding boost after the dash runs out and the suit settles into a **boost sprint**, skating on its thrusters at about twice its running speed without using the gauge. It's the quick way from one field to the next, and attacks come out of it as dash attacks.
 
 ## How it's built
 

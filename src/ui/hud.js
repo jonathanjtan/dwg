@@ -181,7 +181,8 @@ export class HUD {
       this.el.boostFill.style.width = Math.max(0, h.boost) * 100 + '%';
       this.el.boostBar.classList.toggle('low', h.boost < 0.25);
     }
-    this.speedK += ((h.state === 'boost' ? 1 : 0) - this.speedK) * Math.min(1, dt * (h.state === 'boost' ? 8 : 5));
+    const fast = h.state === 'boost' ? 1 : h.state === 'sprint' ? 0.5 : 0;
+    this.speedK += (fast - this.speedK) * Math.min(1, dt * (fast > this.speedK ? 8 : 5));
     this.el.speedlines.style.opacity = (this.speedK * 0.75).toFixed(3);
     this.cineT = Math.max(0, this.cineT - dt);
     this.el.letterbox.classList.toggle('on', this.cineT > 0);
