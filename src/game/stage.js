@@ -1,9 +1,9 @@
 // Mission 01: Side 7. Clear the plaza, take the three Zeon landing zones, then face the officers and Char.
-// Enemies come as squads: garrisons hold their posts until a pilot comes near, hunters march on the pilots.
-// A reserve of squads stands in the distant streets; hunters are drawn from it, so new arrivals are seen coming.
+// Enemies come as squads posted around the colony (the landing yards most of all). A squad holds its post until a
+// pilot comes near, fights, and falls back to its post if the pilots move on.
 import { commanderDef, charDef, captainDef, CMD_COLORS, CHAR_COLORS, CAPT_COLORS } from '../models/suits.js';
 import { rand, randi } from '../core/util.js';
-import { ARENA } from '../world/world.js';
+import { ARENA, ROADS, fieldAt } from '../world/world.js';
 import { LZ_SITES } from './bases.js';
 import { suitInfo } from './roster.js';
 
@@ -52,20 +52,17 @@ export function officerCfg(which) {
   return { ...c, def: c.def() };
 }
 
-// Per-phase pacing: cap on living Zaku (not counting the reserve), how many engaged soldiers near the pilot
-// before hunters are sent, seconds between hunter squads, and how many soldiers stand in reserve out in the distance.
-// Reborn keeps a mob of a few dozen Zaku around the pilot, so the caps are generous.
-const PACE = {
-  plaza: { cap: 64, want: 24, every: 5, reserve: 40 },
-  bases: { cap: 999, want: 8, every: 18, reserve: 24 }, // the yards' own garrisons do the fighting here
-  predenim: { cap: 44, want: 14, every: 8, reserve: 32 },
-  denim: { cap: 54, want: 20, every: 8, reserve: 32 },
-  gene: { cap: 54, want: 20, every: 8, reserve: 32 },
-  prechar: { cap: 36, want: 12, every: 9, reserve: 32 },
-  char: { cap: 40, want: 14, every: 10, reserve: 32 },
-};
-// Reserve squads stand this far from the pilots; past RECYCLE they are quietly pulled and re-posted nearer.
-const RESERVE_MIN = 70, RESERVE_MAX = 130, RECYCLE = 190;
+// Posts: where Zeon squads stand guard around the colony. The three landing yards hold the most troops; the
+// boulevard crossings each hold a squad some of the time. Squads stay at their post until a pilot comes near
+// (and fall back to it once the pilots leave), so the pilots run into the enemy rather than being chased by it.
+const POSTS = [
+  ...LZ_SITES.map((s) => ({ x: s.x, z: s.z, yard: s.name, squads: 2, size: 8, spread: 14 })),
+  ...ROADS.flatMap((x) => ROADS.map((z) => ({ x, z, squads: 1, size: 0, spread: 0 })))
+    .filter((p) => Math.abs(p.x) < ARENA - 10 && Math.abs(p.z) < ARENA - 10 && !fieldAt(p.x, p.z, 4)),
+];
+// Posts are manned while a pilot is between these distances (restocked only out of the camera's view),
+// and squads left idle past RECYCLE are quietly stood down to free their numbers for posts nearer the pilots.
+const STOCK_MIN = 50, STOCK_MAX = 160, RECYCLE = 190;
 
 export class Stage {
   constructor(game) {
@@ -80,9 +77,9 @@ export class Stage {
     this.char = null;
     this.flags = {};
     this.squads = [];
-    this.huntT = 4;
     this.leashT = 0;
-    this.reserveT = 0;
+    this.postT = 0;
+    this.posts = POSTS.map((p) => ({ ...p, cool: 0, dead: false }));
     this.dropMeter = 0;
     this.plazaKos = 0;
     this.zonesTaken = 0;
@@ -109,27 +106,8 @@ export class Stage {
       const a = (i / 4) * TAU + 0.45;
       this.garrison(Math.sin(a) * 26, Math.cos(a) * 26, 11, null);
     }
-    // and the streets beyond it already hold Zaku, visible in the distance before they ever join the fight
-    for (let i = 0; i < 5; i++) {
-      const at = this.findSpot(RESERVE_MIN, RESERVE_MAX, null);
-      if (at) this.garrison(at.x, at.z, 8, null).reserve = true;
-    }
-  }
-
-  // A clear spot between `min` and `max` from the local pilot (and at least `min` from every pilot).
-  // view 'in' keeps it in front of the camera so the arrival is seen; 'out' keeps it behind or beside the camera
-  // so nothing pops into view. null: anywhere.
-  findSpot(min, max, view, clear = 3) {
-    const g = this.game, h = g.local.pos, yaw = g.camera.yaw;
-    for (let tries = 0; tries < 24; tries++) {
-      const a = view === 'in' ? yaw + rand(-0.45, 0.45) : view === 'out' ? yaw + Math.PI + rand(-1.8, 1.8) : rand(0, TAU);
-      const r = rand(min, max);
-      const x = h.x + Math.sin(a) * r, z = h.z + Math.cos(a) * r;
-      if (Math.abs(x) > ARENA - 6 || Math.abs(z) > ARENA - 6 || g.world.blocked(x, z, clear)) continue;
-      if (g.players.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < min)) continue;
-      return { x, z };
-    }
-    return null;
+    // the yards and streets beyond are already held (nothing is on screen yet, so any post may be manned)
+    for (let i = 0; i < 12; i++) if (!this.tendPosts(false)) break;
   }
 
   nearestPilot(x, z) {
@@ -138,56 +116,45 @@ export class Stage {
     return d;
   }
 
-  // Keep the distant streets stocked: post fresh reserve squads out of sight, pull ones the pilots left far behind.
-  tendReserves(pace) {
-    const g = this.game, crowd = g.crowd, yaw = g.camera.yaw, h = g.local.pos;
-    let n = 0;
-    for (const sq of this.squads) {
-      if (!sq.reserve || sq.engaged) continue;
-      const behind = Math.cos(Math.atan2(sq.x - h.x, sq.z - h.z) - yaw) < 0.2;
-      if (behind && this.nearestPilot(sq.x, sq.z) > RECYCLE) {
-        for (let i = crowd.list.length - 1; i >= 0; i--) if (crowd.list[i].squad === sq) crowd.remove(crowd.list[i]);
-        continue;
-      }
-      n += sq.n;
-    }
-    if (n >= pace.reserve || crowd.count > g.difficulty.maxAlive - 16) return n;
-    const at = this.findSpot(RESERVE_MIN, RESERVE_MAX, 'out');
-    if (!at) return n;
-    const sq = this.garrison(at.x, at.z, 8, null);
-    sq.reserve = true;
-    return n + sq.n;
+  // In front of the local camera (within ~50 degrees either side), where a squad appearing would be seen.
+  inView(x, z) {
+    const g = this.game, h = g.local.pos;
+    return Math.cos(Math.atan2(x - h.x, z - h.z) - g.camera.yaw) > 0.3;
   }
 
-  reserveCount() {
-    let n = 0;
-    for (const sq of this.squads) if (sq.reserve && !sq.engaged) n += sq.n;
-    return n;
-  }
-
-  // Send the pilots a hunter squad: march a reserve squad in from the distance (one on screen if possible),
-  // post a fresh one out of sight when none is free, or drop one out of the colony sky where the pilot can see it.
-  sendHunters(n, drop) {
-    if (drop) return this.huntSquad(n, true);
-    const g = this.game, h = g.local.pos, yaw = g.camera.yaw;
-    let best = null, bestScore = -Infinity;
+  // Man one empty post near the pilots (yards first, then the nearest crossing), and stand down idle squads the
+  // pilots have left far behind. Returns false when there was nothing to do.
+  tendPosts(hidden = true) {
+    const g = this.game, crowd = g.crowd;
     for (const sq of this.squads) {
-      if (!sq.reserve || sq.engaged || sq.n < 4) continue;
-      const d = this.nearestPilot(sq.x, sq.z);
-      if (d < 40 || d > 120) continue;
-      const score = Math.cos(Math.atan2(sq.x - h.x, sq.z - h.z) - yaw) * 60 - d;
-      if (score > bestScore) { bestScore = score; best = sq; }
+      if (sq.engaged || sq.base || sq.n === 0 || this.nearestPilot(sq.x, sq.z) < RECYCLE || this.inView(sq.x, sq.z)) continue;
+      for (let i = crowd.list.length - 1; i >= 0; i--) if (crowd.list[i].squad === sq) crowd.remove(crowd.list[i]);
+      if (sq.post) sq.post.cool = 0;
     }
-    if (best) {
-      best.reserve = false;
-      best.engaged = best.hunt = true;
-      return best.n;
+    if (crowd.count > g.difficulty.maxAlive - 16) return false;
+    let best = null, bestD = Infinity;
+    for (const p of this.posts) {
+      if (p.dead || g.time < p.cool) continue;
+      if (this.squads.some((sq) => sq.post === p && sq.n > 0)) continue;
+      const d = this.nearestPilot(p.x, p.z);
+      if (d < STOCK_MIN || (d > STOCK_MAX && !p.yard) || (hidden && this.inView(p.x, p.z))) continue;
+      const rank = p.yard ? d - 1000 : d; // yards are always manned first, wherever the pilots are
+      if (rank < bestD) { bestD = rank; best = p; }
     }
-    return this.huntSquad(n, false);
+    if (!best) return false;
+    // a crossing is manned about half the time, so each stretch of street plays out differently
+    if (!best.yard && Math.random() < 0.45) { best.cool = g.time + 40; return true; }
+    for (let i = 0; i < best.squads; i++) {
+      const a = rand(0, TAU), r = best.spread ? rand(best.spread * 0.4, best.spread) : 0;
+      this.garrison(best.x + Math.sin(a) * r, best.z + Math.cos(a) * r, best.size || randi(6, 10), null).post = best;
+    }
+    // once wiped out, a post stays empty for a while
+    best.cool = g.time + 45;
+    return true;
   }
 
   newSquad(x, z, o = {}) {
-    const sq = { x, z, engaged: false, n: 0, base: null, hunt: false, ...o };
+    const sq = { x, z, engaged: false, n: 0, base: null, post: null, ...o };
     this.squads.push(sq);
     return sq;
   }
@@ -205,27 +172,6 @@ export class Stage {
       if (g.crowd.spawn(px, pz, { gun: made < gunners, drop, yaw: a, squad: sq })) made++;
     }
     return sq;
-  }
-
-  // Hunters march in from the streets around the pilots (or drop in from the colony sky).
-  huntSquad(n, drop = false) {
-    const g = this.game;
-    const hero = g.hero.pos;
-    // drops come down in front of the camera so the pilot watches them land; marchers start out of sight
-    const at = drop ? this.findSpot(26, 42, 'in') : this.findSpot(60, 85, 'out');
-    if (!at) return 0;
-    const { x, z } = at;
-    const sq = this.newSquad(x, z, { hunt: true, engaged: true });
-    const gunners = Math.random() < 0.6 ? 1 : 0;
-    const face = Math.atan2(hero.x - x, hero.z - z);
-    let made = 0;
-    const spread = 2.5 + n * 0.25;
-    for (let i = 0; i < n; i++) {
-      const ox = rand(-spread, spread), oz = rand(-spread, spread);
-      if (g.world.blocked(x + ox, z + oz, 1)) continue;
-      if (g.crowd.spawn(x + ox, z + oz, { gun: i < gunners, drop, yaw: face, squad: sq })) made++;
-    }
-    return made;
   }
 
   addOfficer(which, at = null) {
@@ -252,9 +198,8 @@ export class Stage {
     if (this.phase !== 'launch') return;
     if (g.players.length > 1) g.hud.say('hayato', 'HAYATO KOBAYASHI', this.lines.hayato, 3.2);
     this.phase = 'plaza';
-    this.t = 0;
-    this.huntT = 8;
-    for (const sq of this.squads) sq.engaged = true;
+    // only the plaza garrison sees the Gundam come down; the rest of the colony holds its posts
+    for (const sq of this.squads) if (Math.hypot(sq.x - g.hero.pos.x, sq.z - g.hero.pos.z) < 45) sq.engaged = true;
     g.hud.announce('MISSION START', 'SECURE THE PLAZA');
     g.hud.setObjective(`Clear the plaza · 0/${PLAZA_KOS}`);
     g.audio.playMusic('battle');
@@ -283,8 +228,6 @@ export class Stage {
   startBases() {
     const g = this.game;
     this.phase = 'bases';
-    this.t = 0;
-    this.huntT = 14;
     g.audio.play('alarm');
     g.hud.announce('ZEON LANDING ZONES', 'DEFEAT THEIR SQUAD LEADERS', true);
     g.hud.setObjective(`Capture the landing zones · 0/${LZ_SITES.length}`);
@@ -300,11 +243,18 @@ export class Stage {
 
   // A pod has touched down: its garrison and squad leader take position.
   onZoneLanded(lz) {
-    const g = this.game;
-    for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * TAU + rand(-0.3, 0.3);
-      this.garrison(lz.x + Math.sin(a) * 10, lz.z + Math.cos(a) * 10, 9, lz);
+    // the yard's standing guard joins the pod's garrison, which fills out around them
+    let have = 0;
+    for (const sq of this.squads) {
+      if (sq.base || Math.hypot(sq.x - lz.x, sq.z - lz.z) > 30) continue;
+      sq.base = lz;
+      have += sq.n;
     }
+    for (let i = 0; i < 3 && have < 27; i++) {
+      const a = (i / 3) * TAU + rand(-0.3, 0.3);
+      have += this.garrison(lz.x + Math.sin(a) * 10, lz.z + Math.cos(a) * 10, 9, lz).n;
+    }
+    for (const p of this.posts) if (p.yard === lz.name) p.dead = true;
     lz.captain = this.addOfficer('captain', { x: lz.x + 3.5, z: lz.z + 3.5 });
     lz.captain.lz = lz;
     lz.reinforceT = 10;
@@ -366,9 +316,11 @@ export class Stage {
         if (this.phase !== 'gene') return;
         g.audio.play('alarm');
         g.hud.setObjective('Defeat Gene');
-        this.addOfficer('gene');
+        const gene = this.addOfficer('gene');
         g.hud.say('gene', 'GENE', "Sergeant Denim?! You'll pay for that! This one's mine!", 3.2);
-        for (let i = 0; i < 2; i++) this.sendHunters(8, true);
+        // his escort drops in behind him, on the far side from the pilot
+        const h = g.hero.pos, a = Math.atan2(gene.pos.x - h.x, gene.pos.z - h.z);
+        for (const s of [-0.5, 0.5]) this.garrison(gene.pos.x + Math.sin(a + s) * 10, gene.pos.z + Math.cos(a + s) * 10, 8, null, true);
       });
     } else if (c.name === 'gene') {
       this.phase = 'prechar';
@@ -421,23 +373,11 @@ export class Stage {
       this.squads = this.squads.filter((s) => s.n > 0);
       g.crowd.leash(this.squads, g.players);
     }
-    // hunters keep some pressure on the pilots when nothing is close by
-    const pace = PACE[this.phase];
-    this.reserveT -= dt;
-    if (pace && this.reserveT <= 0) {
-      this.reserveT = 1.5;
-      this.tendReserves(pace);
-    }
-    this.huntT -= dt;
-    if (pace && this.huntT <= 0) {
-      const cap = Math.min(pace.cap, D.maxAlive);
-      const hero = g.hero.pos;
-      let near = 0;
-      for (const e of g.crowd.grid.query(hero.x, hero.z, 26, g.combat.tmp)) if (!e.squad || e.squad.engaged) near++;
-      if (g.crowd.count - this.reserveCount() < cap && g.crowd.count < D.maxAlive && near < pace.want) {
-        this.sendHunters(randi(8, 12), Math.random() < 0.3);
-        this.huntT = pace.every * D.reinforce;
-      } else this.huntT = 1.5;
+    // man the posts around the pilots as they move through the colony
+    this.postT -= dt;
+    if (this.postT <= 0) {
+      this.postT = 1.5;
+      this.tendPosts();
     }
     // landing zones drop reinforcements onto their garrison until they are taken
     if (this.phase === 'bases') {
