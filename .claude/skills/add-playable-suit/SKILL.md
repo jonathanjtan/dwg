@@ -27,8 +27,8 @@ Co-op, the select screens, the HUD and the combo guide all key off the roster en
 
 ## 1. Study the footage
 
-The user usually links a "ALL MOVES" video. Downloading the linked video is authorized by the request; anything else
-(sprite sheets etc.) needs asking first.
+The user usually links a "ALL MOVES" video. Downloading the linked video is authorized by the request, and so are G Generation
+sprite sheets for portraits and unit cards (see step 7).
 
 ```bash
 cd <scratchpad>/<suit> && yt-dlp --no-playlist -F "<url>"          # pick a 720p60 mp4 (298) + m4a (140)
@@ -160,13 +160,24 @@ recipe's `REV` send and a `FALLBACK` in audio.js. Keep takes short, and put weig
 - **Roster entry:** `id`, `cls`, `pilot`, `unit`, `unitShort`, `unitJp`, `pilotName`, `pilotJp`, `stats` (spec sheet),
   `equipment`, `role`, `moves` (the select screen's six lines) and `guide` rows `[keys, text, firstMove]`, where keys use
   J K B U S. The pilot's first name ends up in co-op radio ("I'll back you up, Ball!").
-- **Portrait:** the 16x16 `ART` rows must be exactly 16 characters each (assert it in a script), using the `PAL` keys.
-- **Unit render:** the G Generation Wars sprites came from The Spriters Resource. Downloading one needs the user's
-  OK. Otherwise render the voxel model:
-  1. Build a `WebGLRenderer({ alpha: true, preserveDrawingBuffer: true })` in the page with a 3/4 camera.
-  2. POST `toDataURL()` as a text/plain Blob to a one-shot python receiver on `127.0.0.1:8799` (run it in the
-     background; macOS has no `timeout`).
-  3. Trim with PIL and scale to 256 px on the long side.
+- **Portrait and unit render.** The user has OK'd G Generation sprites from The Spriters Resource, and mixing games or
+  art styles is fine. First look on the G Gen Wars (PS2) page
+  (`/playstation_2/sdgundamggenerationwars/`) and list its assets by grepping `asset/<id>/` links out of the page
+  HTML. The site's search can't be scripted.
+  - Pilots: *Character Cutins* has one sheet per named pilot, and *Dialogue Portraits* has one per series, with generic
+    soldiers in 3-expression rows of 256 px cells.
+  - Later series (Unicorn and after) are on the *G Generation World*, *Overworld* (PSP) and *Genesis* (PS4) pages. The
+    World and Overworld unit sheets are mostly model parts. Genesis units come as zips with full-body pose frames.
+  - Download: fetch `/<platform>/<game>/asset/<id>/`, find `/media/assets/<n>/<id>.png`, then fetch that.
+  - Unit card: crop one posed render, trim it to its alpha bounds, brighten it (see `assets/units/README.md`) and
+    scale it to 256 px.
+  - Pilot: pack idle, talk and shout crops into a strip (4 px gaps, frames of 256 px at most), save it as
+    `assets/portraits/<pilot>.png`, and add a `manifest.json` entry with `[x, y, w, h]` frames. Add `holdTalk` when the
+    talk frame is a different bust.
+  - Keep a 16x16 `ART` fallback in `portraits.js` anyway (rows exactly 16 characters, using `PAL` keys).
+  - With no sprite available, render the voxel model instead: build a `WebGLRenderer({ alpha: true,
+    preserveDrawingBuffer: true })` with a 3/4 camera, POST `toDataURL()` as a text/plain Blob to a one-shot python
+    receiver on 127.0.0.1, then trim and scale the image.
 - **Radio lines:** the `LINES[pilot]` keys are `order launch wing bases denim zone warn char meet kit bye`. Bright
   speaks `order`, `zone`, `warn` and `kit`; Char speaks `char` and `bye`.
 

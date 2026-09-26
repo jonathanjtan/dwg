@@ -147,8 +147,8 @@ The boost gauge under the SP bar drains while you dash or hover and refills once
 ## Credits
 
 - Several feel and rendering techniques are adapted from [voxel-musou](https://github.com/mike007jd/voxel-musou) (MIT, © 2026 BubuAi): the lens-side crowd clear and lens-clear shader, hero-local hit-stop with victim shudder, hit tint and flinch variants, the launch apex float and bounce, wind-up telegraphs with feints, and the post chain (square-bokeh DoF, split-tone grade, ordered-dither retro finish).
-- Pilot portraits come from The Spriters Resource: Amuro Ray from *SD Gundam G Generation* (PlayStation, ripped by Arima), and Bright Noa, Hayato Kobayashi, Kai Shiden, Char, Denim and Gene from *SD Gundam G Generation Wars* (PlayStation 2). The Ball's squad leader uses the built-in pixel art. See `assets/portraits/README.md` to add more pilots.
-- The SD unit renders on the select cards and HUD come from the same *G Generation Wars* unit sheets; the Ball's is a render of the game's own voxel model (`assets/units/README.md`).
+- Pilot portraits come from The Spriters Resource: Amuro Ray from *SD Gundam G Generation* (PlayStation, ripped by Arima); Bright Noa, Hayato Kobayashi, Kai Shiden, Seabook Arno, Tobia Arronax, Char, Denim, Gene and the Ball squad leader (a generic Federation pilot) from *SD Gundam G Generation Wars* (PlayStation 2); and Riddhe Marcenas from *SD Gundam G Generation World* (PSP). See `assets/portraits/README.md` to add more pilots.
+- The SD unit renders on the select cards and HUD come from the *G Generation Wars* unit sheets, and the Delta Plus from *SD Gundam G Generation Genesis* (`assets/units/README.md`).
 
 ## Disclaimer
 

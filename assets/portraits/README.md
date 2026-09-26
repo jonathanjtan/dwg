@@ -1,8 +1,8 @@
 # Pilot portraits
 
 Drop portrait images here and list them in `manifest.json` to replace the built-in 16x16 pixel art. Names are
-`amuro`, `kai`, `ball` (the Ball squad leader), `hayato`, `char`, `denim`, `gene` and `bright`; any name left out keeps its
-pixel-art fallback.
+`amuro`, `kai`, `ball` (the Ball squad leader), `riddhe`, `seabook`, `tobia`, `hayato`, `char`, `denim`, `gene` and `bright`;
+any name left out keeps its pixel-art fallback.
 
 A single image:
 
@@ -37,3 +37,8 @@ cut-in, `hurt` when the Gundam takes a hit, and `blink` every few seconds.
 Current sheets, all ripped from SD Gundam G Generation (PS1) and G Generation Wars (PS2) on The Spriters Resource:
 `amuro` (G Generation), `bright`, `hayato`, `kai` and `char` (G Gen Wars cut-ins), and `denim` / `gene`, two
 generic Zeon pilots cut from the G Gen Wars *Mobile Suit Gundam* dialogue sheet (three 256 px cells, 4 px gaps; talk, idle, shout).
+
+Pilots added with the later suits are small strips (idle, talk, shout side by side, 4 px apart) cut from bigger sheets:
+`seabook` and `tobia` from their G Gen Wars cut-ins, `ball` from a generic white-suited Federation pilot on the G Gen
+Wars *Mobile Suit Gundam* dialogue sheet, and `riddhe` from the *Gundam Unicorn* dialogue sheet of *SD Gundam G
+Generation World* (PSP), since Wars predates Unicorn.
