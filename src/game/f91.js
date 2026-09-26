@@ -21,7 +21,7 @@ const VSBR_TILT = 1.5; // radians the VSBR swing through, racked to forward-firi
 
 export const F91_SUIT = {
   id: 'f91', pilot: 'seabook', def: f91Def, moves: MOVES, stance: STANCE,
-  hp: 980, run: 8.0, boostSpeed: 19.5, boostTime: 1.5, sprintSpeed: 15.5, defense: 1.12, power: 1.05,
+  hp: 1100, run: 8.0, boostSpeed: 19.5, boostTime: 1.5, sprintSpeed: 15.5, defense: 0.98, power: 1.12,
   nozzles: [[-0.22, 0.15, -0.5], [0.22, 0.15, -0.5]],
   debris: [0xf2f4f7, 0x3f6fc4, 0xd8342a], spAirY: 4.2, spAirReach: 6.5,
   impactColor: 0xfff2a0, ringColor: 0xfff6c8, domeColor: 0x9fd8ff,

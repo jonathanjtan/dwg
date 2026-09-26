@@ -383,7 +383,10 @@ export const MOVES = {
       k(0.6, { torso: [0.6, 0, 0], uArmR: [-0.6, 0, -0.2], fArmR: [-0.5, 0, 0], uArmL: [-0.6, 0, 0.2], fArmL: [-0.5, 0, 0], y: -0.5, ...LEGS_KNEEL }, 'in'),
       k(1.0, { torso: [0.4, -0.1, 0], y: -0.3, ...LEGS_WIDE }),
     ]),
-    hits: [{ t: 0.24, t1: 0.36, shape: 'circle', range: 6.2, dmg: 70, kb: 10, up: 10, big: true, sp: true }],
+    hits: [
+      { t: 0.24, t1: 0.34, shape: 'circle', range: 5.4, dmg: 55, kb: 3, up: 4, sp: true },
+      { t: 0.6, t1: 0.7, shape: 'circle', range: 6.4, dmg: 150, kb: 10, up: 10, big: true, sp: true },
+    ],
     ev: [[0.0, 'flash', 'mepe'], [0.28, 'burst']],
     sfxs: [[0.05, 'vsbr']],
   },
