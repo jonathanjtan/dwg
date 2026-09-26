@@ -1,15 +1,15 @@
 // Playable mobile suits: what the select screen shows (Reborn's spec sheet, loadout, a few moves) and the class that
 // pilots each one. Every player picks from this list, host and co-op guests alike, and two players may fly the same
 // suit. Entries marked `coop` are only offered to guests. To add a suit: a Hero subclass (see gundam.js) and an entry
-// here; co-op picks it up from the id.
-import { Gundam } from './gundam.js';
-import { Guncannon } from './guncannon.js';
-import { Ball } from './ball.js';
+// here (`cfg` is the suit's config, which the dev tools read its model and moves from); co-op picks it up from the id.
+import { Gundam, GUNDAM } from './gundam.js';
+import { Guncannon, GUNCANNON } from './guncannon.js';
+import { Ball, BALL } from './ball.js';
 import { Tank } from './tank.js';
 
 export const ROSTER = [
   {
-    id: 'gundam', cls: Gundam, pilot: 'amuro',
+    id: 'gundam', cls: Gundam, cfg: GUNDAM, pilot: 'amuro',
     unit: 'RX-78-2 GUNDAM', unitShort: 'GUNDAM', unitJp: 'ガンダム', pilotName: 'AMURO RAY', pilotJp: 'アムロ・レイ',
     stats: { MELEE: 600, SHOT: 600, DEFENSE: 485, ARMOR: 10000, MOBILITY: 800, THRUSTER: 1000 },
     equipment: ['Beam Saber', 'Beam Rifle', 'Beam Javelin', 'Hyper Bazooka', 'Gundam Hammer'],
@@ -40,7 +40,7 @@ export const ROSTER = [
     ],
   },
   {
-    id: 'guncannon', cls: Guncannon, pilot: 'kai',
+    id: 'guncannon', cls: Guncannon, cfg: GUNCANNON, pilot: 'kai',
     unit: 'RX-77-2 GUNCANNON', unitShort: 'GUNCANNON', unitJp: 'ガンキャノン', pilotName: 'KAI SHIDEN', pilotJp: 'カイ・シデン',
     stats: { MELEE: 600, SHOT: 600, DEFENSE: 567, ARMOR: 8429, MOBILITY: 667, THRUSTER: 790 },
     equipment: ['Beam Rifle', '240mm Cannons'],
@@ -70,7 +70,7 @@ export const ROSTER = [
     ],
   },
   {
-    id: 'ball', cls: Ball, pilot: 'ball',
+    id: 'ball', cls: Ball, cfg: BALL, pilot: 'ball',
     unit: 'RB-79 BALL', unitShort: 'BALL', unitJp: 'ボール', pilotName: 'BALL LEADER', pilotJp: 'ボール隊長',
     stats: { MELEE: 600, SHOT: 600, DEFENSE: 506, ARMOR: 9087, MOBILITY: 240, THRUSTER: 904 },
     equipment: ['180mm Recoilless Cannon', 'Manipulator Arms'],

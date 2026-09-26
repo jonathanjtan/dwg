@@ -12,16 +12,16 @@ to the new suit first: the Guncannon for a humanoid with guns and grabs, the Bal
 
 | Piece | Where |
 | --- | --- |
-| Voxel model `xxxDef()` (+ weapons) | `src/models/suits.js` |
+| Voxel model `xxxDef()` (+ weapons) | `src/models/<id>.js` for new suits (`import { pal } from './suits.js'` and build with `new VoxelModel(pal)`; the older suits live in `suits.js`) |
 | Moveset `XX_MOVES`, `XX_STANCE` | `src/game/xxx_moves.js` |
 | Suit class (extends `Hero`) + config object | `src/game/xxx.js` |
-| Roster entry (select card, spec sheet, combo guide) | `src/game/roster.js` |
+| Roster entry (select card, spec sheet, combo guide), with `cfg` (the suit config) | `src/game/roster.js` |
 | Sounds | `src/audio/sfx.js` (recipes), `src/audio/audio.js` (`REV` reverb send, `FALLBACK` live stand-in) |
 | Pilot portrait | `src/ui/portraits.js` `ART` (16x16) or `assets/portraits/manifest.json` sheet |
 | Unit render for cards / HUD | `assets/units/<id>.png` + `UNITS` in `src/ui/units.js` + `assets/units/README.md` |
 | Radio lines for the pilot | `LINES` in `src/game/stage.js` |
 | Title text, docs | `index.html` (meta description, mission-desc, combo-guide), `README.md` (intro, co-op list, suit section, how-it's-built, credits) |
-| Dev tools | `tools/poses.html` (`?suit=`), `tools/viewer.html` (`ALL` map) |
+| Dev tools | nothing to do: `tools/poses.html?suit=<id>` and `tools/viewer.html?only=<id>` read the model and moves from the roster's `cfg` |
 
 Co-op, the select screens, the HUD and the combo guide all key off the roster entry, so nothing else needs touching.
 
