@@ -691,6 +691,13 @@ function broll(s) {
   s.metal(0.05, s.r(200, 260), 0.25, 0.15, { n: 4, q: 14, dest: main });
 }
 
+// F91's twin VSBR: two beam-saber voices (see `blade` above) detuned against each other and stretched out into a
+// sustained whirlwind, the stereo image sweeping hard round the listener as the suit spins through its swing.
+function vsbr(s) {
+  blade({ dur: 0.85, base: 118, pan: [-0.85, 0.85, -0.85, 0.85], panAt: [0.28, 0.56, 0.84], heavy: 0.6, peak: 0.22, bright: 2100, tail: 750, airTop: 2700, body: 1.3 })(s, 0);
+  blade({ dur: 0.85, base: 168, pan: [0.85, -0.85, 0.85, -0.85], panAt: [0.28, 0.56, 0.84], heavy: 0.35, peak: 0.3, bright: 2400, tail: 820, airTop: 2900, body: 0.9 })(s, 1);
+}
+
 // ---------------------------------------------------------------- movement
 // Footfall: sub thump, a knock of steel on concrete, a clank from the leg, crumbling ground, hydraulics and a servo.
 function step(s, v) {
@@ -796,6 +803,7 @@ export const RECIPES = {
   clawhit_heavy: { n: 4, dur: 1.0, level: 0.95, build: clawHit(true) },
   bcannon: { n: 4, dur: 0.9, level: 1, build: ballCannon },
   broll: { n: 3, dur: 0.45, level: 0.7, build: broll },
+  vsbr: { n: 3, dur: 1.0, level: 0.85, build: vsbr },
 };
 
 const hashName = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };

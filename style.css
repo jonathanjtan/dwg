@@ -363,15 +363,19 @@ body.touch #bars { width: min(42vw, 360px); }
 .sd-moves { display: grid; grid-template-columns: auto 1fr; gap: 1px 12px; font-size: 14px; }
 .mv-k { font-weight: 700; color: var(--gold); white-space: nowrap; }
 .mv-v { color: var(--text); }
-.sel-buttons { margin-top: 12px; }
+/* the spec sheet can be taller than the window (a phone held sideways, a long roster), so SORTIE stays pinned to the
+   bottom of the scroll */
+.sel-buttons { position: sticky; bottom: 0; margin-top: 10px; padding: 10px 0 8px; background: #060b15; box-shadow: 0 -10px 14px 4px #060b15; }
+/* a bigger roster packs its cards tighter */
+#sel-cards:has(.sel-card:nth-child(5)) { gap: 8px; }
+#sel-cards:has(.sel-card:nth-child(5)) .sel-card { padding: 6px 10px; }
+#sel-cards:has(.sel-card:nth-child(5)) .sel-card img:not(.sc-suit) { width: 46px; height: 46px; }
 .sel-back { background: transparent; border: 1px solid var(--line); color: var(--muted); padding: 10px 20px; font-size: 15px; letter-spacing: 3px; }
 .sel-back:hover { color: #fff; border-color: var(--accent); }
 @media (max-width: 760px) {
   #select { padding: 0 16px; background: rgba(5,10,20,0.86); }
   .sd-moves { font-size: 13px; }
 }
-/* the spec sheet is taller than a phone held sideways, so keep SORTIE pinned to the bottom of the scroll */
-body.touch .sel-buttons { position: sticky; bottom: 0; margin-top: 10px; padding: 10px 0 8px; background: #060b15; box-shadow: 0 -10px 14px 4px #060b15; }
 @media (max-height: 720px) {
   .sd-role, .sd-unit { display: none; }
   .sel-card { padding: 6px 10px; }

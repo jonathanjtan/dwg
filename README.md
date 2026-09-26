@@ -1,6 +1,6 @@
 # Gundam Musou: Side 7
 
-A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. Pick Amuro's RX-78-2 Gundam, Kai's RX-77-2 Guncannon, an RB-79 Ball or Riddhe's MSN-001A1 Delta Plus and fight off a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
+A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. Pick Amuro's RX-78-2 Gundam, Kai's RX-77-2 Guncannon, an RB-79 Ball, Riddhe's MSN-001A1 Delta Plus or Seabook's Gundam F91 and fight off a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
 
 Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Models, animation, effects, audio and music are procedural and written from scratch. The only image assets are the pilot portrait sheets and the SD unit renders.
 
@@ -144,6 +144,22 @@ A Zeta-lineage transformable suit from a full generation after everything else o
 - During a boost dash: **J** a paired-cut rush (keep pressing J) that finishes by folding into waverider mode and ramming through with the rifle blazing, **K** a spin into a point-blank grenade blast
 
 SP attacks: a starburst, then a saber-and-rifle flurry under pulses of the Bio Sensor's light, and the suit folds into waverider mode and rams the length of the field through its target. Hold SP through the flurry for the charge SP: a longer transformation run that circles the battlefield before the final ram. In the air, it hovers and fans grenades out beneath it.
+
+### F91 Gundam F91 (Seabook Arno)
+
+A compact Formula-project Gundam from four decades later, fast and thinly armored (the game's spec sheet: melee 600, shot 600, defense 373, armor 8406, mobility 528, thruster 740). It carries a beam saber, a beam rifle and a beam launcher, and a pair of VSBRs on its back that swing forward under the arms. Its charge attacks and SPs flare with the teal-green afterimages of its M.E.P.E. burst.
+
+- **J × 6**: a beam saber string, ending in a thruster-hop spin that launches
+- **K**: the beam rifle. Mash it for a shot combo, or hold it for a charge shot
+- **J K**: a rising saber launcher, a spin and a stomp
+- **J J K**: a launcher, then a barrage of rifle shots into the target in the air
+- **J J J K**: the VSBRs swing forward and the suit spins in a whirlwind of twin beams
+- **J J J J K**: a dash-rush combo into a spinning slam
+- **J J J J J K**: a dash through the target and a saber stab into the ground that erupts in a shockwave
+- In the air: **J** an air slash, **K** a plunging stab
+- During a boost dash: **J** a dash rush (keep pressing J), **K** a spin into the beam launcher fired point-blank
+
+SP attacks: on the ground, a VSBR-and-saber flurry into a cross-slash. Hold SP through the starburst for the charge SP: a corkscrew VSBR drill straight up, then an M.E.P.E. afterimage burst on the way down. In the air, it hovers in a swirling vortex of afterimages that pulses the ground below.
 
 The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest. Keep holding boost after the dash runs out and the suit settles into a **boost sprint**, skating on its thrusters at about twice its running speed without using the gauge. It's the quick way from one field to the next, and attacks come out of it as dash attacks.
 
