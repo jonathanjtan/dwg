@@ -21,6 +21,7 @@ const KEYMAP = {
   pause: ['Escape', 'KeyP'],
   mute: ['KeyM'],
   help: ['KeyH'],
+  guide: ['KeyC'],
 };
 
 export class Input {
@@ -108,6 +109,7 @@ export class Input {
       pause: this.hit('pause'),
       mute: this.hit('mute'),
       help: this.hit('help'),
+      guide: this.hit('guide'),
       recenter: this.hit('recenter'),
       lock: this.hit('lock') || this.pressed.has('Mouse1'),
       attackHeld: this.key('attack') || this.down.has('Mouse0'),

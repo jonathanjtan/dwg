@@ -201,6 +201,7 @@ class Game {
       const m = this.audio.toggleMute();
       $('mute-btn').textContent = m ? 'SOUND: OFF' : 'SOUND: ON';
     });
+    $('guide-btn').addEventListener('click', () => this.hud.toggleGuide());
     for (const id of ['fs-btn', 'fs-btn-pause']) $(id).addEventListener('click', () => toggleFullscreen());
     this.setupFullscreenUI();
     // title theme starts on the first gesture (browsers block audio before one)
@@ -803,6 +804,7 @@ class Game {
       document.getElementById('mute-btn').textContent = m ? 'SOUND: OFF' : 'SOUND: ON';
     }
     if (act.help) this.hud.toggleKeys();
+    if (act.guide) this.hud.toggleGuide();
     if (act.recenter) this.camera.recenter(this.local.heading);
     if (act.lock && this.mode === 'play') this.toggleLock();
     this.updateLock();

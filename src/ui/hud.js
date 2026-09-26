@@ -2,8 +2,17 @@ import * as THREE from 'three';
 import { ROADS } from '../world/world.js';
 import { portrait, loadPortraits, hasSheet, renderingFor, holdsTalk } from './portraits.js';
 import { unitImg, unitSprite } from './units.js';
+import { suitInfo } from '../game/roster.js';
+import { isTouch } from '../core/touch.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Combo guide inputs (see roster.js) as keyboard keys, or the on-screen button names on a touch screen.
+const GUIDE_KEYS = { J: 'J', K: 'K', B: 'Shift', U: 'Space', S: 'I' };
+const GUIDE_TOUCH = { J: 'ATK', K: 'CHG', B: 'BOOST', U: 'JUMP', S: 'SP' };
+// Which guide row a running move belongs to.
+const guideRow = (name) => (/^N\d/.test(name) ? 'N' : name === 'C1R' || name === 'CS' ? 'C1' : name === 'DAF' ? 'DA'
+  : name.startsWith('SPA_') ? 'SPA' : name.startsWith('SP') ? 'SP' : name);
 
 export class HUD {
   constructor(game) {
@@ -20,8 +29,13 @@ export class HUD {
       hpRed: $('hp-red'), boostBar: $('boost-bar'), boostFill: $('boost-fill'), speedlines: $('speedlines'),
       letterbox: $('letterbox'), namecard: $('namecard'), ncJp: $('nc-jp'), ncEn: $('nc-en'), ncUnit: $('nc-unit'),
       marker: $('objmarker'), omLabel: $('om-label'), omDist: $('om-dist'),
-      lock: $('lockon'), lockName: document.querySelector('#lockon .lk-name'),
+      lock: $('lockon'), lockName: document.querySelector('#lockon .lk-name'), guide: $('guide'), guideBtn: $('guide-btn'),
     };
+    try { this.guideOn = localStorage.getItem('gmusou.guide') !== '0'; } catch (e) { this.guideOn = true; }
+    this.guideFor = null;
+    this.guideRows = new Map();
+    this.guideState = '';
+    this.el.guideBtn.textContent = `COMBO GUIDE: ${this.guideOn ? 'ON' : 'OFF'}`;
     this.pilot = 'amuro';
     this.el.portrait.src = portrait('amuro');
     this.el.cutinPortrait.src = portrait('amuro', null);
@@ -93,6 +107,65 @@ export class HUD {
 
   toggleKeys() {
     this.el.keys.classList.toggle('hidden');
+  }
+
+  // ---------- combo guide ----------
+  toggleGuide() {
+    this.guideOn = !this.guideOn;
+    try { localStorage.setItem('gmusou.guide', this.guideOn ? '1' : '0'); } catch (e) { /* private mode */ }
+    this.el.guideBtn.textContent = `COMBO GUIDE: ${this.guideOn ? 'ON' : 'OFF'}`;
+  }
+
+  buildGuide(info) {
+    const names = isTouch() ? GUIDE_TOUCH : GUIDE_KEYS;
+    const el = this.el.guide;
+    el.innerHTML = '<div class="gd-head">COMBOS · C</div>';
+    this.guideRows.clear();
+    for (const [keys, text, id] of info.guide) {
+      const row = document.createElement('div');
+      row.className = 'gd-row';
+      const k = document.createElement('div');
+      k.className = 'gd-k';
+      for (const t of keys.split(' ')) {
+        const b = document.createElement('b');
+        b.textContent = names[t] || t;
+        k.appendChild(b);
+      }
+      const v = document.createElement('div');
+      v.className = 'gd-v';
+      v.textContent = text;
+      row.append(k, v);
+      el.appendChild(row);
+      this.guideRows.set(id, row);
+    }
+    this.guideFor = info.id;
+    this.guideState = '';
+  }
+
+  // Light the move in progress and the charge attack K would start right now; the saber string counts its hits.
+  updateGuide(h) {
+    const info = h.moves && h.suit ? suitInfo(h.suit.id) : null;
+    const show = this.guideOn && !!info?.guide;
+    this.el.guide.classList.toggle('hidden', !show);
+    if (!show) return;
+    if (this.guideFor !== info.id) this.buildGuide(info);
+    const busy = h.state === 'attack' || h.state === 'musou';
+    const on = busy && h.moveName ? guideRow(h.moveName) : '';
+    let next = '';
+    if (h.state === 'attack') next = h.move?.charge ? guideRow(h.move.charge) : '';
+    else if (h.state === 'move') next = 'C1';
+    else if (h.state === 'air') next = 'JC';
+    else if (h.state === 'dodge' || h.state === 'boost' || h.state === 'sprint') next = 'DC';
+    const hits = on === 'N' ? +h.moveName.slice(1) : 0;
+    const state = `${on}|${next}|${hits}`;
+    if (state === this.guideState) return;
+    this.guideState = state;
+    for (const [id, row] of this.guideRows) {
+      row.classList.toggle('on', id === on);
+      row.classList.toggle('next', id === next && id !== on);
+    }
+    const chips = this.guideRows.get('N')?.firstChild.children || [];
+    for (let i = 0; i < chips.length; i++) chips[i].classList.toggle('done', i < hits);
   }
 
   setObjective(text) {
@@ -169,6 +242,7 @@ export class HUD {
   update(dt) {
     const g = this.game;
     const h = g.local;
+    this.updateGuide(h);
     // HP / SP
     const hpPct = Math.max(0, h.hp / h.maxHp);
     const redPct = Math.min(1, (h.hp + (h.hpRed || 0)) / h.maxHp);
