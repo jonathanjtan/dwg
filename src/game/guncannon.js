@@ -278,7 +278,7 @@ export class Guncannon extends Hero {
     if (shot.kind === 'rifle') {
       let aim = this.heading;
       const tgt = this.aimAt(aim, 34, 0.6);
-      if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
+      if (tgt) this.faceShot(aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
       const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
       const from = this.muzzle(new THREE.Vector3(), 'rifle');
       g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
@@ -324,11 +324,11 @@ export class Guncannon extends Hero {
       return;
     }
     // 'cannon' / 'heavy': a 240mm shell with a smoke trail
-    const from = this.report(side, shot.kind === 'heavy').clone();
     const o = shot.kind === 'heavy' ? HEAVY_SHELL : SHELL;
     let aim = this.heading;
     const tgt = this.aimAt(aim, shot.dn ? 22 : 36, 0.6);
-    if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
+    if (tgt) this.faceShot(aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
+    const from = this.report(side, shot.kind === 'heavy').clone();
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     if (shot.dn) {
       const tx = tgt ? tgt.x : this.pos.x + dir.x * 7, tz = tgt ? tgt.z : this.pos.z + dir.z * 7;
@@ -341,8 +341,8 @@ export class Guncannon extends Hero {
     }
     g.projectiles.shell(this, from, dir, o);
     if (!shot.dn) {
-      this.vel.x -= fx * (o === HEAVY_SHELL ? 6 : 4);
-      this.vel.z -= fz * (o === HEAVY_SHELL ? 6 : 4);
+      this.vel.x -= Math.sin(aim) * (o === HEAVY_SHELL ? 6 : 4);
+      this.vel.z -= Math.cos(aim) * (o === HEAVY_SHELL ? 6 : 4);
     }
   }
 

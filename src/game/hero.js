@@ -212,6 +212,13 @@ export class Hero {
     return this.game.combat.acquire(this.pos, want, range, cone);
   }
 
+  // Turn the suit square onto a shot's aim so the gun points where the round goes; call before reading the muzzle.
+  faceShot(yaw) {
+    this.heading = yaw;
+    this.rig.root.rotation.y = yaw;
+    this.rig.root.updateMatrixWorld(true);
+  }
+
   startMove(name, dir) {
     const m = this.moves[name];
     this.snapshotPose();

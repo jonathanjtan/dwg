@@ -659,3 +659,113 @@ export function guntankDef() {
     },
   };
 }
+
+// ---------------- RB-79 Ball ----------------
+// A space pod with arms: a white sphere with an orange-ringed green viewport, a grab rail across the brow, the 180mm
+// recoilless cannon on a turret on top (the head node, so poses aim it: head pitch 0 points it straight up, ~1.4
+// levels it forward), two thin manipulator arms with claws low on the sides, four stub landing legs and a pair of
+// thrusters at the back. The torso pivot is the sphere's centre, so torso rotations tumble the whole pod in place.
+const BL = {
+  W: 0xdadee4, W2: 0xb4bbc5, W3: 0x9098a4, O: 0xc4602a, O2: 0x8e3f1c, G: 0x4ff0c0,
+  K: 0x5a616d, K2: 0x3c424c, K3: 0x24282f,
+};
+
+function ballBody() {
+  const m = M();
+  m.ellipsoid(0, 0, 0, 7.5, 7.5, 7.5, BL.W);
+  // seams: the equator and a ring round the top hatch
+  for (const v of m.map.values()) {
+    if (v.y === -1) v.id = m.c(BL.W2);
+    else if (v.y === 5 && Math.hypot(v.x + 0.5, v.z + 0.5) > 4.4) v.id = m.c(BL.W2);
+  }
+  // viewport: an orange ring round green glass, a little below the middle of the face
+  for (let x = -5; x <= 4; x++) {
+    for (let y = -6; y <= 3; y++) {
+      const d = Math.hypot(x + 0.5, y + 1.5);
+      if (d > 4.6) continue;
+      for (let z = 7; z >= 0; z--) {
+        if (!m.has(x, y, z)) continue;
+        m.set(x, y, z, d < 2.9 ? BL.G : BL.O, d < 2.9 ? { glow: 0.9, jitter: 0.02 } : undefined);
+        if (d >= 2.9 && d < 3.6) m.set(x, y, z + 1, BL.O2); // the ring stands proud of the hull
+        break;
+      }
+    }
+  }
+  // grab rail across the brow, on two posts
+  m.box(-5, 4, 6, 4, 4, 6, BL.K);
+  m.box(-5, 3, 5, -5, 3, 6, BL.K2);
+  m.box(4, 3, 5, 4, 3, 6, BL.K2);
+  // arm sockets low on each side, a sensor lamp on the right
+  m.box(-9, -3, 0, -8, 0, 3, BL.W3);
+  m.box(7, -3, 0, 8, 0, 3, BL.W3);
+  m.set(-8, 2, 3, 0xffd070, { glow: 1.6, jitter: 0 });
+  // back: two thruster bells and a hatch
+  for (const x0 of [-4, 2]) {
+    m.box(x0, -5, -8, x0 + 1, -3, -8, BL.K2);
+    m.box(x0, -5, -9, x0 + 1, -4, -9, BL.K3);
+  }
+  m.box(-2, 0, -8, 1, 3, -8, BL.W2);
+  // four stub landing legs with pads
+  for (const [sx, sz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+    const x = sx < 0 ? -5 : 4, z = sz < 0 ? -5 : 4;
+    m.box(x, -9, z, x, -6, z, BL.K);
+    m.box(x + (sx < 0 ? -1 : 0), -10, z + (sz < 0 ? -1 : 0), x + (sx < 0 ? 0 : 1), -10, z + (sz < 0 ? 0 : 1), BL.K2);
+  }
+  return m;
+}
+
+// The 180mm cannon, barrel up from its turret (pivot at the turret's base).
+function ballCannon() {
+  const m = M();
+  m.box(-2, 0, -2, 1, 1, 1, BL.K); // turret ring
+  m.box(-2, 2, -2, 1, 4, 0, BL.W2); // breech housing
+  m.box(-1, 2, 1, 0, 3, 1, BL.K2);
+  m.box(-1, 5, -1, 0, 16, 0, BL.K); // barrel
+  m.box(-1, 10, -1, 0, 10, 0, BL.K2);
+  m.box(-2, 16, -2, 1, 17, 1, BL.K2); // muzzle brake
+  m.box(-1, 17, -1, 0, 17, 0, BL.K3);
+  m.box(-1, 1, -3, 0, 3, -3, BL.K3); // recoilless vent
+  return m;
+}
+
+function ballUpperArm() {
+  const m = M();
+  m.box(-1, -1, -1, 0, 0, 0, BL.K); // shoulder
+  m.box(-1, -5, -1, 0, -2, 0, BL.W3);
+  return m;
+}
+function ballForeArm() {
+  const m = M();
+  m.box(-1, -1, -1, 0, 0, 0, BL.K2); // elbow
+  m.box(-1, -4, -1, 0, -2, 0, BL.W3);
+  return m;
+}
+// Two-pronged claw, open toward the front.
+function ballClaw() {
+  const m = M();
+  m.box(-1, -1, -1, 0, 0, 0, BL.K);
+  m.box(-1, -3, 0, -1, -2, 1, BL.K2);
+  m.box(0, -3, -1, 0, -2, 0, BL.K2);
+  m.set(-1, -4, 1, BL.K3);
+  m.set(0, -4, -1, BL.K3);
+  return m;
+}
+
+export function ballDef() {
+  const uR = ballUpperArm(), fR = ballForeArm(), claw = ballClaw();
+  return {
+    scale: 0.1,
+    hipHeight: 10.5,
+    parts: {
+      hips: { parent: null, pivot: [0, 0, 0], model: null },
+      torso: { parent: 'hips', pivot: [0, 0, 0], model: ballBody() },
+      head: { parent: 'torso', pivot: [0, 7, -1], model: ballCannon() },
+      uArmR: { parent: 'torso', pivot: [-8.5, -1.5, 1.5], model: uR },
+      fArmR: { parent: 'uArmR', pivot: [0, -5, 0], model: fR },
+      hand: { parent: 'fArmR', pivot: [0, -4.5, 0], model: claw },
+      uArmL: { parent: 'torso', pivot: [8.5, -1.5, 1.5], model: uR.clone().flipX() },
+      fArmL: { parent: 'uArmL', pivot: [0, -5, 0], model: fR.clone().flipX() },
+      handL: { parent: 'fArmL', pivot: [0, -4.5, 0], model: claw.clone().flipX() },
+    },
+  };
+}

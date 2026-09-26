@@ -169,7 +169,9 @@ export class Gundam extends Hero {
     let aim = ang;
     const tgt = this.aimAt(ang, heavy ? 24 : 34, shot.ang !== undefined ? 0.2 : 0.6);
     if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
-    this.rig.root.updateMatrixWorld(true);
+    // a straight shot turns the suit onto its target; spread shots keep the volley's facing
+    if (tgt && shot.ang === undefined) this.faceShot(aim);
+    else this.rig.root.updateMatrixWorld(true);
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     const from = this.muzzle(new THREE.Vector3());
     if (shot.kind === 'blast') {
