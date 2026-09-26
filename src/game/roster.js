@@ -7,6 +7,7 @@ import { Guncannon, GUNCANNON } from './guncannon.js';
 import { Ball, BALL } from './ball.js';
 import { DeltaPlus, DELTAPLUS } from './deltaplus.js';
 import { F91, F91_SUIT } from './f91.js';
+import { X1Kai, X1KAI } from './x1kai.js';
 import { Tank } from './tank.js';
 
 export const ROSTER = [
@@ -159,6 +160,36 @@ export const ROSTER = [
       ['U K', 'Plunging stab', 'JC'],
       ['S', 'VSBR flurry and cross-slash · hold: corkscrew drill', 'SP'],
       ['U S', 'Hover in an M.E.P.E. afterimage vortex', 'SPA'],
+    ],
+  },
+  {
+    id: 'x1kai', cls: X1Kai, cfg: X1KAI, pilot: 'tobia',
+    unit: 'XM-X1 CROSSBONE GUNDAM X1 KAI', unitShort: 'X1 KAI', unitJp: 'クロスボーン・ガンダムX1改', pilotName: 'TOBIA ARRONAX', pilotJp: 'トビア・アロナクス',
+    stats: { MELEE: 600, SHOT: 600, DEFENSE: 150, ARMOR: 10000, MOBILITY: 800, THRUSTER: 1000 },
+    equipment: ['Beam Saber & Beam Zanber', 'Buster Gun', 'Brand Marker', 'Screw Whip', 'Heat Dagger'],
+    role: 'Space-pirate ace. Twin beam blades and a screw whip that hauls enemies into range, but thin armor that cannot take a real beating.',
+    moves: [
+      ['J ×6', 'Zanber string, ending in a dual-blade launching cross'],
+      ['K', 'Buster gun: mash it, or hold for a five-beam spread'],
+      ['J K', 'Rising launcher into a heat-dagger slam'],
+      ['J J K', 'Beam shield parry spin'],
+      ['J J J K', 'Screw whip: lash out and haul the target in'],
+      ['SP (hold)', 'Dual-blade flurry · hold: screw whip vortex'],
+    ],
+    guide: [
+      ['J J J J J J', 'Zanber string, dual-blade launching cross', 'N'],
+      ['K', 'Buster gun · mash, or hold for a five-beam spread', 'C1'],
+      ['J K', 'Launcher into a heat-dagger slam', 'C2'],
+      ['J J K', 'Beam shield parry spin', 'C3'],
+      ['J J J K', 'Screw whip: lash and haul in', 'C4'],
+      ['J J J J K', 'Launch and chase with a spinning flurry', 'C5'],
+      ['J J J J J K', 'Screw whip vortex, dash through', 'C6'],
+      ['B J', 'Dash rush · keep pressing J', 'DA'],
+      ['B K', 'Shield bash into a point-blank blast', 'DC'],
+      ['U J', 'Air zanber cut', 'JA'],
+      ['U K', 'Heat-dagger plunge', 'JC'],
+      ['S', 'Dual-blade flurry and cross-slash · hold: screw whip vortex', 'SP'],
+      ['U S', 'Heat-dagger meteor dive', 'SPA'],
     ],
   },
   {

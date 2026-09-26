@@ -1,6 +1,6 @@
 # Gundam Musou: Side 7
 
-A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. Pick Amuro's RX-78-2 Gundam, Kai's RX-77-2 Guncannon, an RB-79 Ball, Riddhe's MSN-001A1 Delta Plus or Seabook's Gundam F91 and fight off a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
+A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. Pick Amuro's RX-78-2 Gundam, Kai's RX-77-2 Guncannon, an RB-79 Ball, Riddhe's MSN-001A1 Delta Plus, Seabook's Gundam F91 or Tobia's Crossbone Gundam X1 Kai and fight off a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
 
 Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Models, animation, effects, audio and music are procedural and written from scratch. The only image assets are the pilot portrait sheets and the SD unit renders.
 
@@ -160,6 +160,22 @@ A compact Formula-project Gundam from four decades later, fast and thinly armore
 - During a boost dash: **J** a dash rush (keep pressing J), **K** a spin into the beam launcher fired point-blank
 
 SP attacks: on the ground, a VSBR-and-saber flurry into a cross-slash. Hold SP through the starburst for the charge SP: a corkscrew VSBR drill straight up, then an M.E.P.E. afterimage burst on the way down. In the air, it hovers in a swirling vortex of afterimages that pulses the ground below.
+
+### XM-X1 Crossbone Gundam X1 Kai (Tobia Arronax)
+
+The Crossbone Vanguard's space-pirate Gundam, fifty-four years out of its time. It is as fast and hits as hard as the RX-78, but its armor is far thinner (the game's spec sheet: melee 600, shot 600, defense 150, armor 10000, mobility 800, thruster 1000). It carries a beam zanber and a second saber, a buster gun, a beam shield, a screw whip that lashes out and hauls its catch back in, and heat daggers in its feet. The X-shaped thrusters on its back each have their own exhaust.
+
+- **J × 6**: a zanber string ending in a dual-blade cross-slash that launches everything around the suit
+- **K**: the buster gun. Mash it for a shot combo, or hold it for a five-beam spread
+- **J K**: a rising launcher into a heat-dagger slam and its shockwave
+- **J J K**: the beam shield snapped up and spun in a parrying blur that bursts outward
+- **J J J K**: the screw whip lashes out and hauls its catch back into a short flurry
+- **J J J J K**: launch the target and chase it up with a spinning flurry
+- **J J J J J K**: the screw whip spun out into a widening vortex that pulls everything in, then a dash-through finish
+- In the air: **J** an air cut, **K** a heat-dagger plunge
+- During a boost dash: **J** a rush of zanber cuts (keep pressing J), **K** a shield bash into a point-blank buster blast
+
+SP attacks: on the ground, a dual-blade flurry that hauls stragglers in and a dashing cross-slash. Hold SP through the starburst for the charge SP: the screw whip spins out into a long, widening vortex. In the air, a thruster climb into a heat-dagger meteor dive.
 
 The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest. Keep holding boost after the dash runs out and the suit settles into a **boost sprint**, skating on its thrusters at about twice its running speed without using the gauge. It's the quick way from one field to the next, and attacks come out of it as dash attacks.
 

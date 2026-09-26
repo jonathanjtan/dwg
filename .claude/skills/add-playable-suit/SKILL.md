@@ -205,6 +205,30 @@ recipe's `REV` send and a `FALLBACK` in audio.js. Keep takes short, and put weig
   `game.renderer.setAnimationLoop(null)` and loops of `tick()` with `await` gaps so BroadcastChannel messages flow.
   Guest input is `game.input.pressed/down`.
 
+## 8b. Building several suits in parallel
+
+This has worked: one agent per suit, each in its own git worktree on its own branch, with a dev server per worktree
+(`tools/serve.py <port> <worktree>` from a launch.json entry). Each agent gets a self-contained brief: the video, the
+suit and pilot ids, its paths, port and receiver port, the shared-file rules, the done bar and the report format. The
+lead then merges the branches one at a time.
+
+- **Shared files:** tell each agent to touch shared files only by appending entries at fixed anchors. Roster entries go
+  before the Guntank's, radio `LINES` before `hayato:`, `ART` before `bright:`, sounds above the movement section, and
+  recipes, `REV` and `FALLBACK` at their ends. Keep README, index.html and tools/ for the lead.
+- **Merging:** git splices two suits' entries together around their shared lines (`  {`, `  },`), and a naive "keep
+  both" gives broken entries. Rebuild each conflicted file from main's version, and insert the branch's whole block,
+  cut with a regex from `git show suit/<id>:<file>`, at the same anchor. Check afterwards that every entry is whole and
+  in order. Take main's side for one-line lists like `UNITS`.
+- **After a merge:** rerun movetest on main for the new suit and for the ones merged before it, and check the select
+  screen still fits. With six suits, SORTIE had to be pinned to the bottom of the scroll.
+- **Co-op without a second tab:** each frame, feed `game.hero.netState()` (round-tripped through JSON) into a second
+  instance's `applyNet()` while the suit runs combos and SPs. Any exception is a replication bug.
+- **The shared browser pane:** agents fight over the one browser pane, so every call needs a tabId, and each agent
+  should front its own tab right before a screenshot. When the pane is hidden the canvas has zero size: set a size
+  with `resize_window` (e.g. 1100x620) and reload, then reset it to `desktop` afterwards.
+- **Budget:** a Sonnet agent spends about 400-450k tokens per suit. Agents stopped by a usage limit keep what they
+  committed, and SendMessage resumes them once the limit resets.
+
 ## 9. Balance
 
 Suits don't need to be even (the user's words): some can be weak, some overpowered. What matters is that no suit is

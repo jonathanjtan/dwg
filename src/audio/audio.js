@@ -13,6 +13,7 @@ const REV = {
   cannon: 0.35, cboom: 0.4, phit: 0.08, phit_heavy: 0.25, kick: 0.08, throw: 0.1, uppercut: 0.12, grab: 0.1,
   bcannon: 0.3, clawhit: 0.08, clawhit_heavy: 0.25, broll: 0.1,
   vsbr: 0.3,
+  whip: 0.15,
 };
 // live-synth stand-ins used until the rendered bank is ready
 const FALLBACK = {
@@ -24,6 +25,7 @@ const FALLBACK = {
   grab: 'clang', cannon: 'boom', cboom: 'boom', punch_fast: 'swing',
   claw: 'swing', spin_ball: 'swing', bflail: 'swing', clawhit: 'hit', clawhit_heavy: 'hit', bcannon: 'boom', broll: 'slam',
   vsbr: 'swing',
+  whip: 'clang',
 };
 
 export class Audio {
