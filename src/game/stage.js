@@ -42,10 +42,10 @@ const PLAZA_KOS = 50;
 // Officer loadouts, shared with co-op guests (who rebuild commander puppets by name).
 export function officerCfg(which) {
   const cfgs = {
-    denim: { name: 'denim', kind: 'officer', title: 'DENIM · ZAKU II', jp: 'デニム', def: commanderDef, colors: CMD_COLORS, hp: 1100, speed: 6.2, dmg: 44, strafe: 1 },
-    gene: { name: 'gene', kind: 'officer', title: 'GENE · ZAKU II', jp: 'ジーン', def: commanderDef, colors: CMD_COLORS, hp: 1250, speed: 6.8, dmg: 48, strafe: -1 },
-    char: { name: 'char', kind: 'char', title: 'CHAR AZNABLE · ZAKU II S', jp: 'シャア・アズナブル', def: charDef, colors: CHAR_COLORS, hp: 3000, speed: 11, dmg: 46, trail: 0xff4a3a, strafe: 1 },
-    captain: { name: 'captain', kind: 'captain', title: 'SQUAD LEADER', jp: '小隊長', def: captainDef, colors: CAPT_COLORS, hp: 420, speed: 5.4, dmg: 30, strafe: 1, leash: 30 },
+    denim: { name: 'denim', kind: 'officer', title: 'DENIM · ZAKU II', jp: 'デニム', unit: 'zaku2c', def: commanderDef, colors: CMD_COLORS, hp: 1100, speed: 6.2, dmg: 44, strafe: 1 },
+    gene: { name: 'gene', kind: 'officer', title: 'GENE · ZAKU II', jp: 'ジーン', unit: 'zaku2', def: commanderDef, colors: CMD_COLORS, hp: 1250, speed: 6.8, dmg: 48, strafe: -1 },
+    char: { name: 'char', kind: 'char', title: 'CHAR AZNABLE · ZAKU II S', jp: 'シャア・アズナブル', unit: 'zaku2s', def: charDef, colors: CHAR_COLORS, hp: 3000, speed: 11, dmg: 46, trail: 0xff4a3a, strafe: 1 },
+    captain: { name: 'captain', kind: 'captain', title: 'SQUAD LEADER', jp: '小隊長', unit: 'zaku2', def: captainDef, colors: CAPT_COLORS, hp: 420, speed: 5.4, dmg: 30, strafe: 1, leash: 30 },
   };
   const c = cfgs[which];
   return { ...c, def: c.def() };

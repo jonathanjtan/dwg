@@ -49,7 +49,7 @@
     <div id="combo" class="hidden"><span id="combo-count">0</span><span class="combo-label">HITS</span></div>
 
     <div id="player">
-      <div id="portrait-frame"><img id="portrait" alt=""></div>
+      <div class="pf-wrap"><div id="portrait-frame"><img id="portrait" alt=""></div><img id="player-unit" alt=""></div>
       <div id="bars">
         <div class="pilot"><span class="pilot-jp" id="pilot-jp">アムロ・レイ</span><span class="pilot-en" id="pilot-en">AMURO RAY · RX-78-2</span></div>
         <div class="bar hp"><div id="hp-lag"></div><div id="hp-red"></div><div id="hp-fill"></div><span id="hp-text">1200</span></div>
@@ -57,7 +57,7 @@
         <div class="bar boost" id="boost-bar"><div id="boost-fill"></div><span class="boost-label">BOOST</span></div>
       </div>
     </div>
-    <div id="ally" class="hidden"><span id="ally-name">GUNTANK · HAYATO</span><div class="ally-bar"><div id="ally-fill"></div></div><span id="ally-state"></span></div>
+    <div id="ally" class="hidden"><img id="ally-unit" alt=""><span id="ally-name">GUNTANK · HAYATO</span><div class="ally-bar"><div id="ally-fill"></div></div><span id="ally-state"></span></div>
 
     <div id="dialogue" class="hidden">
       <img id="dlg-portrait" alt="">
@@ -139,7 +139,7 @@
   <div id="lobby" class="screen hidden">
     <div class="panel wide">
       <div class="panel-title">CO-OP</div>
-      <img id="lobby-portrait" alt="">
+      <div class="lobby-art"><img id="lobby-portrait" alt=""><img id="lobby-unit" src="assets/units/guntank.png" alt=""></div>
       <div class="lobby-unit">RX-75 GUNTANK · HAYATO KOBAYASHI</div>
       <div id="lobby-status">Connecting…</div>
       <div class="controls lobby-controls">

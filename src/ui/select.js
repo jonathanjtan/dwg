@@ -1,8 +1,9 @@
-// Mobile suit select: a card per suit (pilot portrait, unit, pilot), and for the highlighted one Reborn's spec sheet,
+// Mobile suit select: a card per suit (pilot portrait, unit, pilot, SD unit render), and for the highlighted one Reborn's spec sheet,
 // its loadout and a few moves. The suit itself stands in the 3D scene behind the panel.
 import { ROSTER } from '../game/roster.js';
 import { portrait, renderingFor } from './portraits.js';
 import { isTouch } from '../core/touch.js';
+import { unitImg } from './units.js';
 
 const $ = (id) => document.getElementById(id);
 const STAT_MAX = { ARMOR: 10000 };
@@ -20,7 +21,7 @@ export class SuitSelect {
     this.cardEls = ROSTER.map((s, i) => {
       const b = document.createElement('button');
       b.className = 'sel-card';
-      b.innerHTML = `<img alt=""><span class="sc-text"><span class="sc-jp">${s.unitJp}</span><span class="sc-unit">${s.unit}</span><span class="sc-pilot">${s.pilotJp} · ${s.pilotName}</span></span>`;
+      b.innerHTML = `<img alt=""><span class="sc-text"><span class="sc-jp">${s.unitJp}</span><span class="sc-unit">${s.unit}</span><span class="sc-pilot">${s.pilotJp} · ${s.pilotName}</span></span>${unitImg(s.id, 'sc-suit')}`;
       b.addEventListener('click', () => (this.idx === i ? this.confirm() : this.pick(i)));
       b.addEventListener('mouseenter', () => this.pick(i));
       this.cards.appendChild(b);
@@ -48,7 +49,7 @@ export class SuitSelect {
   // Portrait sheets load asynchronously; re-read them whenever the screen opens.
   refreshPortraits() {
     ROSTER.forEach((s, i) => {
-      const img = this.cardEls[i].querySelector('img');
+      const img = this.cardEls[i].querySelector('img:not(.sc-suit)');
       img.src = portrait(s.pilot, '#0b1424', 'idle');
       img.style.imageRendering = renderingFor(s.pilot);
     });
@@ -67,7 +68,7 @@ export class SuitSelect {
     }).join('');
     const moves = s.moves.map(([k, v]) => `<div class="mv-k">${comboKeys(k)}</div><div class="mv-v">${v}</div>`).join('');
     this.detail.innerHTML = `
-      <div class="sd-role">${s.role}</div>
+      <div class="sd-head"><div class="sd-role">${s.role}</div>${unitImg(s.id, 'sd-unit')}</div>
       <div class="sd-stats">${bars}</div>
       <div class="sd-equip">${s.equipment.map((e) => `<span>${e}</span>`).join('')}</div>
       <div class="sd-moves">${moves}</div>`;

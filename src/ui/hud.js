@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ROADS } from '../world/world.js';
 import { portrait, loadPortraits, hasSheet, renderingFor, holdsTalk } from './portraits.js';
+import { unitImg, unitSprite } from './units.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -13,8 +14,8 @@ export class HUD {
       comboCount: $('combo-count'), map: $('minimap'), announce: $('announce'), dialogue: $('dialogue'),
       dlgPortrait: $('dlg-portrait'), dlgName: $('dlg-name'), dlgText: $('dlg-text'), bossBars: $('boss-bars'),
       tags: $('tags'), vignette: $('vignette'), flash: $('flash'), cutin: $('cutin'), cutinPortrait: $('cutin-portrait'),
-      toasts: $('toasts'), objective: $('objective'), keys: $('keys'), portrait: $('portrait'),
-      ally: $('ally'), allyName: $('ally-name'), allyFill: $('ally-fill'), allyState: $('ally-state'),
+      toasts: $('toasts'), objective: $('objective'), keys: $('keys'), portrait: $('portrait'), playerUnit: $('player-unit'),
+      ally: $('ally'), allyUnit: $('ally-unit'), allyName: $('ally-name'), allyFill: $('ally-fill'), allyState: $('ally-state'),
       pilotJp: $('pilot-jp'), pilotEn: $('pilot-en'),
       hpRed: $('hp-red'), boostBar: $('boost-bar'), boostFill: $('boost-fill'), speedlines: $('speedlines'),
       letterbox: $('letterbox'), namecard: $('namecard'), ncJp: $('nc-jp'), ncEn: $('nc-en'), ncUnit: $('nc-unit'),
@@ -79,6 +80,7 @@ export class HUD {
     };
     this.el.pilotJp.textContent = labels[name][0];
     this.el.pilotEn.textContent = labels[name][1];
+    this.el.playerUnit.src = unitSprite({ amuro: 'gundam', kai: 'guncannon', hayato: 'guntank' }[name]);
     this.faceExpr = '';
     this.el.portrait.style.imageRendering = renderingFor(name);
     this.el.cutinPortrait.src = portrait(name, null, 'shout');
@@ -240,6 +242,8 @@ export class HUD {
     if (!coop) return;
     const a = g.local === g.hero ? g.tank : g.hero;
     this.el.allyName.textContent = a === g.tank ? 'GUNTANK · HAYATO' : a.suit.id === 'guncannon' ? 'GUNCANNON · KAI' : 'GUNDAM · AMURO';
+    const unit = unitSprite(a === g.tank ? 'guntank' : a.suit.id);
+    if (this.el.allyUnit.getAttribute('src') !== unit) this.el.allyUnit.src = unit;
     this.el.allyFill.style.width = Math.max(0, a.hp / a.maxHp) * 100 + '%';
     this.el.allyState.textContent = a.state === 'dead' ? `REDEPLOY ${Math.max(0, Math.ceil(a.respawnT || 0))}` : '';
   }
@@ -305,7 +309,7 @@ export class HUD {
       if (!e && show) {
         const root = document.createElement('div');
         root.className = 'boss' + (c.kind === 'char' ? ' char' : '');
-        root.innerHTML = `<div class="bname"><span>${c.cfg.title}</span><span class="jp">${c.cfg.jp}</span></div><div class="bbar"><div class="blag"></div><div class="bfill"></div></div>`;
+        root.innerHTML = `${unitImg(c.cfg.unit, 'bunit')}<div class="bbody"><div class="bname"><span>${c.cfg.title}</span><span class="jp">${c.cfg.jp}</span></div><div class="bbar"><div class="blag"></div><div class="bfill"></div></div></div>`;
         this.el.bossBars.appendChild(root);
         e = { root, fill: root.querySelector('.bfill'), lag: root.querySelector('.blag') };
         this.bossEls.set(c, e);
