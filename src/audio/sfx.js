@@ -691,6 +691,18 @@ function broll(s) {
   s.metal(0.05, s.r(200, 260), 0.25, 0.15, { n: 4, q: 14, dest: main });
 }
 
+// ---------------------------------------------------------------- X1 Kai
+// The screw whip: a wire-guided claw. A snapping crack as the wire pulls taut, a short downward whoosh as it flies,
+// a metallic ring off the claw's prongs, and the wire zinging as it hauls its catch back in.
+function whip(s) {
+  const main = s.bus({ pan: s.r(-0.3, 0.3) });
+  s.click(0, 0.85, main);
+  s.noise(0, 0.05, 0.9, { type: 'highpass', f0: 3500, dest: main });
+  s.tone('sine', 240, 90, 0.005, 0.09, 0.5, { dest: main });
+  s.metal(0.05, s.r(900, 1300), 0.35, 0.6, { n: 5, q: 30, dest: main });
+  s.noise(0.05, 0.28, 0.32, { type: 'bandpass', f0: 2200, f1: 1300, q: 1, dest: main });
+}
+
 // ---------------------------------------------------------------- movement
 // Footfall: sub thump, a knock of steel on concrete, a clank from the leg, crumbling ground, hydraulics and a servo.
 function step(s, v) {
@@ -796,6 +808,7 @@ export const RECIPES = {
   clawhit_heavy: { n: 4, dur: 1.0, level: 0.95, build: clawHit(true) },
   bcannon: { n: 4, dur: 0.9, level: 1, build: ballCannon },
   broll: { n: 3, dur: 0.45, level: 0.7, build: broll },
+  whip: { n: 4, dur: 0.5, level: 0.75, build: whip },
 };
 
 const hashName = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
