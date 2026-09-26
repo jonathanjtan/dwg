@@ -103,7 +103,7 @@ export class Crowd {
     return this.list.length;
   }
 
-  // squad: { x, z, engaged, n, base?, post? } — garrisons hold their post around (x, z) until a pilot comes near.
+  // squad: { x, z, engaged, n, base?, post?, rally? } — garrisons hold their post around (x, z) until a pilot comes near.
   spawn(x, z, { gun = false, drop = false, yaw = 0, hp = 50, squad = null } = {}) {
     const g = this.pool.pop();
     if (!g) return null;
@@ -608,7 +608,7 @@ export class Crowd {
   // Garrison squads whose pilots have all wandered off return to their posts.
   leash(squads, players) {
     for (const sq of squads) {
-      if (!sq.engaged) continue;
+      if (!sq.engaged || sq.rally) continue;
       let near = Infinity;
       for (const p of players) if (p.alive) near = Math.min(near, Math.hypot(p.pos.x - sq.x, p.pos.z - sq.z));
       if (near > LEASH) sq.engaged = false;

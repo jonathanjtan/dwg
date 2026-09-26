@@ -189,8 +189,25 @@ export class Stage {
     const cfg = { ...officerCfg(which), x, z, drop: true, yaw: Math.atan2(hero.x - x, hero.z - z) };
     if (at) cfg.home = { x, z };
     const c = g.commanders.add(cfg);
-    if (which !== 'captain') g.showcase(c);
+    if (which !== 'captain') {
+      g.showcase(c);
+      this.rally(which === 'char' ? 14 : 20);
+    }
     return c;
+  }
+
+  // A named officer has arrived: the nearest squads leave their posts to back him up, until about `want`
+  // soldiers are in the fight. Rallied squads keep fighting wherever the pilots go.
+  rally(want) {
+    let n = 0;
+    for (const sq of this.squads) if (sq.engaged && this.nearestPilot(sq.x, sq.z) < 60) n += sq.n;
+    const idle = this.squads.filter((sq) => !sq.engaged && !sq.base && sq.n > 0 && this.nearestPilot(sq.x, sq.z) < 130);
+    idle.sort((a, b) => this.nearestPilot(a.x, a.z) - this.nearestPilot(b.x, b.z));
+    for (const sq of idle) {
+      if (n >= want) break;
+      sq.engaged = sq.rally = true;
+      n += sq.n;
+    }
   }
 
   onHeroLanded() {
