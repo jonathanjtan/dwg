@@ -167,7 +167,7 @@ export class Gundam extends Hero {
     const heavy = shot.kind === 'bazooka' || shot.kind === 'blast';
     // aim each shot at the nearest enemy in its lane if any
     let aim = ang;
-    const tgt = this.aimAt(ang, heavy ? 24 : 34, shot.ang !== undefined ? 0.2 : 0.35);
+    const tgt = this.aimAt(ang, heavy ? 24 : 34, shot.ang !== undefined ? 0.2 : 0.6);
     if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
     this.rig.root.updateMatrixWorld(true);
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));

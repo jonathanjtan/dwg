@@ -277,7 +277,7 @@ export class Guncannon extends Hero {
     this.rig.root.updateMatrixWorld(true);
     if (shot.kind === 'rifle') {
       let aim = this.heading;
-      const tgt = this.aimAt(aim, 34, 0.35);
+      const tgt = this.aimAt(aim, 34, 0.6);
       if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
       const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
       const from = this.muzzle(new THREE.Vector3(), 'rifle');
@@ -327,7 +327,7 @@ export class Guncannon extends Hero {
     const from = this.report(side, shot.kind === 'heavy').clone();
     const o = shot.kind === 'heavy' ? HEAVY_SHELL : SHELL;
     let aim = this.heading;
-    const tgt = this.aimAt(aim, shot.dn ? 22 : 36, 0.4);
+    const tgt = this.aimAt(aim, shot.dn ? 22 : 36, 0.6);
     if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     if (shot.dn) {

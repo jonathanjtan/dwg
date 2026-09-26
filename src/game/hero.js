@@ -205,10 +205,14 @@ export class Hero {
     const m = this.moves[name];
     this.snapshotPose();
     this.blendDur = m.rush || m.loop ? 0.05 : 0.08;
-    // aim: input direction, then soft lock to the nearest enemy in that cone (or the locked-on commander)
+    // aim: input direction, then soft lock to the nearest enemy in that cone (or the locked-on commander).
+    // Shots and SP attacks turn to find a target anywhere around the suit unless the stick points somewhere;
+    // the aerial SP tracks its own targets while it hovers.
     let want = dir ? Math.atan2(dir.x, dir.z) : this.heading;
-    if (!m.sp) {
-      const tgt = this.aimAt(want, m.rifle || m.shots ? 26 : 9, dir ? 1.0 : 1.4);
+    if (!(m.sp && m.isAir)) {
+      const wide = m.sp || m.rifle || m.shots;
+      const range = m.sp ? 22 : m.rifle || m.shots ? 34 : 9;
+      const tgt = this.aimAt(want, range, wide ? (dir ? 1.3 : Math.PI) : dir ? 1.0 : 1.4);
       if (tgt) want = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
     }
     this.heading = want;
