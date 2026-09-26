@@ -1,4 +1,4 @@
-// Original score in the style of late-70s anime orchestral funk, synthesized live with WebAudio: a brass section
+// Score in the style of late-70s anime orchestral funk, synthesized live with WebAudio: a brass section
 // (trumpets on the tune, horns under them, short chord stabs), a string section, a plucked funk bass, glockenspiel,
 // timpani and a dry march-funk kit, glued by a bus compressor and a shared hall reverb.
 // Songs are sections of bars; each part is a line of [note, length in 16ths] per bar (a note name like 'Bb4', a chord
@@ -23,6 +23,12 @@ const DRUMS = {
   fill: { k: [0], s: [8, 10, 12, 13, 14, 15], t: [0, 2, 4, 6] },
   roll: { r: all16 },
   hits: { k: [0, 6], s: [6] },
+  four: { k: [0, 4, 8, 12], s: [4, 12], h: [0, 4, 8, 12], o: [2, 6, 10, 14] },
+  half16: { k: [0, 10], s: [8], g: [14], h: all16 },
+  synco: { k: [0, 2, 6, 8, 11], s: [4, 12], g: [14], h: [0, 2, 4, 6, 8, 10, 12, 14] },
+  stop: { k: [0, 8], h: [1, 2, 3, 4] },
+  brk: { k: [0], s: [6, 13], h: [0] },
+  brk2: { s: [2], h: [0, 1] },
 };
 
 // ---------------------------------------------------------------- songs
@@ -30,136 +36,97 @@ const rep = (bar, n) => Array.from({ length: n }, () => bar);
 const eighths = (lo, hi) => rep([[lo, 2], [hi, 2]], 4).flat();
 const Dm = ['D4', 'F4', 'A4'], Bb = ['D4', 'F4', 'Bb4'], Cmaj = ['E4', 'G4', 'C5'], Gm = ['D4', 'G4', 'Bb4'];
 const A7 = ['C#4', 'E4', 'G4', 'A4'], Amaj = ['C#4', 'E4', 'A4'], Fmaj = ['F4', 'A4', 'C5'], Eb = ['Eb4', 'G4', 'Bb4'];
-const funk = (r1, r2, f5, o7) => [[r1, 2], [r2, 1], [r1, 1], ['-', 2], [r1, 2], [f5, 2], [r2, 2], [o7, 2], [f5, 2]];
-const offbeats = (ch) => [['-', 2], [ch, 2], ['-', 2], [ch, 2], ['-', 2], [ch, 2], ['-', 2], [ch, 2]];
-const run = (names) => names.map((n) => [n, 1]);
 
-// "Side 7 Sortie" (D minor, 150 bpm): fanfare intro, a trumpet tune over a march groove, strings take a turn over brass
-// stabs, the full section on the chorus, a half-time bridge for the horns.
+// Battle theme (A minor, 140 bpm), transcribed from a reference track onto this band. A bright A major stab intro, then
+// a two-bar riff (Am | Dm C F/A) chugged by the brass stabs over a pumping A pedal and a four-on-the-floor kick; the
+// trumpet adds syncopated A pings and a chromatic climb; a hard stop, then the whole riff a half step up in Bb minor over
+// a syncopated groove, and a two-bar break back into the riff.
+const transpose = (bars, k) => bars.map((bar) => bar && bar.map(([n, d]) => [n === '-' ? n : Array.isArray(n) ? n.map((x) => shift(x, k)) : shift(n, k), d]));
+const AM = ['A3', 'C#4', 'E4'], A5 = ['A3', 'E4', 'A4'];
+const Am = ['A3', 'C4', 'E4'], DmA = ['A3', 'D4', 'F4'], Cg = ['G3', 'C4', 'E4'], FA = ['C4', 'F4', 'A4'];
+const chug = (c) => [[c, 2], ['-', 1], [c, 1], [c, 2], ['-', 1], [c, 1], [c, 2], ['-', 1], [c, 1], [c, 2], ['-', 1], [c, 1]];
+const RIFF = {
+  stab: [chug(Am), [[Am, 2], ['-', 1], [Am, 1], [DmA, 2], ['-', 1], [DmA, 1], [DmA, 2], [Cg, 1], [Cg, 1], [Cg, 2], [FA, 2]]],
+  strings: [[[Am, 16]], [[Am, 4], [DmA, 6], [Cg, 4], [FA, 2]]],
+  horn: [[['E4', 16]], [['E4', 4], ['F4', 6], ['G4', 4], ['A4', 2]]],
+};
+const pump = (lo, hi) => rep([[hi, 1], [lo, 3]], 4).flat();
+const PING = [['-', 2], ['A5', 3], ['-', 2], ['A5', 5], ['-', 2], ['A5', 2]];
+const LINE = [['-', 4], ['F5', 6], ['G5', 4], ['A5', 2]];
+const bbBass = [['Bb1', 2], ['Bb2', 2], ['Bb1', 2], ['F2', 2], ['Bb1', 2], ['Bb2', 2], ['Bb1', 2], ['Bb2', 2]];
 const BATTLE = {
-  bpm: 150,
+  bpm: 140,
   sections: {
     intro: {
-      drums: ['hits', 'hits', 'roll', 'fill'], crash: [0, 3],
-      trumpet: [
-        [['D5', 2], ['D5', 1], ['D5', 1], ['F5', 2], ['A5', 6], ['G5', 2], ['F5', 2]],
-        [['E5', 4], ['D5', 2], ['C#5', 2], ['D5', 8]],
-        [['-', 16]],
-        [['-', 8], ['A4', 2], ['C#5', 2], ['E5', 2], ['G5', 2]],
-      ],
-      horn: [
-        [['A4', 2], ['A4', 1], ['A4', 1], ['D5', 2], ['F5', 6], ['E5', 2], ['D5', 2]],
-        [['C#5', 4], ['A4', 2], ['A4', 2], ['A4', 8]],
-        [['-', 16]],
-        [['-', 8], ['E4', 2], ['A4', 2], ['C#5', 2], ['E5', 2]],
-      ],
-      strings: [
-        [[['D3', 'A3', 'D4'], 16]],
-        [[['E3', 'A3', 'C#4'], 8], [['F3', 'A3', 'D4'], 8]],
-        run(['D4', 'E4', 'F4', 'G4', 'A4', 'Bb4', 'C#5', 'D5', 'E5', 'F5', 'G5', 'A5', 'Bb5', 'C#6', 'D6', 'E6']),
-        [[['E4', 'G4', 'C#5', 'A5'], 16]],
-      ],
-      bass: [
-        [['D2', 2], ['-', 4], ['D2', 2], ['D2', 2], ['-', 6]],
-        [['A1', 4], ['A1', 2], ['A1', 2], ['D2', 8]],
-        [['D2', 16]],
-        [['A1', 2], ['-', 6], ['A1', 2], ['C#2', 2], ['E2', 2], ['G2', 2]],
-      ],
-      timp: [[['D2', 4], ['-', 12]], [['A1', 4], ['-', 4], ['D2', 8]], rep(['A1', 1], 16), [['A1', 8], ['-', 8]]],
+      drums: ['four', 'four', 'four', 'fill'], crash: [0],
+      stab: [...rep(rep([[AM, 2], ['-', 2]], 4).flat(), 2), ...rep(rep([[A5, 2], ['-', 2]], 4).flat(), 2)],
+      strings: [[[AM, 16]], [[AM, 16]], [[A5, 16]], [[A5, 16]]],
+      horn: [...rep([['C#5', 2], ['A4', 2], ['C#5', 2], ['A4', 1], ['C#5', 9]], 2), null, null],
+      bass: rep(pump('A1', 'A2'), 4),
+      timp: [[['A1', 4], ['-', 12]], null, [['A1', 4], ['-', 12]], rep(['A1', 1], 16)],
     },
     A: {
-      drums: ['march', 'march', 'march', 'march', 'march', 'march', 'march', 'fill'], crash: [0, 4],
-      trumpet: [
-        [['A4', 4], ['D5', 4], ['C5', 2], ['D5', 2], ['F5', 4]],
-        [['E5', 6], ['D5', 2], ['C5', 4], ['A4', 4]],
-        [['Bb4', 4], ['D5', 4], ['F5', 4], ['D5', 4]],
-        [['E5', 8], ['C5', 4], ['G5', 4]],
-        [['A5', 6], ['G5', 2], ['F5', 4], ['D5', 4]],
-        [['G5', 4], ['F5', 2], ['D5', 2], ['Bb4', 8]],
-        [['C#5', 4], ['E5', 4], ['G5', 4], ['A5', 4]],
-        [['C#6', 8], ['A5', 4], ['E5', 4]],
-      ],
-      horn: [
-        [['F4', 16]], [['G4', 8], ['F4', 8]], [['F4', 16]], [['G4', 16]],
-        [['F4', 16]], [['D4', 8], ['G4', 8]], [['E4', 16]], [['E4', 8], ['G4', 8]],
-      ],
-      strings: [[[Dm, 16]], [[Dm, 16]], [[Bb, 16]], [[Cmaj, 16]], [[Dm, 16]], [[Gm, 16]], [[Amaj, 16]], [[A7, 16]]],
-      bass: [
-        funk('D2', 'D3', 'A2', 'C3'), funk('D2', 'D3', 'A2', 'C3'), funk('Bb1', 'Bb2', 'F2', 'A2'), funk('C2', 'C3', 'G2', 'Bb2'),
-        funk('D2', 'D3', 'A2', 'C3'), funk('G1', 'G2', 'D2', 'F2'), funk('A1', 'A2', 'E2', 'G2'),
-        [['A1', 2], ['A2', 2], ['A1', 2], ['C#2', 2], ['E2', 2], ['G2', 2], ['A2', 2], ['C#3', 2]],
-      ],
-      glock: [null, null, null, null,
-        [['A6', 6], ['G6', 2], ['F6', 4], ['D6', 4]], [['G6', 4], ['F6', 2], ['D6', 2], ['Bb5', 8]],
-        [['C#6', 4], ['E6', 4], ['G6', 4], ['A6', 4]], [['C#7', 8], ['A6', 4], ['E6', 4]]],
+      drums: ['four', 'four', 'four', 'four'], crash: [0],
+      ...Object.fromEntries(Object.entries(RIFF).map(([k, v]) => [k, rep(v, 2).flat()])),
+      bass: rep(pump('A1', 'A2'), 4),
+    },
+    L: {
+      drums: ['drive', 'drive', 'half16', 'half16', 'half16', 'half16'], crash: [0, 4],
+      ...Object.fromEntries(Object.entries(RIFF).map(([k, v]) => [k, rep(v, 3).flat()])),
+      bass: rep(pump('A1', 'A2'), 6),
+      trumpet: [PING, LINE, PING, LINE,
+        [['-', 2], ['A5', 3], ['-', 4], ['E5', 1], ['F5', 1], ['F#5', 1], ['G5', 1], ['G#5', 1], ['A5', 2]], LINE],
+      glock: [transpose([PING], 12)[0], null, transpose([PING], 12)[0], null, null, null],
+    },
+    // Bar 1 is the riff's first bar with a fill; bar 2 is two hits and silence.
+    S: {
+      drums: ['fill', 'stop'],
+      stab: [chug(Am), [[Am, 2], ['-', 6], [A5, 2], ['-', 6]]],
+      strings: [[[Am, 16]], null],
+      horn: [[['E4', 16]], null],
+      bass: [pump('A1', 'A2'), [['A1', 2], ['-', 6], ['A1', 2], ['-', 6]]],
     },
     B: {
-      drums: ['drive', 'drive', 'drive', 'drive', 'drive', 'drive', 'drive', 'fill'], crash: [0],
-      strings: [
-        [['D5', 8], ['C5', 4], ['Bb4', 4]],
-        [['C5', 8], ['Bb4', 4], ['A4', 4]],
-        [['A4', 4], ['C5', 4], ['F5', 8]],
-        [['F5', 6], ['E5', 2], ['D5', 8]],
-        [['E5', 4], ['D5', 4], ['C5', 4], ['Bb4', 4]],
-        [['A4', 8], ['C#5', 8]],
-        [['D5', 4], ['A4', 4], ['F4', 4], ['D4', 4]],
-        [['E4', 8], ['C#4', 8]],
-      ],
-      stab: [
-        offbeats(['G4', 'Bb4', 'D5']), offbeats(['G4', 'C5', 'E5']), offbeats(['F4', 'A4', 'C5']), offbeats(['F4', 'Bb4', 'D5']),
-        offbeats(['E4', 'G4', 'Bb4']), offbeats(['E4', 'G4', 'C#5']), offbeats(['F4', 'A4', 'D5']), offbeats(['E4', 'A4', 'C#5']),
-      ],
-      horn: [[['D4', 16]], [['E4', 16]], [['F4', 16]], [['F4', 16]], [['E4', 16]], [['E4', 16]], [['D4', 16]], [['C#4', 16]]],
-      bass: [
-        [['G1', 2], ['D2', 2], ['G2', 2], ['D2', 2], ['G1', 2], ['D2', 2], ['G2', 2], ['A2', 2]],
-        [['C2', 2], ['G2', 2], ['C3', 2], ['G2', 2], ['C2', 2], ['G2', 2], ['C3', 2], ['E2', 2]],
-        [['F1', 2], ['C2', 2], ['F2', 2], ['C2', 2], ['F1', 2], ['C2', 2], ['F2', 2], ['A1', 2]],
-        [['Bb1', 2], ['F2', 2], ['Bb2', 2], ['F2', 2], ['Bb1', 2], ['F2', 2], ['Bb2', 2], ['D2', 2]],
-        [['E2', 2], ['Bb2', 2], ['E2', 2], ['Bb2', 2], ['E2', 2], ['G2', 2], ['Bb2', 2], ['G2', 2]],
-        [['A1', 2], ['E2', 2], ['A2', 2], ['E2', 2], ['A1', 2], ['C#2', 2], ['E2', 2], ['G2', 2]],
-        [['D2', 2], ['A2', 2], ['D3', 2], ['A2', 2], ['D2', 2], ['A2', 2], ['D3', 2], ['C3', 2]],
-        [['A1', 2], ['A2', 2], ['A1', 2], ['A2', 2], ['A1', 2], ['C#2', 2], ['E2', 2], ['G#2', 2]],
-      ],
+      drums: ['synco', 'synco', 'synco', 'synco', 'synco', 'synco', 'synco', 'fill'], crash: [0, 4],
+      ...Object.fromEntries(Object.entries(RIFF).map(([k, v]) => [k, transpose(rep(v, 4).flat(), 1)])),
+      bass: rep(bbBass, 8),
+      trumpet: [null, transpose([LINE], 1)[0], null, transpose([LINE], 1)[0],
+        [['-', 5], ['Bb5', 11]], [['Bb5', 12], ['Ab5', 2], ['Bb5', 2]], null, transpose([LINE], 1)[0]],
     },
-    C: {
-      drums: ['march', 'march', 'march', 'march', 'march', 'march', 'march', 'fill'], crash: [0, 2, 4, 6],
-      trumpet: [
-        [['D5', 3], ['D5', 1], ['F5', 4], ['A5', 8]],
-        [['Bb5', 6], ['A5', 2], ['F5', 4], ['D5', 4]],
-        [['F5', 4], ['E5', 4], ['F5', 4], ['A5', 4]],
-        [['G5', 8], ['E5', 4], ['C5', 4]],
-        [['D5', 4], ['G5', 4], ['Bb5', 4], ['G5', 4]],
-        [['A5', 6], ['F5', 2], ['D5', 8]],
-        [['Eb5', 4], ['G5', 4], ['Bb5', 4], ['C6', 4]],
-        [['C#6', 8], ['A5', 4], ['C#5', 4]],
-      ],
-      strings: [
-        [[['D4', 'A4'], 16]], [[['D4', 'F4'], 8], [['F4', 'Bb4'], 8]], [[Fmaj, 16]], [[Cmaj, 16]],
-        [[Gm, 16]], [[Dm, 16]], [[Eb, 16]], [[['E4', 'A4', 'C#5'], 16]],
-      ],
-      bass: [eighths('D2', 'D3'), eighths('Bb1', 'Bb2'), eighths('F1', 'F2'), eighths('C2', 'C3'), eighths('G1', 'G2'), eighths('D2', 'D3'), eighths('Eb2', 'Eb3'), eighths('A1', 'A2')],
-      timp: [[['D2', 4], ['-', 12]], null, null, null, [['G1', 4], ['-', 12]], null, null, [['A1', 2], ['A1', 2], ['A1', 2], ['A1', 2], ['A1', 8]]],
-    },
-    bridge: {
-      drums: ['half', 'half', 'half', 'half', 'half', 'half', 'half', 'roll'], crash: [0, 4],
-      horn: [
-        [['D4', 8], ['F4', 8]], [['Bb4', 12], ['A4', 4]], [['G4', 8], ['Bb4', 8]], [['D5', 16]],
-        [['C5', 8], ['Bb4', 8]], [['G4', 12], ['F4', 4]], [['E4', 8], ['G4', 8]], [['A4', 8], ['C#5', 8]],
-      ],
-      strings: [
-        [[Bb, 16]], [[Bb, 16]], [[Gm, 16]], [[Gm, 16]], [[Eb, 16]], [[Eb, 16]], [[Amaj, 16]],
-        run(['A3', 'B3', 'C#4', 'D4', 'E4', 'F4', 'G#4', 'A4', 'B4', 'C#5', 'D5', 'E5', 'F5', 'G#5', 'A5', 'C#6']),
-      ],
-      bass: [
-        [['Bb1', 8], ['F2', 8]], [['Bb1', 8], ['D2', 8]], [['G1', 8], ['D2', 8]], [['G1', 8], ['Bb1', 8]],
-        [['Eb2', 8], ['Bb2', 8]], [['Eb2', 8], ['G2', 8]], [['A1', 8], ['E2', 8]], rep(['A1', 4], 4),
-      ],
-      timp: [[['Bb1', 4], ['-', 12]], null, [['G1', 4], ['-', 12]], null, [['Eb2', 4], ['-', 12]], null, [['A1', 4], ['-', 12]], rep(['A1', 1], 16)],
+    brk: {
+      drums: ['brk', 'brk2'], crash: [0],
+      timp: [null, rep(['A1', 1], 16)],
     },
   },
-  order: ['intro', 'A', 'B', 'C', 'A', 'B', 'C', 'bridge', 'C'],
+  order: ['intro', 'A', 'L', 'S', 'B', 'brk'],
   loopTo: 1,
 };
+
+// The old battle tune's chorus and verse, kept for the title piece.
+const CHORUS = [
+  [['D5', 3], ['D5', 1], ['F5', 4], ['A5', 8]],
+  [['Bb5', 6], ['A5', 2], ['F5', 4], ['D5', 4]],
+  [['F5', 4], ['E5', 4], ['F5', 4], ['A5', 4]],
+  [['G5', 8], ['E5', 4], ['C5', 4]],
+  [['D5', 4], ['G5', 4], ['Bb5', 4], ['G5', 4]],
+  [['A5', 6], ['F5', 2], ['D5', 8]],
+  [['Eb5', 4], ['G5', 4], ['Bb5', 4], ['C6', 4]],
+  [['C#6', 8], ['A5', 4], ['C#5', 4]],
+];
+const CHORUS_CHORDS = [
+  [[['D4', 'A4'], 16]], [[['D4', 'F4'], 8], [['F4', 'Bb4'], 8]], [[Fmaj, 16]], [[Cmaj, 16]],
+  [[Gm, 16]], [[Dm, 16]], [[Eb, 16]], [[['E4', 'A4', 'C#5'], 16]],
+];
+const VERSE = [
+  [['D5', 8], ['C5', 4], ['Bb4', 4]],
+  [['C5', 8], ['Bb4', 4], ['A4', 4]],
+  [['A4', 4], ['C5', 4], ['F5', 8]],
+  [['F5', 6], ['E5', 2], ['D5', 8]],
+  [['E5', 4], ['D5', 4], ['C5', 4], ['Bb4', 4]],
+  [['A4', 8], ['C#5', 8]],
+  [['D5', 4], ['A4', 4], ['F4', 4], ['D4', 4]],
+  [['E4', 8], ['C#4', 8]],
+];
 
 // "Red Comet" (E minor, 168 bpm): chromatic brass hits over a driving pedal bass, then a soaring chorus.
 const Em = ['E4', 'G4', 'B4'], Fm = ['F4', 'A4', 'C5'], Gmaj = ['G4', 'B4', 'D5'];
@@ -219,21 +186,21 @@ const BOSS = {
 };
 BOSS.sections.B.horn = BOSS.sections.B.trumpet.map((bar) => bar.map(([n, d]) => [n === '-' ? n : shift(n, -12), d]));
 
-// Title: the battle chorus as a slow, warm horn piece over strings, with glockenspiel (no drums).
+// Title: the old battle chorus as a slow, warm horn piece over strings, with glockenspiel (no drums).
 const TITLE = {
   bpm: 84,
   soft: true,
   sections: {
     a: {
-      horn: BATTLE.sections.C.trumpet.map((bar) => bar.map(([n, d]) => [n === '-' ? n : shift(n, -12), d])),
-      strings: BATTLE.sections.C.strings,
+      horn: CHORUS.map((bar) => bar.map(([n, d]) => [n === '-' ? n : shift(n, -12), d])),
+      strings: CHORUS_CHORDS,
       bass: [[['D3', 16]], [['Bb2', 16]], [['F2', 16]], [['C3', 16]], [['G2', 16]], [['D3', 16]], [['Eb3', 16]], [['A2', 16]]],
       glock: [null, null, null, [['G5', 4], ['E5', 4], ['C5', 8]], null, null, null, [['C#6', 4], ['A5', 4], ['E5', 8]]],
     },
     b: {
       strings: [[[Gm, 16]], [[Cmaj, 16]], [[Fmaj, 16]], [[Bb, 16]], [[['E4', 'G4', 'Bb4'], 16]], [[A7, 16]], [[Dm, 16]], [[Amaj, 16]]],
       bass: [[['G2', 16]], [['C3', 16]], [['F2', 16]], [['Bb2', 16]], [['E2', 16]], [['A2', 16]], [['D3', 16]], [['A2', 16]]],
-      glock: BATTLE.sections.B.strings.map((bar) => bar.map(([n, d]) => [n === '-' ? n : shift(n, 12), d])),
+      glock: VERSE.map((bar) => bar.map(([n, d]) => [n === '-' ? n : shift(n, 12), d])),
     },
   },
   order: ['b', 'a'],
