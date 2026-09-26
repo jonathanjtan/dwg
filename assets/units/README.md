@@ -7,6 +7,7 @@ suit, trimmed to its bounds, scaled to 256 px on the long side and brightened (t
 | --- | --- | --- |
 | `gundam.png` | RX-78-2 Gundam | Amuro |
 | `guncannon.png` | RX-77-2 Guncannon | Kai |
+| `ball.png` | RB-79 Ball | the Ball squad leader (a render of the game's own voxel model, not a G Gen sprite) |
 | `guntank.png` | RX-75 Guntank | Hayato (co-op) |
 | `zaku2.png` | MS-06F Zaku II | Gene, squad leaders |
 | `zaku2c.png` | MS-06F Zaku II Commander Type | Denim |

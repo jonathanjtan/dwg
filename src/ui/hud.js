@@ -195,7 +195,7 @@ export class HUD {
     setTimeout(() => d.remove(), 1400);
   }
 
-  // speaker: amuro | kai | hayato | char | denim | gene | bright
+  // speaker: amuro | kai | ball | hayato | char | denim | gene | bright
   say(speaker, name, text, dur = 3.2) {
     this.dlgQueue.push({ speaker, name, text, dur });
   }

@@ -11,6 +11,7 @@ const REV = {
   qb: 0.2, slash_h: 0.12, slash_down: 0.15, bazooka: 0.25, bzboom: 0.4, shock: 0.35, lightning: 0.45, burst: 0.35,
   flash: 0.15, javelin: 0.15, spcharge: 0.2, hammer: 0.1,
   cannon: 0.35, cboom: 0.4, phit: 0.08, phit_heavy: 0.25, kick: 0.08, throw: 0.1, uppercut: 0.12, grab: 0.1,
+  bcannon: 0.3, clawhit: 0.08, clawhit_heavy: 0.25, broll: 0.1,
 };
 // live-synth stand-ins used until the rendered bank is ready
 const FALLBACK = {
@@ -20,6 +21,7 @@ const FALLBACK = {
   flash: 'charge', spcharge: 'charge', burst: 'sp', draw: 'clang', bhit: 'hit',
   punch: 'swing', kick: 'swing', spin_gc: 'swing', uppercut: 'swing', throw: 'swing', phit: 'hit', phit_heavy: 'hit',
   grab: 'clang', cannon: 'boom', cboom: 'boom', punch_fast: 'swing',
+  claw: 'swing', spin_ball: 'swing', bflail: 'swing', clawhit: 'hit', clawhit_heavy: 'hit', bcannon: 'boom', broll: 'slam',
 };
 
 export class Audio {

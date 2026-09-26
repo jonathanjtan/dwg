@@ -4,19 +4,20 @@
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 </head><body><div id="lbl"></div>
 <script type="module">
-// Dev-only filmstrip of a move: ?move=C2&n=8[&suit=guncannon][&view=side|back|top|front][&t=0.1,0.2][&gap=9]. Poses the suit at n
-// evenly spaced move times (with root motion, weapon in hand, blade length, cannon aim) and outlines the hits active at
-// each sample in red.
+// Dev-only filmstrip of a move: ?move=C2&n=8[&suit=guncannon|ball][&view=side|back|top|front][&t=0.1,0.2][&gap=9]. Poses the
+// suit at n evenly spaced move times (with root motion, weapon in hand, blade length, cannon aim) and outlines the hits
+// active at each sample in red.
 import * as THREE from 'three';
 import { RigObject } from '../src/core/rig.js';
 import { voxelMesh } from '../src/core/voxel.js';
-import { gundamDef, gundamWeapons, guncannonDef, guncannonWeapons } from '../src/models/suits.js';
+import { gundamDef, gundamWeapons, guncannonDef, guncannonWeapons, ballDef } from '../src/models/suits.js';
 import { MOVES, BLADE } from '../src/game/moves.js';
 import { GC_MOVES } from '../src/game/guncannon_moves.js';
+import { BALL_MOVES } from '../src/game/ball_moves.js';
 const q = new URLSearchParams(location.search);
-const gc = q.get('suit') === 'guncannon';
-const name = q.get('move') || 'N1', m = (gc ? GC_MOVES : MOVES)[name];
-const def = gc ? guncannonDef() : gundamDef();
+const gc = q.get('suit') === 'guncannon', ball = q.get('suit') === 'ball';
+const name = q.get('move') || 'N1', m = (gc ? GC_MOVES : ball ? BALL_MOVES : MOVES)[name];
+const def = gc ? guncannonDef() : ball ? ballDef() : gundamDef();
 const n = +(q.get('n') || 8), view = q.get('view') || 'side';
 const ts = q.get('t') ? q.get('t').split(',').map(Number) : Array.from({ length: n }, (_, i) => (m.dur * i) / (n - 1));
 const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); document.body.appendChild(r.domElement);
@@ -41,8 +42,9 @@ ts.forEach((t, i) => {
   const fwd = m.lunge ? curve(m.lunge, t) : 0;
   rig.root.position.set(0, m.air ? curve(m.air, t) : 0, fwd);
   holder.add(rig.root);
-  const hand = rig.nodes.hand, w = gc ? 'rifle' : weaponAt(t);
-  if (gc) hand.add(voxelMesh(W.rifle, { scale: 0.1 }));
+  const hand = rig.nodes.hand, w = gc ? 'rifle' : ball ? null : weaponAt(t);
+  if (ball) rig.nodes.hips.position.y += 0.32; // the Ball's hover (Ball.carryPose)
+  else if (gc) hand.add(voxelMesh(W.rifle, { scale: 0.1 }));
   else if (w === 'saber') {
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.17, 1).translate(0, 0, 0.5), new THREE.MeshBasicMaterial({ color: 0xff5fc8 }));
     blade.position.z = 0.3; blade.scale.z = BLADE; hand.add(blade);

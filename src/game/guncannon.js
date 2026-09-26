@@ -178,26 +178,6 @@ export class Guncannon extends Hero {
     if (e.alive && e.state === 'held') this.game.crowd.fling(e, 0, 2, 0, 0);
   }
 
-  // A launched enemy still in the air in front (for the anti-air cannon shots).
-  airborneAhead() {
-    const g = this.game;
-    const t = this.aaTarget;
-    if (t && (t.alive ?? true) && (t.y ?? t.pos?.y ?? 0) > 0.8 && (t.state === 'air' || t.pos)) return t;
-    const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
-    let best = null, bd = 10;
-    for (const e of g.crowd.grid.query(this.pos.x + fx * 3, this.pos.z + fz * 3, 7, g.combat.tmp)) {
-      if (!e.alive || e.state !== 'air' || e.y < 1) continue;
-      const d = Math.hypot(e.x - this.pos.x, e.z - this.pos.z);
-      if (d < bd) { bd = d; best = e; }
-    }
-    for (const c of g.commanders.list) {
-      if (!c.alive || c.pos.y < 1) continue;
-      const d = Math.hypot(c.pos.x - this.pos.x, c.pos.z - this.pos.z);
-      if (d < bd) { bd = d; best = c; }
-    }
-    return best;
-  }
-
   // ---------- events ----------
   suitEvent(name, arg) {
     const g = this.game;

@@ -4,6 +4,7 @@
 // here; co-op picks it up from the id.
 import { Gundam } from './gundam.js';
 import { Guncannon } from './guncannon.js';
+import { Ball } from './ball.js';
 import { Tank } from './tank.js';
 
 export const ROSTER = [
@@ -66,6 +67,36 @@ export const ROSTER = [
       ['U K', 'Cannons at the ground', 'JC'],
       ['S', 'Punch storm · hold: shells all around', 'SP'],
       ['U S', 'Hover and shell', 'SPA'],
+    ],
+  },
+  {
+    id: 'ball', cls: Ball, pilot: 'ball',
+    unit: 'RB-79 BALL', unitShort: 'BALL', unitJp: 'ボール', pilotName: 'BALL LEADER', pilotJp: 'ボール隊長',
+    stats: { MELEE: 600, SHOT: 600, DEFENSE: 506, ARMOR: 9087, MOBILITY: 240, THRUSTER: 904 },
+    equipment: ['180mm Recoilless Cannon', 'Manipulator Arms'],
+    role: 'Pride of mass production. A space pod that tumbles in claws first, shells everything else, and calls in its squadron.',
+    moves: [
+      ['J ×6', 'Tumbling claw swipes, ending in a launching backflip'],
+      ['K', '180mm cannon: mash it, or hold for a heavy shell'],
+      ['J K', 'Claw flurry into a rising launcher'],
+      ['J J K', 'Tuck in and roll like a bowling ball'],
+      ['J×5 K', 'Meteor drop'],
+      ['SP (hold)', 'Call in the Ball squadron'],
+    ],
+    guide: [
+      ['J J J J J J', 'Claw swipes, somersault, launching flip', 'N'],
+      ['K', '180mm cannon · mash, or hold for heavy shell', 'C1'],
+      ['J K', 'Claw flurry, rising launcher', 'C2'],
+      ['J J K', 'Bowling-ball roll', 'C3'],
+      ['J J J K', 'Spinning top', 'C4'],
+      ['J J J J K', 'Launch and shell it ×3', 'C5'],
+      ['J J J J J K', 'Meteor drop', 'C6'],
+      ['B J', 'Spinning dash · keep pressing J', 'DA'],
+      ['B K', 'Spin, then point-blank shell', 'DC'],
+      ['U J', 'Air tumble', 'JA'],
+      ['U K', 'Cannon at the ground', 'JC'],
+      ['S', 'Claw frenzy, point-blank shell · hold: squadron', 'SP'],
+      ['U S', 'Ram and blast', 'SPA'],
     ],
   },
   {

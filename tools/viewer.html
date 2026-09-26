@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RigObject, poseFrom } from '../src/core/rig.js';
-import { gundamDef, zakuDef, charDef, commanderDef, guntankDef } from '../src/models/suits.js';
+import { gundamDef, guncannonDef, ballDef, zakuDef, charDef, guntankDef } from '../src/models/suits.js';
 const r = new THREE.WebGLRenderer({antialias:true}); r.setSize(innerWidth, innerHeight); r.shadowMap.enabled = true;
 document.body.appendChild(r.domElement);
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9aaabb);
@@ -18,8 +18,10 @@ const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(4, 8, 6)
 const g = new THREE.Mesh(new THREE.PlaneGeometry(40,40), new THREE.MeshStandardMaterial({color:0x777777})); g.rotation.x=-Math.PI/2; g.receiveShadow=true; scene.add(g);
 const q = new URLSearchParams(location.search);
 const pose = poseFrom(JSON.parse(q.get('pose') || '{}'));
-const defs = [gundamDef(), guntankDef(), zakuDef(), charDef()];
-defs.forEach((d, i) => { const rig = new RigObject(d); rig.applyPose(pose); rig.root.position.x = (i - 1.5) * 3; rig.root.rotation.y = +(q.get('yaw') || 0); scene.add(rig.root); });
+// ?only=ball shows one suit; otherwise every suit in a row
+const ALL = { gundam: gundamDef, guncannon: guncannonDef, ball: ballDef, guntank: guntankDef, zaku: zakuDef, char: charDef };
+const defs = (q.get('only') ? q.get('only').split(',') : Object.keys(ALL)).map((k) => ALL[k]());
+defs.forEach((d, i) => { const rig = new RigObject(d); rig.applyPose(pose); rig.root.position.x = (i - (defs.length - 1) / 2) * 3; rig.root.rotation.y = +(q.get('yaw') || 0); scene.add(rig.root); });
 window.cam = cam; window.oc = oc;
 (function loop(){ requestAnimationFrame(loop); r.render(scene, cam); })();
 </script></body></html>

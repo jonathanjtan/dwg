@@ -627,6 +627,70 @@ function grab(s) {
   s.fm(180, 120, 0.5, 2, 0.05, 0.25, 0.05, { dest: main });
 }
 
+// ---------------------------------------------------------------- Ball
+// Measured off the Ball's gameplay audio: its claw blows are a 55-170 Hz body with 340-490 Hz mids and a clank ringing
+// near 1 kHz, the bite at 1.5-2.2 kHz; the SP flurry is brighter (a quarter of it at 1.5-6 kHz). The 180mm recoilless
+// cannon sits low: most of a shot is under 300 Hz (peaks near 90 and 165 Hz) with a crack at 2-3 kHz.
+// A claw swipe: a small, quick arm, so the swing's thin swish and light "woomp", a servo whine and the joints rattling.
+function clawSwing(o) {
+  const swing = swingGC(o);
+  return (s, v) => {
+    swing(s, v);
+    const main = s.bus({ pan: o.pan === 'alt' ? (v % 2 ? 0.3 : -0.3) : 0 });
+    s.fm(420 * (o.whine ?? 1), 900 * (o.whine ?? 1), 0.5, 1.4, 0, o.dur * 0.5, 0.05, { dest: main, a: 0.01 });
+    s.metal(0.005, s.r(950, 1100), 0.08, 0.05, { n: 3, q: 30, dest: main });
+  };
+}
+
+// Claw on armour: a clank ringing near 1 kHz over a 350-490 Hz body, a light thump and a crunch near 2 kHz; the heavy
+// take is lower and longer, with plates shearing off.
+function clawHit(heavy) {
+  return (s) => {
+    const main = s.bus({ pan: s.r(-0.15, 0.15) });
+    const crunch = s.bus({ dest: main, drive: 5, gain: 0.8 });
+    s.click(0, heavy ? 1 : 0.8, main);
+    s.noise(0, heavy ? 0.2 : 0.12, 1.2, { type: 'bandpass', f0: 430 * s.r(0.9, 1.1), f1: 340, q: 1.3, dest: crunch });
+    s.noise(0, 0.08, 0.4, { type: 'bandpass', f0: 1900 * s.r(0.9, 1.1), f1: 1500, q: 1.1, dest: crunch });
+    s.tone('sine', (heavy ? 120 : 165) * s.r(0.9, 1.1), 55, 0, heavy ? 0.35 : 0.16, heavy ? 0.8 : 0.5, { dest: main });
+    s.metal(0.002, s.r(960, 1080), heavy ? 0.5 : 0.28, heavy ? 0.4 : 0.3, { n: 5, q: 24, dest: main });
+    s.crackle(0.02, heavy ? 0.5 : 0.18, heavy ? 9 : 4, 0.12, { f0: 1200, f1: 3000, dest: main });
+    if (heavy) s.noise(0.03, 0.45, 0.3, { type: 'lowpass', f0: 600, f1: 140, dest: main, a: 0.02 });
+  };
+}
+
+// 180mm recoilless report: a crack at 2-3 kHz over a low boom centred near 165 and 92 Hz, and instead of a breech
+// clanking back, the back-blast: gas roaring out of the rear of the gun.
+function ballCannon(s) {
+  const main = s.filter('lowpass', 5500, 0.7, s.bus({ pan: s.r(-0.1, 0.1) }));
+  const hot = s.bus({ dest: main, drive: 4 });
+  s.click(0, 1, main);
+  s.noise(0, 0.05, 0.8, { type: 'bandpass', f0: 2500 * s.r(0.9, 1.1), q: 0.7, dest: main, a: 0.0008 });
+  s.tone('sine', 165 * s.r(0.92, 1.08), 70, 0, 0.35, 0.9, { dest: hot });
+  s.tone('sine', 92 * s.r(0.92, 1.08), 40, 0, 0.5, 0.9, { dest: main });
+  s.noise(0, 0.45, 1, { type: 'lowpass', f0: 420, f1: 110, dest: hot, a: 0.002 });
+  s.noise(0, 0.25, 1.1, { type: 'bandpass', f0: 2600, f1: 2000, q: 0.9, dest: main, a: 0.002 });
+  s.noise(0.01, 0.5, 0.45, { type: 'bandpass', f0: 1400, f1: 500, q: 0.8, dest: main, a: 0.01 });
+  s.crackle(0.03, 0.5, 9, 0.22, { f0: 1500, f1: 3800, dest: main });
+  s.noise(0.08, 0.5, 0.22, { type: 'lowpass', f0: 350, dest: main, a: 0.05 });
+}
+
+// A spin: the claws whirring round in a sweep of air that circles the listener, over a servo whine.
+function spinBall(s, v) {
+  swingGC({ dur: 0.5, lo: 1300, top: 3000, peak: 0.18, weight: 0.8, low: 1.2, pan: v % 2 ? [-0.7, 0.7, -0.4] : [0.7, -0.7, 0.4], panAt: [0.2, 0.42] })(s, v);
+  const main = s.bus();
+  s.fm(500, 800, 0.5, 1.2, 0, 0.45, 0.05, { dest: main, a: 0.03 });
+  s.metal(0.1, s.r(950, 1100), 0.1, 0.05, { n: 3, q: 28, dest: main });
+}
+
+// Rolling along the ground: a low rumble, grit crunching under the hull and the plating booming.
+function broll(s) {
+  const main = s.bus({ pan: s.r(-0.1, 0.1) });
+  s.noise(0, 0.3, 1, { type: 'lowpass', f0: 240, f1: 160, dest: s.bus({ dest: main, drive: 3 }), a: 0.03, hold: 0.05 });
+  s.tone('sine', 70 * s.r(0.9, 1.1), 55, 0, 0.3, 0.6, { dest: main, a: 0.03 });
+  s.crackle(0, 0.38, 10, 0.25, { f0: 400, f1: 1800, dest: main });
+  s.metal(0.05, s.r(200, 260), 0.25, 0.15, { n: 4, q: 14, dest: main });
+}
+
 // ---------------------------------------------------------------- movement
 // Footfall: sub thump, a knock of steel on concrete, a clank from the leg, crumbling ground, hydraulics and a servo.
 function step(s, v) {
@@ -725,6 +789,13 @@ export const RECIPES = {
   grab: { n: 3, dur: 0.6, level: 0.75, build: grab },
   cboom: { n: 4, dur: 1.2, level: 1, build: cboom },
   punch_fast: { n: 6, dur: 0.25, level: 0.5, build: swingGC({ dur: 0.16, lo: 1500, top: 3600, tail: 2000, weight: 0.3, air: 8, pan: 'alt' }) },
+  claw: { n: 6, dur: 0.4, level: 0.55, build: clawSwing({ dur: 0.26, lo: 1300, top: 3200, tail: 1800, weight: 0.75, low: 1.3, pan: 'alt' }) },
+  spin_ball: { n: 3, dur: 0.7, level: 0.6, build: spinBall },
+  bflail: { n: 6, dur: 0.25, level: 0.5, build: clawSwing({ dur: 0.15, lo: 1800, top: 4200, tail: 2400, weight: 0.3, air: 8, whine: 1.4, pan: 'alt' }) },
+  clawhit: { n: 6, dur: 0.5, level: 0.85, build: clawHit(false) },
+  clawhit_heavy: { n: 4, dur: 1.0, level: 0.95, build: clawHit(true) },
+  bcannon: { n: 4, dur: 0.9, level: 1, build: ballCannon },
+  broll: { n: 3, dur: 0.45, level: 0.7, build: broll },
 };
 
 const hashName = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };

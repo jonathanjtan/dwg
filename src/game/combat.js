@@ -60,7 +60,7 @@ export class Combat {
     const reach = (spec.range || spec.len || 4) + (spec.off || 0) + 2;
     const near = g.crowd.grid.query(hx, hz, reach, this.tmp);
     let hits = 0;
-    const dmgMul = g.difficulty.dmgDealt * (hero.state === 'musou' ? 1 : 1);
+    const dmgMul = g.difficulty.dmgDealt * (hero.suit?.power ?? 1);
     for (const e of near) {
       if (!e.alive || e.state === 'dying' || e.state === 'drop' || e.state === 'held') continue;
       if (!this.inShape(spec, hx, hy, hz, h, e.x, e.y, e.z, e.radius)) continue;
@@ -115,7 +115,7 @@ export class Combat {
     const g = this.game;
     const near = g.crowd.grid.query(x, z, r + 1, this.tmp);
     let hits = 0;
-    const mul = g.difficulty.dmgDealt;
+    const mul = g.difficulty.dmgDealt * (who.suit?.power ?? 1);
     for (const e of near) {
       if (!e.alive || e.state === 'dying' || e.state === 'drop' || e.state === 'held') continue;
       const d = Math.hypot(e.x - x, e.z - z);

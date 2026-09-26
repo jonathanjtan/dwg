@@ -682,11 +682,11 @@ function ballBody() {
   for (let x = -5; x <= 4; x++) {
     for (let y = -6; y <= 3; y++) {
       const d = Math.hypot(x + 0.5, y + 1.5);
-      if (d > 4.6) continue;
+      if (d > 4.3) continue;
       for (let z = 7; z >= 0; z--) {
         if (!m.has(x, y, z)) continue;
-        m.set(x, y, z, d < 2.9 ? BL.G : BL.O, d < 2.9 ? { glow: 0.9, jitter: 0.02 } : undefined);
-        if (d >= 2.9 && d < 3.6) m.set(x, y, z + 1, BL.O2); // the ring stands proud of the hull
+        m.set(x, y, z, d < 2.7 ? BL.G : BL.O, d < 2.7 ? { glow: 0.9, jitter: 0.02 } : undefined);
+        if (d >= 2.7 && d < 3.3) m.set(x, y, z + 1, BL.O2); // the ring stands proud of the hull
         break;
       }
     }
@@ -720,10 +720,10 @@ function ballCannon() {
   m.box(-2, 0, -2, 1, 1, 1, BL.K); // turret ring
   m.box(-2, 2, -2, 1, 4, 0, BL.W2); // breech housing
   m.box(-1, 2, 1, 0, 3, 1, BL.K2);
-  m.box(-1, 5, -1, 0, 16, 0, BL.K); // barrel
-  m.box(-1, 10, -1, 0, 10, 0, BL.K2);
-  m.box(-2, 16, -2, 1, 17, 1, BL.K2); // muzzle brake
-  m.box(-1, 17, -1, 0, 17, 0, BL.K3);
+  m.box(-1, 5, -1, 0, 14, 0, BL.K); // barrel
+  m.box(-1, 9, -1, 0, 9, 0, BL.K2);
+  m.box(-2, 14, -2, 1, 15, 1, BL.K2); // muzzle brake
+  m.box(-1, 15, -1, 0, 15, 0, BL.K3);
   m.box(-1, 1, -3, 0, 3, -3, BL.K3); // recoilless vent
   return m;
 }

@@ -1,8 +1,8 @@
 # Gundam Musou: Side 7
 
-A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. Pick Amuro's RX-78-2 Gundam or Kai's RX-77-2 Guncannon and fight off a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
+A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. Pick Amuro's RX-78-2 Gundam, Kai's RX-77-2 Guncannon or an RB-79 Ball and fight off a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
 
-Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Models, animation, effects, audio and music are procedural and written from scratch. The only image assets are the pilot portrait sheets.
+Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Models, animation, effects, audio and music are procedural and written from scratch. The only image assets are the pilot portrait sheets and the SD unit renders.
 
 ## Play
 
@@ -18,7 +18,7 @@ Then visit http://localhost:8766.
 
 ## Co-op: up to three pilots
 
-Click **HOST CO-OP** on the title screen and send the invite link to up to two friends. Each guest picks a mobile suit on joining: the Gundam, the Guncannon, or the co-op-only Guntank. Two players can fly the same suit. Guests can join from the lobby or mid-mission, and can change suits from the lobby between sorties. The host runs the whole simulation. Each guest's browser streams its input to the host and renders snapshots, peer to peer over WebRTC. [PeerJS](https://peerjs.com)'s free public broker is only used for the initial handshake.
+Click **HOST CO-OP** on the title screen and send the invite link to up to two friends. Each guest picks a mobile suit on joining: the Gundam, the Guncannon, the Ball, or the co-op-only Guntank. Two players can fly the same suit. Guests can join from the lobby or mid-mission, and can change suits from the lobby between sorties. The host runs the whole simulation. Each guest's browser streams its input to the host and renders snapshots, peer to peer over WebRTC. [PeerJS](https://peerjs.com)'s free public broker is only used for the initial handshake.
 
 The Guntank is Hayato's long-range support unit:
 
@@ -32,7 +32,7 @@ The Guntank is Hayato's long-range support unit:
 
 A guest whose suit is destroyed redeploys after 8 seconds. The mission fails only if the host's suit falls.
 
-To add a playable suit, write a `Hero` subclass (see `gundam.js`) and add an entry to `ROSTER` in `roster.js`. The select screens and co-op pick it up from there. Entries marked `coop` are only offered to guests.
+To add a playable suit, write a `Hero` subclass (see `gundam.js`, or `ball.js` for one that isn't built like a humanoid) and add an entry to `ROSTER` in `roster.js`. The select screens and co-op pick it up from there. Entries marked `coop` are only offered to guests. `.claude/skills/add-playable-suit` walks through the whole process, footage study to deploy.
 
 Connectivity: players connect directly, which works on most home networks. There's no TURN relay, so two players who are both behind strict or symmetric NATs (some corporate or mobile networks) may not be able to connect. For local testing, add `?localnet` to the URL to use a same-browser BroadcastChannel transport between tabs.
 
@@ -79,7 +79,7 @@ Tap **FULLSCREEN** on the title screen, or sortie — the game asks for fullscre
 
 ## Mobile suits
 
-LAUNCH opens the mobile suit select. A / D or the arrow keys choose, Enter sorties, and the choice is remembered for next time. On touch, tap a card to select it and SORTIE to launch; the combos are listed as button names rather than keys. Both movesets follow *Dynasty Warriors: Gundam Reborn*, with reach scaled from gameplay footage in suit heights. Charge attacks change with how far into the combo you are.
+LAUNCH opens the mobile suit select. A / D or the arrow keys choose, Enter sorties, and the choice is remembered for next time. On touch, tap a card to select it and SORTIE to launch; the combos are listed as button names rather than keys. The movesets follow *Dynasty Warriors: Gundam Reborn*, with reach scaled from gameplay footage in suit heights. The suits aren't evenly matched: the Ball is the weak one. Charge attacks change with how far into the combo you are.
 
 ### RX-78-2 Gundam (Amuro Ray)
 
@@ -113,16 +113,32 @@ Slower, with less armor but more defense than the Gundam (the game's spec sheet:
 
 SP attacks: on the ground, a storm of punches that walks forward (afterimage fists) and a last blow that blasts the target away. Hold SP through the starburst for the charge SP: shells fired out in every direction while the suit turns on the spot, then a ring of blasts. In the air, the Guncannon hovers low and shells its target point-blank.
 
+### RB-79 Ball (Ball Leader)
+
+The Federation's mass-produced space pod: a sphere with a 180mm recoilless cannon on top and two manipulator arms. It's deliberately the weakest suit here: thin armor (the game's spec sheet: armor 9087, mobility 240), a slow drift and blows that land lighter than a real mobile suit's. Only its thrusters (904) keep up with the Gundam's. It floats instead of walking, and it fights by tumbling into the enemy claws first. The moves the Reborn footage shows are taken from it; the rest are built from the same tools.
+
+- **J × 6**: tumbling claw swipes (a diagonal swipe, a backhand, a forward somersault, a barrel roll, a flat spin), then a thruster backflip that launches everything in front
+- **K**: the 180mm cannon. Mash it for a shot combo, or hold it for one heavy shell whose recoil shoves the pod back
+- **J K**: dash in, a tumbling flurry of claw swipes, a gold flash and a rising cut that launches
+- **J J K**: arms tucked in, it rolls along the ground like a bowling ball
+- **J J J K**: a spinning top that drags the crowd in and flings it away
+- **J J J J K**: a launching swipe, then three cannon shells at the target in the air
+- **J J J J J K**: the meteor drop: straight up on the thrusters, then down body first into a shockwave
+- In the air: **J** a forward tumble, **K** the cannon fired down at the ground ahead
+- During a boost dash: **J** spins along the ground with both arms out (keep pressing J) and ends in a launching flip, **K** spins, flashes violet and fires point-blank
+
+SP attacks: on the ground, both arms flail in a blur while the pod pushes forward, and a point-blank shell ends it. Hold SP through the starburst for the charge SP: the rest of the Ball squadron drops in from the colony sky, forms up round its leader and fires six volleys before peeling off. In the air, the Ball dives at its target and blasts it point-blank.
+
 The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest. Keep holding boost after the dash runs out and the suit settles into a **boost sprint**, skating on its thrusters at about twice its running speed without using the gauge. It's the quick way from one field to the next, and attacks come out of it as dash attacks.
 
 ## How it's built
 
 - `src/core/voxel.js`: voxel models authored with box, ellipsoid and mirror operations, then meshed with face culling, baked ambient occlusion, and greedy merging for the static town.
 - `src/core/rig.js`: a 13-part humanoid rig with keyframed pose clips. It drives both Object3D rigs (the player suits and the commanders) and `InstancedMesh` crowds of up to 300 Zakus.
-- `src/game/`: the player suit controller (`hero.js`: locomotion, boost, the attack runner and the SP state machine), the two suits (`gundam.js` and `guncannon.js` with their movesets in `moves.js` and `guncannon_moves.js`: poses, hit shapes, weapon timelines, timed effects), the roster every player picks from (`roster.js`), the Guntank (`tank.js`), squad AI with attack tokens, a front-rank cap, rationed and telegraphed gunfire, and grabs (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
+- `src/game/`: the player suit controller (`hero.js`: locomotion, boost, the attack runner and the SP state machine), the three suits (`gundam.js`, `guncannon.js` and `ball.js`, with their movesets in `moves.js`, `guncannon_moves.js` and `ball_moves.js`: poses, hit shapes, weapon timelines, timed effects), the roster every player picks from (`roster.js`), the Guntank (`tank.js`), squad AI with attack tokens, a front-rank cap, rationed and telegraphed gunfire, and grabs (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles and the stage script.
 - `src/net/net.js`: co-op networking for the host and up to two guests. Guest input arrives as a world-space move direction plus pressed and held buttons. The crowd is packed into an Int16Array per snapshot, and effect, sound and HUD events are replicated.
 - `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke, embers and debris, anime impact stars, beam afterglow, ground scorch decals, shockwave rings and the Catmull-Rom smoothed saber ribbon trail.
-- `src/audio/sfx.js`: the sound bank. Every effect is synthesized at load in an `OfflineAudioContext`, several takes per sound, each tuned differently, so no two triggers in a row are identical. Each saber move has its own voice, and the slash sweeps across the stereo field with the blade. Hits, footsteps, boosts and explosions are layered from a transient, a saturated body, ringing armor resonances, debris crackle and a low push. The weapon voices are tuned to *DW: Gundam Reborn*'s gameplay audio, measured band by band. Beams buzz around 160 Hz. Saber hits crunch near 2 kHz and ring at the game's armor partials between 0.7 and 1.15 kHz. There is little air above 6 kHz. The Guncannon's blows are a 300-400 Hz thump with a thin swish on top, and its 240mm cannons boom at 100-200 Hz under a bright 1.5-4 kHz blast.
+- `src/audio/sfx.js`: the sound bank. Every effect is synthesized at load in an `OfflineAudioContext`, several takes per sound, each tuned differently, so no two triggers in a row are identical. Each saber move has its own voice, and the slash sweeps across the stereo field with the blade. Hits, footsteps, boosts and explosions are layered from a transient, a saturated body, ringing armor resonances, debris crackle and a low push. The weapon voices are tuned to *DW: Gundam Reborn*'s gameplay audio, measured band by band. Beams buzz around 160 Hz. Saber hits crunch near 2 kHz and ring at the game's armor partials between 0.7 and 1.15 kHz. There is little air above 6 kHz. The Guncannon's blows are a 300-400 Hz thump with a thin swish on top, and its 240mm cannons boom at 100-200 Hz under a bright 1.5-4 kHz blast. The Ball's claws clank with a ring near 1 kHz, and its 180mm recoilless cannon sits mostly under 300 Hz with a 2-3 kHz crack and the hiss of its back-blast.
 - `src/audio/audio.js`: plays the bank's takes, panned against the camera and dulled with distance, through a generated colony-hall reverb. It also runs the continuous beam-saber hum and thruster roar, and falls back to live synthesis until the bank is ready.
 - `src/audio/music.js`: the score, synthesized live: original pieces in the style of late-70s anime orchestral funk, with a brass section (trumpets, horns, chord stabs), strings, a plucked funk bass, glockenspiel, timpani and a march-funk kit. The battle theme is transcribed from a reference track onto that band: an A minor riff over a pumping pedal bass and a four-on-the-floor kick, which later climbs a half step to Bb minor. There's also a boss theme for Char, a title theme, and victory and defeat stingers.
 - `src/world/world.js`: the Side 7 town (a boulevard grid with four open fields cut out of it) and the O'Neill cylinder shell curving up into the sky. Static props are baked into one mesh per 60-unit chunk, and colliders sit in a lookup grid.
@@ -131,7 +147,8 @@ The boost gauge under the SP bar drains while you dash or hover and refills once
 ## Credits
 
 - Several feel and rendering techniques are adapted from [voxel-musou](https://github.com/mike007jd/voxel-musou) (MIT, © 2026 BubuAi): the lens-side crowd clear and lens-clear shader, hero-local hit-stop with victim shudder, hit tint and flinch variants, the launch apex float and bounce, wind-up telegraphs with feints, and the post chain (square-bokeh DoF, split-tone grade, ordered-dither retro finish).
-- Pilot portraits come from The Spriters Resource: Amuro Ray from *SD Gundam G Generation* (PlayStation, ripped by Arima), and Bright Noa and Hayato Kobayashi from *SD Gundam G Generation Wars* (PlayStation 2). Kai Shiden uses the built-in pixel art. See `assets/portraits/README.md` to add more pilots.
+- Pilot portraits come from The Spriters Resource: Amuro Ray from *SD Gundam G Generation* (PlayStation, ripped by Arima), and Bright Noa, Hayato Kobayashi, Kai Shiden, Char, Denim and Gene from *SD Gundam G Generation Wars* (PlayStation 2). The Ball's squad leader uses the built-in pixel art. See `assets/portraits/README.md` to add more pilots.
+- The SD unit renders on the select cards and HUD come from the same *G Generation Wars* unit sheets; the Ball's is a render of the game's own voxel model (`assets/units/README.md`).
 
 ## Disclaimer
 

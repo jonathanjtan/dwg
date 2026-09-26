@@ -1,8 +1,9 @@
 // The player's mobile suit: locomotion, boost dash, jumps and hover, dodges, taking hits, the attack runner (keyframed
 // poses, root motion, hit windows, shots, timed effects and sounds) and the SP state machine. Each suit (gundam.js,
-// guncannon.js) supplies its model, stance, moveset and weapons, and fills in the hooks near the bottom of the class.
+// guncannon.js, ball.js) supplies its model, stance, moveset and weapons, and fills in the hooks near the bottom of the
+// class.
 import * as THREE from 'three';
-import { RigObject, makePose, lerpPose, poseFrom, RY, RYAW, RPITCH, RROLL, P } from '../core/rig.js';
+import { RigObject, makePose, lerpPose, poseFrom, RY, RPITCH, RROLL, P } from '../core/rig.js';
 import { clamp, damp, angleDamp, wrapAngle, lerp, rand } from '../core/util.js';
 
 const GRAV = 28;
@@ -28,7 +29,8 @@ export function curve(keys, t) {
 }
 
 // suit: { id, pilot, def, moves, stance, hp, run, boostSpeed, boostTime, sprintSpeed, defense, nozzles, flameColor, impactColor,
-//         spColor, spAura, spAirY, spAirReach, debris }
+//         spColor, spAura, spAirY, spAirReach, debris, hover (floats: no footsteps), flameScale,
+//         power (multiplies the damage of its blows and blasts; suits needn't be evenly matched) }
 export class Hero {
   constructor(game, suit) {
     this.game = game;
@@ -198,9 +200,8 @@ export class Hero {
 
   snapshotPose() {
     this.prevPose.set(this.pose);
-    // spins and flips end whole turns round: blend out of them the short way
-    this.prevPose[RYAW] = wrapAngle(this.prevPose[RYAW]);
-    this.prevPose[RPITCH] = wrapAngle(this.prevPose[RPITCH]);
+    // spins, flips and tumbles end whole turns round: blend out of them the short way (every channel but RY is an angle)
+    for (let i = 0; i < this.prevPose.length; i++) if (i !== RY) this.prevPose[i] = wrapAngle(this.prevPose[i]);
     this.blendT = 0;
   }
 
@@ -346,12 +347,14 @@ export class Hero {
     const sp = Math.hypot(this.vel.x, this.vel.z);
     const prev = this.phase;
     this.phase += dt * sp * 0.62 * (9.4 / this.run);
-    // footsteps: every footfall lands with a thud
+    // footsteps: every footfall lands with a thud (a suit that hovers only kicks up thruster wash)
     if (Math.floor(prev / Math.PI) !== Math.floor(this.phase / Math.PI) && sp > 3) {
       const w = Math.min(1, sp / this.run);
-      g.audio.play('step', { vol: (0.45 + 0.4 * w) * (this.suit.stepVol || 1), pitch: this.suit.stepPitch || 1 });
-      g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), 3, 0.7);
-      if (g.local === this) g.camera.thud(0.07 * w * (this.suit.stepVol || 1));
+      g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), this.suit.hover ? 2 : 3, 0.7);
+      if (!this.suit.hover) {
+        g.audio.play('step', { vol: (0.45 + 0.4 * w) * (this.suit.stepVol || 1), pitch: this.suit.stepPitch || 1 });
+        if (g.local === this) g.camera.thud(0.07 * w * (this.suit.stepVol || 1));
+      }
     }
     if (this.pos.y > 0) this.pos.y = Math.max(0, this.pos.y - dt * 4);
     this.locomotion(dt, sp, sp > 0.5 ? this.travelAngle(this.vel.x, this.vel.z) : 0);
@@ -709,6 +712,27 @@ export class Hero {
       default:
         this.suitEvent(name, arg);
     }
+  }
+
+  // A launched enemy still in the air in front, for anti-air shots: whatever the move last threw or launched
+  // (aaTarget, if the suit keeps one), else the nearest airborne enemy ahead.
+  airborneAhead() {
+    const g = this.game;
+    const t = this.aaTarget;
+    if (t && (t.alive ?? true) && (t.y ?? t.pos?.y ?? 0) > 0.8 && (t.state === 'air' || t.pos)) return t;
+    const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
+    let best = null, bd = 10;
+    for (const e of g.crowd.grid.query(this.pos.x + fx * 3, this.pos.z + fz * 3, 7, g.combat.tmp)) {
+      if (!e.alive || e.state !== 'air' || e.y < 1) continue;
+      const d = Math.hypot(e.x - this.pos.x, e.z - this.pos.z);
+      if (d < bd) { bd = d; best = e; }
+    }
+    for (const c of g.commanders.list) {
+      if (!c.alive || c.pos.y < 1) continue;
+      const d = Math.hypot(c.pos.x - this.pos.x, c.pos.z - this.pos.z);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best;
   }
 
   // ---------- boost dash ----------
@@ -1136,11 +1160,12 @@ export class Hero {
     this.flameK = damp(this.flameK, want, on ? 30 : 12, Math.max(dt, 1 / 240));
     this.flameUp = damp(this.flameUp, this.thrustUp ? 1 : 0, 12, Math.max(dt, 1 / 240));
     const vis = this.flameK > 0.04;
+    const k = this.suit.flameScale ?? 1;
     for (const f of this.flames) {
       f.visible = vis;
       if (!vis) continue;
-      const w = 0.75 + this.flameK * 0.35;
-      f.scale.set(w, w, this.flameK * (0.9 + Math.random() * 0.35));
+      const w = (0.75 + this.flameK * 0.35) * k;
+      f.scale.set(w, w, this.flameK * (0.9 + Math.random() * 0.35) * k);
       f.rotation.x = -(0.28 + 0.95 * this.flameUp);
     }
   }

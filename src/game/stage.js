@@ -7,8 +7,8 @@ import { ARENA, ROADS, fieldAt } from '../world/world.js';
 import { LZ_SITES } from './bases.js';
 import { suitInfo } from './roster.js';
 
-// Radio chatter that depends on who is flying: Amuro in the Gundam, or Kai in the Guncannon. `wing` is what a pilot
-// says dropping in beside someone else in co-op ({lead} is the host's pilot).
+// Radio chatter that depends on who is flying: Amuro in the Gundam, Kai in the Guncannon, or the Ball squad's leader.
+// `wing` is what a pilot says dropping in beside someone else in co-op ({lead} is the host's pilot).
 const LINES = {
   amuro: {
     order: 'Zeon mobile suits are inside the colony! Amuro, get that Gundam moving!',
@@ -35,6 +35,19 @@ const LINES = {
     meet: 'The Red Comet?! Great. Just great... Fine. Eat 240 millimeters!',
     kit: "Kai, we've dropped you a repair kit. Finish this!",
     bye: "Hmph. The Federation has more than one good pilot. We'll meet again.",
+  },
+  ball: {
+    order: "Zeon mobile suits are inside the colony! Ball squad, you're all we've got. Get out there!",
+    launch: "A Ball against Zaku... Orders are orders. Ball, launching!",
+    wing: "Ball, moving up! Don't laugh, {lead}. It's got a cannon.",
+    bases: 'Three landing zones. For one Ball. Sure. Why not.',
+    denim: 'I took down a commander-type. In a Ball! Nobody back at base is going to believe this.',
+    zone: 'Good work, Ball Leader! Their supply line is cracking. Keep moving!',
+    warn: 'Ball Leader! A red mobile suit is closing fast. Three times faster than the others!',
+    char: 'A Ball? The Federation sends a space pod to stop me? How amusing.',
+    meet: "The Red Comet?! In a Ball?! ...Mass-produced or not, I'm not running!",
+    kit: "Ball Leader, we've dropped you a repair kit. Finish this!",
+    bye: "Hmph. Beaten back by a Ball... I'll remember this.",
   },
   hayato: {
     wing: "Guntank's rolling out too! I'll cover you from the back, {lead}!",
