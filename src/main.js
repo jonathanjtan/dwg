@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Post } from './post.js';
 import { Input, lockPointer } from './core/input.js';
+import { isTouch, isStandalone, isFullscreen, fullscreenAvailable, enterFullscreen, toggleFullscreen } from './core/touch.js';
 import { World } from './world/world.js';
 import { FX } from './fx/fx.js';
 import { ROSTER, suitInfo } from './game/roster.js';
@@ -37,7 +38,16 @@ class Game {
     const canvas = document.getElementById('game');
     this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-    this.pixelRatio = Math.min(devicePixelRatio, 1.5);
+    this.isTouch = isTouch();
+    if (this.isTouch) {
+      document.body.classList.add('touch');
+      document.getElementById('sp-ready').textContent = 'SP READY'; // no key to name
+    }
+    // A phone GPU running a 3x display would render nine times the pixels a laptop does; cap it and let
+    // adaptQuality trim further from there.
+    this.maxPixelRatio = Math.min(devicePixelRatio, this.isTouch ? 1 : 1.5);
+    this.minPixelRatio = this.isTouch ? 0.5 : 0.75; // a phone gets one more step down before it stutters
+    this.pixelRatio = this.maxPixelRatio;
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.shadowMap.enabled = true;
@@ -93,6 +103,11 @@ class Game {
     this._near = [];
 
     addEventListener('resize', () => this.resize());
+    addEventListener('orientationchange', () => setTimeout(() => this.resize(), 120));
+    visualViewport?.addEventListener('resize', () => this.resize());
+    document.addEventListener('fullscreenchange', () => { this.resize(); this.syncFullscreenUI(); });
+    document.addEventListener('webkitfullscreenchange', () => { this.resize(); this.syncFullscreenUI(); });
+    this.resize();
     document.addEventListener('pointerlockchange', () => {
       if (!this.input.locked && this.mode === 'play' && !this.ignoreUnlock) this.pause(true);
       this.ignoreUnlock = false;
@@ -105,7 +120,6 @@ class Game {
     const join = new URLSearchParams(location.search).get('join');
     if (join) this.startGuest(join);
     document.getElementById('loading').classList.add('hidden');
-    if (matchMedia('(pointer: coarse)').matches) document.getElementById('touch-warn').classList.remove('hidden');
     this.last = performance.now();
     this.renderer.setAnimationLoop(() => this.frame());
   }
@@ -137,11 +151,25 @@ class Game {
     if (this.net?.role !== 'guest') { try { localStorage.setItem('gmusou.suit', info.id); } catch (e) { /* private mode */ } }
   }
 
+  // The visible area on a phone is whatever the browser's chrome leaves behind, and it changes as the
+  // address bar slides away, on rotation, and on entering fullscreen. visualViewport reports that area;
+  // innerWidth/Height is the fallback everywhere else.
+  viewport() {
+    const w = Math.round(visualViewport?.width || innerWidth);
+    const h = Math.round(visualViewport?.height || innerHeight);
+    // a backgrounded or not-yet-laid-out tab can report nothing; don't build a zero-sized frame buffer
+    return w > 0 && h > 0 ? [w, h] : null;
+  }
+
   resize() {
-    this.cam.aspect = innerWidth / innerHeight;
+    const size = this.viewport();
+    if (!size) return;
+    const [w, h] = size;
+    document.getElementById('app').style.height = `${h}px`;
+    this.cam.aspect = w / h;
     this.cam.updateProjectionMatrix();
-    this.renderer.setSize(innerWidth, innerHeight);
-    this.post.setSize(Math.round(innerWidth * this.pixelRatio), Math.round(innerHeight * this.pixelRatio));
+    this.renderer.setSize(w, h);
+    this.post.setSize(Math.round(w * this.pixelRatio), Math.round(h * this.pixelRatio));
   }
 
   bindUI() {
@@ -173,6 +201,8 @@ class Game {
       const m = this.audio.toggleMute();
       $('mute-btn').textContent = m ? 'SOUND: OFF' : 'SOUND: ON';
     });
+    for (const id of ['fs-btn', 'fs-btn-pause']) $(id).addEventListener('click', () => toggleFullscreen());
+    this.setupFullscreenUI();
     // title theme starts on the first gesture (browsers block audio before one)
     const titleMusic = () => {
       if (this.mode !== 'title') return;
@@ -187,6 +217,26 @@ class Game {
       else if (e.code === 'Enter' && this.mode === 'title') this.openSelect();
       else if (e.code === 'Enter' && this.mode === 'results') this.start();
     });
+  }
+
+  // Fullscreen is worth a button on a desktop too, but on a phone it is the difference between a
+  // playable screen and a letterbox between the address bar and the tab strip.
+  setupFullscreenUI() {
+    const $ = (id) => document.getElementById(id);
+    const can = fullscreenAvailable() && !isStandalone();
+    // the title button lives in the touch-only help block; the pause one is for everybody
+    $('fs-btn').classList.toggle('hidden', !can);
+    $('fs-btn-pause').classList.toggle('hidden', !can);
+    // iPhone Safari has no Fullscreen API. Launched from the home screen it runs chrome-less anyway.
+    $('a2hs').classList.toggle('hidden', can || !this.isTouch || isStandalone());
+    this.syncFullscreenUI();
+  }
+
+  syncFullscreenUI() {
+    const on = isFullscreen();
+    const label = on ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
+    document.getElementById('fs-btn').firstChild.textContent = label;
+    document.getElementById('fs-btn-pause').textContent = label;
   }
 
   setupTitle() {
@@ -262,7 +312,9 @@ class Game {
     }
     this.stage.begin();
     this.canvas.focus();
-    if (!matchMedia('(pointer: coarse)').matches) lockPointer(this.canvas);
+    // sortie is a tap, so this is inside the gesture fullscreen needs
+    if (this.isTouch && !isFullscreen()) enterFullscreen();
+    if (!this.isTouch) lockPointer(this.canvas);
   }
 
   toTitle() {
@@ -561,7 +613,8 @@ class Game {
     this.camera.yaw = 0;
     this.camera.pitch = 0.26;
     this.canvas.focus();
-    if (!matchMedia('(pointer: coarse)').matches) lockPointer(this.canvas);
+    if (this.isTouch && !isFullscreen()) enterFullscreen();
+    if (!this.isTouch) lockPointer(this.canvas);
   }
 
   // Guest: messages from the host.
@@ -710,6 +763,11 @@ class Game {
     let rdt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.adaptQuality(rdt);
+    // the pad is only up while there is a suit to drive, and never over a menu
+    this.input.touch?.update(
+      (this.mode === 'play' || this.mode === 'guest') && document.getElementById('pause').classList.contains('hidden'),
+      this.local
+    );
     const act = this.input.poll();
 
     if (this.mode === 'guest') return this.guestFrame(rdt, act);
@@ -854,8 +912,8 @@ class Game {
     const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
     this.frameTimes.length = 0;
     let pr = this.pixelRatio;
-    if (avg > 1 / 45 && pr > 0.75) pr = Math.max(0.75, pr - 0.25);
-    else if (avg < 1 / 58 && pr < Math.min(devicePixelRatio, 1.5)) pr = Math.min(Math.min(devicePixelRatio, 1.5), pr + 0.25);
+    if (avg > 1 / 45 && pr > this.minPixelRatio) pr = Math.max(this.minPixelRatio, pr - 0.25);
+    else if (avg < 1 / 58 && pr < this.maxPixelRatio) pr = Math.min(this.maxPixelRatio, pr + 0.25);
     if (pr !== this.pixelRatio) {
       this.pixelRatio = pr;
       this.renderer.setPixelRatio(pr);

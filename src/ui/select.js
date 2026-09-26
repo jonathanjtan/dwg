@@ -2,9 +2,12 @@
 // its loadout and a few moves. The suit itself stands in the 3D scene behind the panel.
 import { ROSTER } from '../game/roster.js';
 import { portrait, renderingFor } from './portraits.js';
+import { isTouch } from '../core/touch.js';
 
 const $ = (id) => document.getElementById(id);
 const STAT_MAX = { ARMOR: 10000 };
+// The roster writes its combos in keys. On a phone those are buttons with names on them.
+const comboKeys = (k) => (isTouch() ? k.replace(/\bJ\b/g, 'ATK').replace(/\bK\b/g, 'CHG') : k);
 
 export class SuitSelect {
   constructor(game) {
@@ -62,7 +65,7 @@ export class SuitSelect {
       const pct = Math.min(100, (v / (STAT_MAX[k] || 1000)) * 100);
       return `<div class="st-k">${k}</div><div class="st-bar"><div style="width:${pct}%"></div></div><div class="st-v">${v}</div>`;
     }).join('');
-    const moves = s.moves.map(([k, v]) => `<div class="mv-k">${k}</div><div class="mv-v">${v}</div>`).join('');
+    const moves = s.moves.map(([k, v]) => `<div class="mv-k">${comboKeys(k)}</div><div class="mv-v">${v}</div>`).join('');
     this.detail.innerHTML = `
       <div class="sd-role">${s.role}</div>
       <div class="sd-stats">${bars}</div>
