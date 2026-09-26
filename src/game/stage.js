@@ -49,6 +49,21 @@ const LINES = {
     kit: "Ball Leader, we've dropped you a repair kit. Finish this!",
     bye: "Hmph. Beaten back by a Ball... I'll remember this.",
   },
+  // Tobia Arronax and the X1 Kai are eighty years and a colony cluster out of place: Side 7 has never seen a
+  // Crossbone Vanguard pirate before, and Bright has no idea who he's talking to.
+  tobia: {
+    order: "There's a mobile suit out past the plaza we've never seen before! Whoever you are, we need everyone we have — please, help us!",
+    launch: "This isn't my war, and it isn't my time. Doesn't matter. X1 Kai, launching!",
+    wing: "The X1 Kai's inbound! Don't wait up for me, {lead} — just fight your fight!",
+    bases: "Three landing zones. I've broken worse blockades than this with the Vanguard.",
+    denim: 'Sorry. Wrong century to be picking fights with pirates.',
+    zone: 'Whoever you are — good work out there! Keep pushing them back!',
+    warn: "Watch it! Something red and fast is bearing down on your position!",
+    char: "An old Zaku, and you're pushing my suit like it's nothing? You're better than you look, Federation.",
+    meet: "So that's the one they call the Red Comet. I've crossed blades with faster.",
+    kit: "We've got a supply drop headed your way, pilot — make it count!",
+    bye: "...Whoever that pirate was, I hope I never see that machine again.",
+  },
   hayato: {
     wing: "Guntank's rolling out too! I'll cover you from the back, {lead}!",
   },
