@@ -13,7 +13,7 @@ const CHARGE_HOLD = 0.3; // seconds of held charge that turn a rifle shot into a
 const RUSH_MAX = 6; // paired blows in a dash combo before the launching finisher
 const REDEPLOY = 8; // seconds before a fallen co-op guest drops back in
 // Charge-attack swirl colours (gold for most, violet / pink / red on some).
-export const FLASH = { gold: 0xffc860, violet: 0xc27aff, red: 0xff5a30, pink: 0xff7ad8 };
+export const FLASH = { gold: 0xffc860, violet: 0xc27aff, red: 0xff5a30, pink: 0xff7ad8, mepe: 0x7fffbe };
 
 export function curve(keys, t) {
   if (t <= keys[0][0]) return keys[0][1];

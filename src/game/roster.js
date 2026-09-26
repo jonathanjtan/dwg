@@ -5,6 +5,7 @@
 import { Gundam, GUNDAM } from './gundam.js';
 import { Guncannon, GUNCANNON } from './guncannon.js';
 import { Ball, BALL } from './ball.js';
+import { F91, F91_SUIT } from './f91.js';
 import { Tank } from './tank.js';
 
 export const ROSTER = [
@@ -97,6 +98,36 @@ export const ROSTER = [
       ['U K', 'Cannon at the ground', 'JC'],
       ['S', 'Claw frenzy, point-blank shell · hold: squadron', 'SP'],
       ['U S', 'Ram and blast', 'SPA'],
+    ],
+  },
+  {
+    id: 'f91', cls: F91, cfg: F91_SUIT, pilot: 'seabook',
+    unit: 'F91 GUNDAM F91', unitShort: 'GUNDAM F91', unitJp: 'ガンダムF91', pilotName: 'SEABOOK ARNO', pilotJp: 'シーブック・アノー',
+    stats: { MELEE: 600, SHOT: 600, DEFENSE: 373, ARMOR: 8406, MOBILITY: 528, THRUSTER: 740 },
+    equipment: ['Beam Saber', 'Beam Rifle', 'VSBR', 'Beam Launcher'],
+    role: 'Formula-project speedster. Paper-thin armor, but a beam saber string, a rifle, a beam launcher and a twin VSBR whirlwind to match any Gundam.',
+    moves: [
+      ['J ×6', 'Beam saber string, ending in a launching spin'],
+      ['K', 'Beam rifle: mash it, or hold for a charge shot'],
+      ['J J J K', 'VSBR whirlwind: twin beams swing out from the back'],
+      ['B K', 'Dash spin into the beam launcher, point-blank'],
+      ['J×5 K', 'Dash-through slash, ground-erupting stab'],
+      ['SP (hold)', 'Corkscrew VSBR drill, M.E.P.E. burst on landing'],
+    ],
+    guide: [
+      ['J J J J J J', 'Saber string, launching spin', 'N'],
+      ['K', 'Beam rifle · mash, or hold for charge shot', 'C1'],
+      ['J K', 'Rising launcher, spin, stomp', 'C2'],
+      ['J J K', 'Launcher into an aerial rifle barrage', 'C3'],
+      ['J J J K', 'VSBR whirlwind', 'C4'],
+      ['J J J J K', 'Dash-rush combo, spinning slam', 'C5'],
+      ['J J J J J K', 'Dash-through, ground stab shockwave', 'C6'],
+      ['B J', 'Dash rush · keep pressing J', 'DA'],
+      ['B K', 'Spin into the beam launcher, point-blank', 'DC'],
+      ['U J', 'Air slash', 'JA'],
+      ['U K', 'Plunging stab', 'JC'],
+      ['S', 'VSBR flurry and cross-slash · hold: corkscrew drill', 'SP'],
+      ['U S', 'Hover in an M.E.P.E. afterimage vortex', 'SPA'],
     ],
   },
   {
