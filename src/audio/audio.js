@@ -459,6 +459,16 @@ export class Audio {
         this.osc('sine', 55, 110, t, 1.0, 0.5, out);
         break;
       }
+      case 'tick':
+        // a training drill's bar filling: a short rising blip (pitch climbs with each quarter)
+        this.osc('square', 990 * p, 1320 * p, t, 0.06, 0.07, out);
+        break;
+      case 'drill':
+        // a drill cleared: a bright arpeggio over a low swell, then a shimmer
+        [784, 988, 1175, 1568].forEach((f, i) => this.osc('square', f, f, t + i * 0.055, 0.22, 0.085, out));
+        this.osc('triangle', 196, 392, t, 0.45, 0.22, out, { a: 0.02 });
+        this.noiseBurst(t + 0.18, 0.4, 0.12, out, { type: 'highpass', f0: 6000, a: 0.02 });
+        break;
       case 'pickup':
         [660, 880, 1320].forEach((f, i) => this.osc('square', f, f, t + i * 0.06, 0.12, 0.12, out));
         break;

@@ -12,6 +12,7 @@ import { Projectiles } from './game/projectiles.js';
 import { Items } from './game/items.js';
 import { LandingZones } from './game/bases.js';
 import { Stage, officerCfg } from './game/stage.js';
+import { Tutorial, TRAINING } from './game/tutorial.js';
 import { Net, RemoteInput, GRUNT_STATES, GF, LOCALNET, MAX_PLAYERS } from './net/net.js';
 import { CameraRig } from './camera.js';
 import { HUD } from './ui/hud.js';
@@ -95,7 +96,9 @@ class Game {
     this.hud = new HUD(this);
     this.hud.setPilot(this.hero.suit.id);
     this.select = new SuitSelect(this);
-    this.stage = new Stage(this);
+    this.mission = new Stage(this);
+    this.tutorial = new Tutorial(this);
+    this.stage = this.mission;
     this.stats = this.freshStats();
     this.combo = { count: 0, timer: 0, max: 0 };
     this.mode = 'title';
@@ -193,10 +196,11 @@ class Game {
       });
     }
     $('launch').addEventListener('click', () => this.openSelect());
+    $('train-btn').addEventListener('click', () => this.openSelect(true));
     $('resume').addEventListener('click', () => this.pause(false));
     $('restart').addEventListener('click', () => { this.pause(false); this.start(); });
     $('to-title').addEventListener('click', () => this.toTitle());
-    $('retry').addEventListener('click', () => this.start());
+    $('retry').addEventListener('click', () => this.start({ training: false }));
     $('res-title-btn').addEventListener('click', () => this.toTitle());
     $('host-btn').addEventListener('click', () => this.hostCoop());
     $('coop-copy').addEventListener('click', () => {
@@ -223,7 +227,7 @@ class Game {
       if (e.repeat) return;
       if (this.mode === 'select') this.select.key(e.code);
       else if (e.code === 'Enter' && this.mode === 'title') this.openSelect();
-      else if (e.code === 'Enter' && this.mode === 'results') this.start();
+      else if (e.code === 'Enter' && this.mode === 'results') this.start({ training: false });
     });
   }
 
@@ -273,6 +277,10 @@ class Game {
     this.hero.heading = 0.4;
     this.crowd.clear();
     this.commanders.clear();
+    // until a pilot has been through training once, its button asks for attention
+    let trained = false;
+    try { trained = localStorage.getItem('gmusou.trained') === '1'; } catch (e) { /* private mode */ }
+    document.getElementById('train-btn').classList.toggle('fresh', !trained);
     // a Zaku formation facing the Gundam for the title shot
     for (let i = 0; i < 26; i++) {
       const row = Math.floor(i / 7), col = i % 7;
@@ -280,14 +288,17 @@ class Game {
     }
   }
 
-  // Title -> mobile suit select (the chosen suit stands in the title scene behind the panel).
-  openSelect() {
+  // Title -> mobile suit select (the chosen suit stands in the title scene behind the panel). Training picks a suit too.
+  openSelect(training = false) {
     if (this.mode !== 'title') return;
     this.audio.resume();
     this.audio.play('ui');
     this.mode = 'select';
     document.getElementById('title').classList.add('hidden');
-    this.select.show();
+    this.select.show(training ? {
+      go: 'TRAIN', onGo: () => this.start({ training: true }),
+      hint: 'A / D or ← → to choose · Enter to start training · Esc to go back',
+    } : undefined);
   }
 
   closeSelect() {
@@ -298,7 +309,12 @@ class Game {
     document.getElementById('title').classList.remove('hidden');
   }
 
-  start() {
+  // training: run the drills instead of the mission (a restart keeps whichever is running)
+  start({ training = this.stage === this.tutorial } = {}) {
+    this.stage.reset();
+    this.stage = training ? this.tutorial : this.mission;
+    this.difficulty = training ? TRAINING : DIFFICULTY[this.difficultyName];
+    document.getElementById('restart').textContent = training ? 'RESTART TRAINING' : 'RESTART MISSION';
     this.audio.resume();
     this.audio.play('ui');
     this.audio.stopMusic();
@@ -349,6 +365,7 @@ class Game {
     this.audio.stopMusic();
     this.audio.playMusic('title');
     this.stage.reset();
+    this.stage = this.mission;
     this.projectiles.clear();
     this.items.clear();
     this.lz.clear();
@@ -400,6 +417,8 @@ class Game {
     const s = this.stats;
     const $ = (id) => document.getElementById(id);
     $('res-title').textContent = win ? 'MISSION COMPLETE' : 'MISSION FAILED';
+    $('res-rank').classList.remove('word');
+    $('retry').textContent = 'SORTIE AGAIN';
     // rank from KOs, commanders, combo, speed and damage taken
     let score = s.kos * 1.6 + s.maxCombo * 1.5 + s.officers * 50 - s.damageTaken * 0.1 - Math.max(0, s.time - 600) * 0.6;
     if (!win) score *= 0.4;
@@ -419,6 +438,29 @@ class Game {
     $('res-wait').classList.add('hidden');
     $('results').classList.remove('hidden');
     if (this.net.role === 'host') this.net.send({ y: 'res', title: $('res-title').textContent, rank, rows });
+  }
+
+  // Training's results card: what was drilled, and a straight line into the real mission.
+  finishTraining() {
+    if (this.mode !== 'play') return;
+    this.mode = 'results';
+    this.ignoreUnlock = true;
+    document.exitPointerLock?.();
+    const s = this.stats, t = Math.floor(s.time);
+    $('res-title').textContent = 'TRAINING COMPLETE';
+    $('res-rank').textContent = 'CLEAR';
+    $('res-rank').classList.add('word');
+    const rows = [
+      ['DRILLS', `${this.tutorial.count} / ${this.tutorial.count}`],
+      ['K.O. COUNT', s.kos],
+      ['MAX COMBO', s.maxCombo],
+      ['TIME', `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`],
+    ];
+    $('res-stats').innerHTML = rows.map(([k, v]) => `<div class="k">${k}</div><div class="v">${v}</div>`).join('');
+    $('retry').textContent = 'SORTIE';
+    $('res-buttons').classList.remove('hidden');
+    $('res-wait').classList.add('hidden');
+    $('results').classList.remove('hidden');
   }
 
   // ---------- events ----------

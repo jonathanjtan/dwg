@@ -456,3 +456,61 @@ body.touch #guide .gd-v { overflow: hidden; text-overflow: ellipsis; white-space
   body.touch #guide { top: calc(112px + env(safe-area-inset-top, 0px)); font-size: 9px; max-width: min(62vw, 470px); }
   body.touch #guide .gd-k b { font-size: 7.5px; }
 }
+
+/* ---------- training ---------- */
+#drill { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); width: min(440px, 44vw); pointer-events: none; }
+#dr-card { position: relative; overflow: hidden; padding: 10px 16px 12px; background: linear-gradient(180deg, rgba(16, 28, 48, 0.9), rgba(8, 14, 26, 0.82)); border: 1px solid var(--line); border-top: 3px solid var(--accent); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45); text-align: center; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px)); }
+#dr-card.in { animation: drin 0.45s cubic-bezier(0.2, 1.4, 0.4, 1); }
+@keyframes drin { from { transform: translateY(-24px) scale(0.94); opacity: 0; } }
+/* a light sweep across the card when it arrives */
+#dr-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(160, 225, 255, 0.22) 50%, transparent 65%); transform: translateX(-100%); pointer-events: none; }
+#dr-card.in::before { animation: drsweep 0.8s 0.1s ease-out; }
+@keyframes drsweep { to { transform: translateX(100%); } }
+.dr-head { display: flex; justify-content: space-between; font-family: 'Russo One', sans-serif; font-size: 11px; letter-spacing: 3px; }
+.dr-tag { color: var(--accent); }
+#dr-step { color: var(--muted); }
+#dr-dots { display: flex; justify-content: center; gap: 5px; margin: 6px 0 4px; }
+#dr-dots i { width: 16px; height: 4px; background: rgba(255, 255, 255, 0.14); transform: skewX(-20deg); transition: background 0.2s; }
+#dr-dots i.cur { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+#dr-dots i.done { background: var(--gold); }
+#dr-dots i.pop { animation: drdot 0.4s; }
+@keyframes drdot { 40% { transform: skewX(-20deg) scaleY(2.4); box-shadow: 0 0 12px var(--gold); } }
+.dr-title { display: flex; justify-content: center; align-items: baseline; gap: 10px; margin-top: 2px; }
+#dr-jp { font-family: 'Noto Sans JP', sans-serif; font-weight: 900; font-size: 13px; color: var(--gold); }
+#dr-name { font-family: 'Russo One', sans-serif; font-size: 26px; letter-spacing: 4px; color: #fff; text-shadow: 0 2px 10px rgba(95, 208, 255, 0.45); }
+#dr-keys { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin: 8px 0 6px; min-height: 34px; }
+#dr-keys kbd { font-family: 'Russo One', sans-serif; font-size: 15px; letter-spacing: 1px; color: #0a1222; background: linear-gradient(180deg, #f4f8ff, #b9c8de); padding: 5px 11px 4px; border-radius: 5px; box-shadow: 0 3px 0 #5c6f8e, 0 0 16px rgba(95, 208, 255, 0.35); animation: drkey 1.1s ease-in-out infinite; }
+#dr-keys kbd:nth-of-type(2) { animation-delay: 0.18s; }
+#dr-keys kbd:nth-of-type(3) { animation-delay: 0.36s; }
+@keyframes drkey { 0%, 60%, 100% { transform: none; box-shadow: 0 3px 0 #5c6f8e, 0 0 16px rgba(95, 208, 255, 0.35); } 75% { transform: translateY(2px); box-shadow: 0 1px 0 #5c6f8e, 0 0 22px rgba(95, 208, 255, 0.7); } }
+#dr-keys em { font-style: normal; font-weight: 700; font-size: 11px; letter-spacing: 2px; color: var(--gold); margin-left: -2px; }
+.dr-then { color: var(--muted); font-size: 18px; font-weight: 700; }
+.dr-alt { flex-basis: 100%; font-size: 11.5px; font-weight: 600; letter-spacing: 1px; color: var(--muted); }
+#dr-text { font-size: 16px; font-weight: 600; color: var(--text); text-shadow: 0 1px 3px #000; }
+#dr-tip { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.dr-bar { position: relative; height: 6px; margin-top: 9px; background: rgba(255, 255, 255, 0.1); transform: skewX(-20deg); overflow: hidden; }
+#dr-fill { height: 100%; width: 0; background: linear-gradient(90deg, #2d9fd8, var(--accent)); box-shadow: 0 0 10px var(--accent); }
+#dr-card.clear { border-top-color: var(--gold); animation: drclear 0.5s ease-out; }
+#dr-card.clear #dr-fill { background: linear-gradient(90deg, #d8a50e, #ffe27a); box-shadow: 0 0 14px var(--gold); }
+#dr-card.clear #dr-keys kbd { animation: none; }
+@keyframes drclear { 0% { box-shadow: 0 0 0 rgba(243, 193, 28, 0); } 25% { box-shadow: 0 0 40px rgba(243, 193, 28, 0.7); transform: scale(1.03); } 100% { box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45); } }
+.dr-stamp { position: absolute; left: 50%; top: 50%; font-family: 'Russo One', sans-serif; font-size: 44px; letter-spacing: 6px; color: var(--gold); border: 4px solid var(--gold); padding: 0 14px; background: rgba(10, 14, 22, 0.55); text-shadow: 0 0 18px rgba(243, 193, 28, 0.7); opacity: 0; transform: translate(-50%, -50%) rotate(-8deg) scale(2.2); }
+#dr-card.clear .dr-stamp { animation: drstamp 1.2s cubic-bezier(0.2, 1.5, 0.4, 1) forwards; }
+@keyframes drstamp { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-8deg) scale(2.2); } 18% { opacity: 1; transform: translate(-50%, -50%) rotate(-8deg) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(-8deg) scale(1.05); } }
+/* on a phone, the buttons a drill wants pressed pulse */
+.tc-btn.tut { border-color: var(--gold); box-shadow: 0 0 0 0 rgba(243, 193, 28, 0.8); animation: tcglow 1s ease-out infinite; }
+@keyframes tcglow { 0% { box-shadow: 0 0 0 0 rgba(243, 193, 28, 0.75); } 100% { box-shadow: 0 0 0 18px rgba(243, 193, 28, 0); } }
+/* the title's TRAINING button, and its nudge until training has been done once */
+.train-btn { background: rgba(95, 208, 255, 0.14); border-color: var(--accent); }
+.train-btn small { color: #9fe2ff; }
+.train-btn.fresh { animation: trainfresh 1.6s ease-in-out infinite; }
+@keyframes trainfresh { 50% { background: rgba(95, 208, 255, 0.34); box-shadow: inset 0 0 18px rgba(95, 208, 255, 0.5); } }
+#res-rank.word { font-size: 64px; letter-spacing: 8px; margin: 18px 0 10px; }
+body.touch #drill { top: calc(10px + env(safe-area-inset-top, 0px)); width: min(360px, 40vw); }
+body.touch #dr-card { padding: 7px 12px 9px; }
+body.touch #dr-name { font-size: 19px; }
+body.touch #dr-keys { margin: 5px 0 3px; min-height: 26px; }
+body.touch #dr-keys kbd { font-size: 12px; padding: 3px 8px 2px; }
+body.touch #dr-text { font-size: 13px; }
+body.touch #dr-tip { display: none; }
+body.touch .dr-stamp { font-size: 30px; }
