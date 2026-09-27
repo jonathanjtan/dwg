@@ -39,6 +39,10 @@
     "file": "tobia.png", "holdTalk": true,
     "frames": { "idle": [0, 0, 250, 250], "talk": [254, 0, 250, 250], "shout": [508, 0, 256, 256] }
   },
+  "charcca": {
+    "file": "charcca.png", "holdTalk": true,
+    "frames": { "idle": [254, 0, 250, 250], "talk": [0, 0, 250, 250], "shout": [508, 0, 256, 256] }
+  },
   "ball": {
     "file": "ball.png",
     "frames": { "idle": [0, 0, 200, 200], "talk": [204, 0, 200, 200], "shout": [408, 0, 256, 256] }

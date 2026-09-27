@@ -8,6 +8,7 @@ import { Ball, BALL } from './ball.js';
 import { DeltaPlus, DELTAPLUS } from './deltaplus.js';
 import { F91, F91_SUIT } from './f91.js';
 import { X1Kai, X1KAI } from './x1kai.js';
+import { Sazabi, SAZABI } from './sazabi.js';
 import { Tank } from './tank.js';
 
 export const ROSTER = [
@@ -190,6 +191,36 @@ export const ROSTER = [
       ['U K', 'Heat-dagger plunge', 'JC'],
       ['S', 'Dual-blade flurry and cross-slash · hold: screw whip vortex', 'SP'],
       ['U S', 'Heat-dagger meteor dive', 'SPA'],
+    ],
+  },
+  {
+    id: 'sazabi', cls: Sazabi, cfg: SAZABI, pilot: 'charcca',
+    unit: 'MSN-04 SAZABI', unitShort: 'SAZABI', unitJp: 'サザビー', pilotName: 'CHAR AZNABLE', pilotJp: 'シャア・アズナブル',
+    stats: { MELEE: 600, SHOT: 600, DEFENSE: 368, ARMOR: 10000, MOBILITY: 559, THRUSTER: 1000 },
+    equipment: ['Beam Tomahawk & Beam Saber', 'Beam Shot Rifle', 'Funnel', 'Missile', 'Mega Particle Cannon'],
+    role: "The Red Comet's Neo Zeon flagship. Big and slow, but a beam tomahawk, a heavy shot rifle, six funnels and a mega particle cannon in its belly hit as hard as anything on the field.",
+    moves: [
+      ['J ×6', 'Beam tomahawk cuts, ending in a rising thruster slash'],
+      ['K', 'Beam shot rifle: mash it, or hold to launch and set the funnels on it'],
+      ['J K', 'Tomahawk spin, then the mega particle cannon point-blank'],
+      ['J J K', 'Launch the target and surround it with funnels'],
+      ['J×5 K', 'Funnels ring the suit and fire in every direction'],
+      ['SP (hold)', 'Funnel frenzy, then a giant beam axe'],
+    ],
+    guide: [
+      ['J J J J J J', 'Tomahawk cuts, rising thruster slash', 'N'],
+      ['K', 'Shot rifle · mash, or hold: launch and funnel volley', 'C1'],
+      ['J K', 'Tomahawk spin, point-blank mega particle cannon', 'C2'],
+      ['J J K', 'Launch, funnels surround and fire', 'C3'],
+      ['J J J K', 'Thruster spin sweep', 'C4'],
+      ['J J J J K', 'Rising thruster flurry', 'C5'],
+      ['J J J J J K', 'Funnels ring the suit, fire all around', 'C6'],
+      ['B J', 'Dash cuts · keep pressing J', 'DA'],
+      ['B K', 'Spin, uppercut and a funnel volley', 'DC'],
+      ['U J', 'Air tomahawk chop', 'JA'],
+      ['U K', 'Missile volley at the ground', 'JC'],
+      ['S', 'Funnel rain, mega particle cannon · hold: giant beam axe', 'SP'],
+      ['U S', 'Hover and hammer the ground with the rifle', 'SPA'],
     ],
   },
   {

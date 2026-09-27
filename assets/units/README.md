@@ -13,6 +13,7 @@ lacks a suit.
 | `deltaplus.png` | MSN-001A1 Delta Plus | Riddhe (from *SD Gundam G Generation Genesis*, PS4: an evade frame) |
 | `f91.png` | F91 Gundam F91 | Seabook |
 | `x1kai.png` | XM-X1 Crossbone Gundam X1 Kai | Tobia (the Wars sheet's X1, which the Kai barely differs from) |
+| `sazabi.png` | MSN-04 Sazabi | Char (CCA): a standing render from the Wars sheet |
 | `guntank.png` | RX-75 Guntank | Hayato (co-op) |
 | `zaku2.png` | MS-06F Zaku II | Gene, squad leaders |
 | `zaku2c.png` | MS-06F Zaku II Commander Type | Denim |

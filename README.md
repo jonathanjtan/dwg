@@ -1,6 +1,6 @@
 # Gundam Musou: Side 7
 
-A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. Pick Amuro's RX-78-2 Gundam, Kai's RX-77-2 Guncannon, an RB-79 Ball, Riddhe's MSN-001A1 Delta Plus, Seabook's Gundam F91 or Tobia's Crossbone Gundam X1 Kai and fight off a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
+A voxel Dynasty Warriors: Gundam tribute running in the browser with three.js. Pick Amuro's RX-78-2 Gundam, Kai's RX-77-2 Guncannon, an RB-79 Ball, Riddhe's MSN-001A1 Delta Plus, Seabook's Gundam F91, Tobia's Crossbone Gundam X1 Kai or Char's own MSN-04 Sazabi and fight off a Zeon raid on Side 7: clear the plaza, take the three Zeon landing zones, defeat Denim and Gene, then drive off Char's red Zaku.
 
 Inspired by [voxel-musou](https://github.com/mike007jd/voxel-musou), the Zhao Yun voxel musou demo. Models, animation, effects, audio and music are procedural and written from scratch. The only image assets are the pilot portrait sheets and the SD unit renders.
 
@@ -183,6 +183,22 @@ The Crossbone Vanguard's space-pirate Gundam, fifty-four years out of its time. 
 
 SP attacks: on the ground, a dual-blade flurry that hauls stragglers in and a dashing cross-slash. Hold SP through the starburst for the charge SP: the screw whip spins out into a long, widening vortex. In the air, a thruster climb into a heat-dagger meteor dive.
 
+### MSN-04 Sazabi (Char Aznable)
+
+Char's Neo Zeon flagship from Char's Counterattack, flown against his own younger self. It is the biggest suit on the field and one of the slowest, with the Gundam's melee and shot but less defense and far less mobility (the game's spec sheet: melee 600, shot 600, defense 368, armor 10000, mobility 559, thruster 1000). It carries a beam tomahawk, a beam shot rifle, six funnels that fly off its backpack, missiles, and a mega particle cannon in its belly.
+
+- **J × 6**: beam tomahawk cuts ending in a rising thruster slash that launches
+- **K**: the beam shot rifle, slow and heavy. Mash it for a shot combo, or hold it: the Sazabi boosts in, stabs its target into the air, and the funnels converge on it
+- **J K**: a tomahawk spin, then the mega particle cannon point-blank
+- **J J K**: cuts into a launcher, then all six funnels surround the catch and fire at once
+- **J J J K**: a thruster-driven spin sweep
+- **J J J J K**: a rising flurry on the thrusters
+- **J J J J J K**: cuts and a spin, then the funnels ring the suit and fire in every direction
+- In the air: **J** a tomahawk chop, **K** a missile volley at the ground
+- During a boost dash: **J** a rush of tomahawk cuts that ends with the whole suit slamming down and skidding along on its front (keep pressing J), **K** spin cuts into an uppercut and a funnel volley
+
+SP attacks: on the ground, the funnels spread out over the field and rain beams while the shot rifle picks off the rest, then the mega particle cannon fires full length. Hold SP through the starburst for the charge SP: a tomahawk frenzy with the funnels firing all around, finished by the tomahawk's beam stretched into a giant axe for one sweeping cut. In the air, it hovers and hammers the ground with the shot rifle, then ends with one green-white burst.
+
 The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest. Keep holding boost after the dash runs out and the suit settles into a **boost sprint**, skating on its thrusters at about twice its running speed without using the gauge. It's the quick way from one field to the next, and attacks come out of it as dash attacks.
 
 ## How it's built
@@ -192,7 +208,7 @@ The boost gauge under the SP bar drains while you dash or hover and refills once
 - `src/game/`: the player suit controller (`hero.js`: locomotion, boost, the attack runner and the SP state machine), the playable suits (`gundam.js`, `guncannon.js`, `ball.js`, `deltaplus.js`..., each with its moveset in a `*_moves.js`: poses, hit shapes, weapon timelines, timed effects; newer suits keep their models in `src/models/<id>.js`), the roster every player picks from (`roster.js`), the Guntank (`tank.js`), squad AI with attack tokens, a front-rank cap, rationed and telegraphed gunfire, and grabs (`crowd.js`), landing zones (`bases.js`), officers and Char, combat, projectiles, the stage script, and the training drills (`tutorial.js`, which stands in for the stage script).
 - `src/net/net.js`: co-op networking for the host and up to two guests. Guest input arrives as a world-space move direction plus pressed and held buttons. The crowd is packed into an Int16Array per snapshot, and effect, sound and HUD events are replicated.
 - `src/fx/fx.js`: instanced cube particles for sparks, fire, smoke, embers and debris, anime impact stars, beam afterglow, ground scorch decals, shockwave rings and the Catmull-Rom smoothed saber ribbon trail.
-- `src/audio/sfx.js`: the sound bank. Every effect is synthesized at load in an `OfflineAudioContext`, several takes per sound, each tuned differently, so no two triggers in a row are identical. Each saber move has its own voice, and the slash sweeps across the stereo field with the blade. Hits, footsteps, boosts and explosions are layered from a transient, a saturated body, ringing armor resonances, debris crackle and a low push. The weapon voices are tuned to *DW: Gundam Reborn*'s gameplay audio, measured band by band. Beams buzz around 160 Hz. Saber hits crunch near 2 kHz and ring at the game's armor partials between 0.7 and 1.15 kHz. There is little air above 6 kHz. The Guncannon's blows are a 300-400 Hz thump with a thin swish on top, and its 240mm cannons boom at 100-200 Hz under a bright 1.5-4 kHz blast. The Ball's claws clank with a ring near 1 kHz, and its 180mm recoilless cannon sits mostly under 300 Hz with a 2-3 kHz crack and the hiss of its back-blast.
+- `src/audio/sfx.js`: the sound bank. Every effect is synthesized at load in an `OfflineAudioContext`, several takes per sound, each tuned differently, so no two triggers in a row are identical. Each saber move has its own voice, and the slash sweeps across the stereo field with the blade. Hits, footsteps, boosts and explosions are layered from a transient, a saturated body, ringing armor resonances, debris crackle and a low push. The weapon voices are tuned to *DW: Gundam Reborn*'s gameplay audio, measured band by band. Beams buzz around 160 Hz. Saber hits crunch near 2 kHz and ring at the game's armor partials between 0.7 and 1.15 kHz. There is little air above 6 kHz. The Guncannon's blows are a 300-400 Hz thump with a thin swish on top, and its 240mm cannons boom at 100-200 Hz under a bright 1.5-4 kHz blast. The Ball's claws clank with a ring near 1 kHz, and its 180mm recoilless cannon sits mostly under 300 Hz with a 2-3 kHz crack and the hiss of its back-blast. The Sazabi's shot rifle puts half its weight in a 70-86 Hz body under a zap near 2 kHz, and its funnels fire small beams near 590 Hz with a 2.4 kHz zing.
 - `src/audio/audio.js`: plays the bank's takes, panned against the camera and dulled with distance, through a generated colony-hall reverb. It also runs the continuous beam-saber hum and thruster roar, and falls back to live synthesis until the bank is ready.
 - `src/audio/music.js`: the score, synthesized live: original pieces in the style of late-70s anime orchestral funk, with a brass section (trumpets, horns, chord stabs), strings, a plucked funk bass, glockenspiel, timpani and a march-funk kit. The battle theme is transcribed from a reference track onto that band: an A minor riff over a pumping pedal bass and a four-on-the-floor kick, which later climbs a half step to Bb minor. There's also a boss theme for Char, a title theme, and victory and defeat stingers.
 - `src/world/world.js`: the Side 7 town (a boulevard grid with four open fields cut out of it) and the O'Neill cylinder shell curving up into the sky. Static props are baked into one mesh per 60-unit chunk, and colliders sit in a lookup grid.
@@ -201,7 +217,7 @@ The boost gauge under the SP bar drains while you dash or hover and refills once
 ## Credits
 
 - Several feel and rendering techniques are adapted from [voxel-musou](https://github.com/mike007jd/voxel-musou) (MIT, © 2026 BubuAi): the lens-side crowd clear and lens-clear shader, hero-local hit-stop with victim shudder, hit tint and flinch variants, the launch apex float and bounce, wind-up telegraphs with feints, and the post chain (square-bokeh DoF, split-tone grade, ordered-dither retro finish).
-- Pilot portraits come from The Spriters Resource: Amuro Ray from *SD Gundam G Generation* (PlayStation, ripped by Arima); Bright Noa, Hayato Kobayashi, Kai Shiden, Seabook Arno, Tobia Arronax, Char, Denim, Gene and the Ball squad leader (a generic Federation pilot) from *SD Gundam G Generation Wars* (PlayStation 2); and Riddhe Marcenas from *SD Gundam G Generation World* (PSP). See `assets/portraits/README.md` to add more pilots.
+- Pilot portraits come from The Spriters Resource: Amuro Ray from *SD Gundam G Generation* (PlayStation, ripped by Arima); Bright Noa, Hayato Kobayashi, Kai Shiden, Seabook Arno, Tobia Arronax, Char (both his 0079 and Char's Counterattack cut-ins), Denim, Gene and the Ball squad leader (a generic Federation pilot) from *SD Gundam G Generation Wars* (PlayStation 2); and Riddhe Marcenas from *SD Gundam G Generation World* (PSP). See `assets/portraits/README.md` to add more pilots.
 - The SD unit renders on the select cards and HUD come from the *G Generation Wars* unit sheets, and the Delta Plus from *SD Gundam G Generation Genesis* (`assets/units/README.md`).
 
 ## Disclaimer
