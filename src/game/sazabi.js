@@ -284,7 +284,7 @@ export class Sazabi extends Hero {
       case 'burstgreen': { // air SP finisher: one heavy shot, a green-white burst on the ground below
         const tgt = this.aimAt(this.heading, 16, 1.4);
         const x = tgt ? tgt.x : P0.x + fx * 5, z = tgt ? tgt.z : P0.z + fz * 5;
-        const from = this.muzzle(new THREE.Vector3());
+        const from = this.aimGunTo(x, 1, z, new THREE.Vector3());
         const dir = new THREE.Vector3(x - from.x, 1 - from.y, z - from.z).normalize();
         g.projectiles.heroBeam(this, from, dir, { ...RIFLE_SHOT, w: 2, max: 0.2 });
         const c = this._w.set(x, 0.4, z);
@@ -336,8 +336,7 @@ export class Sazabi extends Hero {
       const j = () => (Math.random() - 0.5) * 3;
       const x = (tgt ? tgt.x : this.pos.x + Math.sin(this.heading) * 5) + j();
       const z = (tgt ? tgt.z : this.pos.z + Math.cos(this.heading) * 5) + j();
-      this.rig.root.updateMatrixWorld(true);
-      const from = this.muzzle(new THREE.Vector3());
+      const from = this.aimGunTo(x, 0.3, z, new THREE.Vector3());
       const dir = new THREE.Vector3(x - from.x, 0.3 - from.y, z - from.z);
       const dist = dir.length();
       dir.normalize();

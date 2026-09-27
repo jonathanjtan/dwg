@@ -11,6 +11,10 @@ const ATK_RATE = 0.86; // swings play a touch under keyframed speed: heavier, mo
 const REGEN_DELAY = 3.5; // seconds unhit before damaged armor starts to recover
 const CHARGE_HOLD = 0.3; // seconds of held charge that turn a rifle shot into a charge shot
 const RUSH_MAX = 6; // paired blows in a dash combo before the launching finisher
+// Hand-held guns the aim layer points down the line of fire (suit config `guns` overrides); all hang off `hand`
+// with no rotation of their own, so the barrel is the hand's +Z.
+const GUNS = ['rifle', 'bazooka', 'launcher'];
+const _aq = new THREE.Quaternion(), _aq2 = new THREE.Quaternion(), _aq3 = new THREE.Quaternion(), _av = new THREE.Vector3(), _aw = new THREE.Vector3();
 const REDEPLOY = 8; // seconds before a fallen co-op guest drops back in
 // Charge-attack swirl colours (gold for most, violet / pink / red on some).
 export const FLASH = { gold: 0xffc860, violet: 0xc27aff, red: 0xff5a30, pink: 0xff7ad8, mepe: 0x7fffbe };
@@ -30,7 +34,8 @@ export function curve(keys, t) {
 
 // suit: { id, pilot, def, moves, stance, hp, run, boostSpeed, boostTime, sprintSpeed, defense, nozzles, flameColor, impactColor,
 //         spColor, spAura, spAirY, spAirReach, debris, hover (floats: no footsteps), flameScale,
-//         power (multiplies the damage of its blows and blasts; suits needn't be evenly matched) }
+//         power (multiplies the damage of its blows and blasts; suits needn't be evenly matched),
+//         guns (hand-held weapon names the aim layer points along the shot; default rifle / bazooka / launcher) }
 export class Hero {
   constructor(game, suit) {
     this.game = game;
@@ -218,6 +223,47 @@ export class Hero {
     this.heading = yaw;
     this.rig.root.rotation.y = yaw;
     this.rig.root.updateMatrixWorld(true);
+    this.aimGun(true);
+  }
+
+  gunOut() {
+    return (this.state === 'attack' || this.state === 'musou') && (this.suit.guns || GUNS).includes(this.wpn);
+  }
+
+  // For a shot that isn't level (down at the ground, up at a launched target): point the gun at world point (x, y, z)
+  // and return its muzzle there, read after the arm has moved. Fire along (point - muzzle). Swinging the arm moves the
+  // muzzle too, which at close range changes the line again, so it settles over a few passes.
+  aimGunTo(x, y, z, out) {
+    this.gunAim ||= new THREE.Vector3();
+    for (let i = 0; i < 8; i++) {
+      const m = this.muzzle(out);
+      this.gunAim.set(x - m.x, y - m.y, z - m.z).normalize();
+      this.aimGun(true);
+    }
+    return this.muzzle(out);
+  }
+
+  // Aim layer for hand-held guns. The keyframed shooting poses only point a gun roughly ahead (the torso twists into
+  // a bladed stance, snap keys kick the arm up), which left rounds leaving the barrel 20-35 degrees off. While a gun is
+  // out in a shooting move, swing the whole gun arm at the shoulder so the barrel lies along the line of fire: level
+  // down the heading, or `this.gunAim` for shots that go elsewhere (set through aimGunTo() in the suit's fire()). Written back into the pose, so co-op guests get it with the rest of the pose. `gunW` eases it in and out.
+  aimGun(shot = false) {
+    if (shot && this.gunOut()) this.gunW = 1; // a shot snaps the gun onto the line, as a recoil key would
+    if (!(this.gunW > 0.001)) return;
+    const rig = this.rig, hand = rig.nodes.hand, arm = rig.nodes.uArmR;
+    if (!hand || !arm) return;
+    rig.root.updateMatrixWorld(true);
+    const barrel = _av.set(0, 0, 1).applyQuaternion(hand.getWorldQuaternion(_aq)).normalize();
+    const want = this.gunAim ? _aw.copy(this.gunAim).normalize() : _aw.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+    const turn = _aq2.setFromUnitVectors(barrel, want);
+    turn.slerpQuaternions(_aq.identity(), _aq3.copy(turn), this.gunW);
+    const armW = arm.getWorldQuaternion(_aq).premultiply(turn);
+    arm.quaternion.copy(arm.parent.getWorldQuaternion(_aq2).invert().multiply(armW));
+    const i = P.uArmR * 3;
+    this.pose[i] = arm.rotation.x;
+    this.pose[i + 1] = arm.rotation.y;
+    this.pose[i + 2] = arm.rotation.z;
+    rig.root.updateMatrixWorld(true);
   }
 
   startMove(name, dir) {
@@ -245,6 +291,7 @@ export class Hero {
     this.evIdx = 0;
     this.sfxIdx = 0;
     this.lungePrev = 0;
+    this.gunAim = null;
     if (!m.isAir && this.pos.y < 0.6) this.pos.y = 0; // out of a ground-skimming boost
     this.airBase = this.pos.y;
     this.moveHitIds = (m.hits || []).map(() => ++this.hitSerial);
@@ -1142,10 +1189,13 @@ export class Hero {
     rig.root.position.set(this.pos.x, this.pos.y + this.lie * 0.45, this.pos.z);
     rig.root.rotation.y = this.heading;
     rig.applyPose(this.pose);
+    const inMove = this.state === 'attack' || this.state === 'musou';
+    const gun = this.gunOut();
+    this.gunW = damp(this.gunW || 0, gun ? 1 : 0, gun ? 30 : 14, dt);
+    this.aimGun();
     const f = Math.max(this.flash, this.armorFlash);
     this.armorFlash = Math.max(0, this.armorFlash - dt * 7);
     rig.setFlash(f * (this.armorFlash > 0 ? 0.18 : 0.35), this.armorFlash > 0 ? 0xffd080 : 0xff5030);
-    const inMove = this.state === 'attack' || this.state === 'musou';
     this.preVisuals(dt, inMove);
     this.updateFlames(dt);
     rig.root.updateMatrixWorld(true);

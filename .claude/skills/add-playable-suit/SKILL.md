@@ -159,6 +159,10 @@ Gotchas:
   blow misses ground troops unless the suit comes down. The Ball's air-SP ram sets `spAirY` lower through `dive`.
 - `combat.acquire` returns `{x, z}` (no y) for commanders: read heights as `t.y ?? t.pos?.y ?? 0`.
 - `Hero.airborneAhead()` finds a launched target for anti-air shots.
+- Hit-stop: every hero hit freezes the suit for a few frames unless the spec has `sp` and isn't `big`. `heroBlast`
+  defaults to `big: true` (a 10-frame stop per blast), so a barrage of blasts crawls: pass `big: false` for rain and
+  volleys. Beams from remote weapons (funnels) take `sp: true` in `heroBeam` so a hit far away doesn't freeze the suit;
+  without it the Sazabi's 3.2 s funnel rain ran over 5 s.
 
 ## 4. The suit class
 
@@ -178,6 +182,24 @@ which runs on every pose each frame, just before blending. The Ball adds its hov
 Also `locomotion` (override for non-walkers), `suitEvent`, `muzzle` / `fire`, `preVisuals` / `postVisuals`, `reset`,
 and `netExtras` / `applyNetExtras`.
 
+**Guns and shots.** Rounds must leave down the barrel. Shooting poses twist the torso into a bladed stance and snap
+keys kick the arm up, so a keyframed gun points 20-35 degrees right of and 10-20 up from the heading (every suit did,
+until the aim layer went in). `Hero.aimGun` fixes it for you: while a weapon named in the suit's `guns` (default
+`rifle`, `bazooka`, `launcher`) is out in a move, it swings the right arm at the shoulder so the barrel lies along the
+line of fire, and writes that back into the pose (so guests see it). What it needs from a suit:
+- Hang every hand-held gun off `hand` with no rotation of its own, barrel along +Z: the layer takes the hand's +Z as
+  the barrel, and `muzzle()` should be a point on that line (`gun.localToWorld(out.set(0, y, z))`).
+- Straight shots: `faceShot(aim)` before reading `muzzle()` (turns the suit and snaps the gun onto the line), then
+  fire level along `aim`. Fan volleys (`shot.ang` offsets) keep the facing and skip `faceShot`.
+- Shots that aren't level (down from a hover, up at a launched target): `const from = this.aimGunTo(x, y, z, out)`
+  points the gun at the world point and returns the muzzle after the arm has moved; fire along `point - from`.
+- Other gun names (a buster, a launcher) go in `guns` on the config. Guns that aren't in the hand (the Guncannon's
+  shoulder cannons, the Ball's turret) aim their own node; don't add them to `guns`.
+- Remote weapons (funnels, bits, a squadron) are world-space meshes owned through `this.own()`. Keep their state as a
+  mode, an anchor and a clock, compute positions from those in one function, and send just those in `netExtras` so
+  the guest runs the same function (the Sazabi's `funnelSlot`). Fire their beams from the mesh's position.
+- Check it with `tools/aimtest.js` (section 8): every row should read 0-2 degrees.
+
 Scratch vectors: `Hero` owns `_v _w _q _r`. Make your own in `buildWeapons` and don't reuse one while another call
 still holds it.
 
@@ -187,7 +209,8 @@ The host simulates everything. Guests get `netState()` (position, pose, state, `
 `netExtras()` returns, and replay it in `applyNetExtras()`: trail bits, flags, and state for extra rigs (the Ball's
 squadron sends `[t, out, anchor x/z/heading, yaws]`, and the guest places the wingmen from that). `g.fx.*`, audio and
 projectiles replicate on their own. `thruster` and `aura` fx stay local (`LOCAL_FX` in net.js), so call them on each
-machine.
+machine. Anything written into `this.pose` (like the gun-aim layer's arm swing) replicates for free; prefer that to
+touching rig nodes directly after the pose is applied.
 
 ## 6. Sounds
 
@@ -210,10 +233,16 @@ recipe's `REV` send and a `FALLBACK` in audio.js. Keep takes short, and put weig
     World and Overworld unit sheets are mostly model parts. Genesis units come as zips with full-body pose frames.
   - Download: fetch `/<platform>/<game>/asset/<id>/`, find `/media/assets/<n>/<id>.png`, then fetch that.
   - Unit card: crop one posed render, trim it to its alpha bounds, brighten it (see `assets/units/README.md`) and
-    scale it to 256 px.
+    scale it to 256 px. Unit sheets pack parts tightly, so a bounding-box crop drags in bits of the neighbours: keep
+    only the largest connected alpha blob (a flood fill over alpha > 10) before trimming. Find candidate renders by
+    flood-filling the whole sheet's alpha at 1/4 scale and listing blobs by area; full-body renders are the big ones.
   - Pilot: pack idle, talk and shout crops into a strip (4 px gaps, frames of 256 px at most), save it as
     `assets/portraits/<pilot>.png`, and add a `manifest.json` entry with `[x, y, w, h]` frames. Add `holdTalk` when the
     talk frame is a different bust.
+  - Cut-in sheets come per era: the Wars page has both *Char Aznable* and *Char Aznable (CCA)*. A pilot who already
+    exists in the game as an NPC (Char is the mission boss) gets a new pilot id (`charcca`) so the NPC keeps its own
+    portrait and red dialogue styling; write the radio lines knowing the two meet (the Sazabi's `char`/`meet` lines
+    play the mirror match).
   - Keep a 16x16 `ART` fallback in `portraits.js` anyway (rows exactly 16 characters, using `PAL` keys).
   - With no sprite available, render the voxel model instead: build a `WebGLRenderer({ alpha: true,
     preserveDrawingBuffer: true })` with a 3/4 camera, POST `toDataURL()` as a text/plain Blob to a one-shot python
@@ -234,6 +263,9 @@ recipe's `REV` send and a `FALLBACK` in audio.js. Keep takes short, and put weig
   HUD first (`game.hud.guideOn = false; document.getElementById('hud').style.opacity = 0`). For a clean read of the
   poses, use `arena(0)` or step the suit away from the crowd. The pane's screenshots can come back stale, so take a
   second one if the image didn't change.
+- **Guns:** `(await import('/tools/aimtest.js')).run(['<id>'])` plays every movetest chain with an enemy 30 degrees
+  off and reports, per move and gun, the worst angle between barrel and round and how far the round starts off the
+  barrel's line. Expect 0-2 degrees; 20+ means a shot skips `faceShot`/`aimGunTo` or the gun isn't mounted along +Z.
 - **Hit areas:** `tools/poses.html?suit=<id>&move=C2&t=0,0.1,0.2&view=front&gap=3` (small suits need a small `gap`).
 - **Numbers:** `(await import('/tools/aistats.js')).run(5400)` reports connect rate and hits per swing for each move.
   Compare against the other suits in the same scene (for example, SP flurries run about 2 hits per swing).
@@ -262,7 +294,10 @@ lead then merges the branches one at a time.
 - **After a merge:** rerun movetest on main for the new suit and for the ones merged before it, and check the select
   screen still fits. With six suits, SORTIE had to be pinned to the bottom of the scroll.
 - **Co-op without a second tab:** each frame, feed `game.hero.netState()` (round-tripped through JSON) into a second
-  instance's `applyNet()` while the suit runs combos and SPs. Any exception is a replication bug.
+  instance's `applyNet()` while the suit runs combos and SPs. Any exception is a replication bug. Set the copy's
+  `pos` from the state (`b.pos.set(s.x, s.y, s.z)`) first, as net.js does, or anything placed around the suit on the
+  guest (funnels, wingmen) will look wrong when it isn't. Compare extra meshes' world positions host vs copy: they
+  should match to 0.
 - **The shared browser pane:** agents fight over the one browser pane, so every call needs a tabId, and each agent
   should front its own tab right before a screenshot. When the pane is hidden the canvas has zero size: set a size
   with `resize_window` (e.g. 1100x620) and reload, then reset it to `desktop` afterwards.
@@ -282,3 +317,7 @@ Standing permission: commit and push to main when a piece is done and verified. 
 module left out of the commit hangs the live site on its loading spinner. Then check GitHub Pages: fetch each changed
 file from `https://jonathanjtan.github.io/dwg/<path>?v=<sha>` with curl and `cmp` it against the local copy. The
 browser pane can't open github.io.
+
+Other chats work in the same checkout on main and ship with `git add -A` too, so a half-done file of yours can land
+in their commit (the Sazabi's sounds and sprites went out in a training-mode commit). Check `git log` before
+committing and say so at hand-off; don't rewrite their history.

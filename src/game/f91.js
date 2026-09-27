@@ -163,7 +163,9 @@ export class F91 extends Hero {
     if (shot.dn) {
       // aerial barrage: aim down at the target, or at the ground ahead
       const tx = tgt ? tgt.x : this.pos.x + dir.x * 8, tz = tgt ? tgt.z : this.pos.z + dir.z * 8;
-      dir.set(tx - from.x, (tgt ? (tgt.y ?? tgt.pos?.y ?? 0) + 1.2 : 0) - from.y, tz - from.z).normalize();
+      const ty = (tgt ? (tgt.y ?? tgt.pos?.y ?? 0) + 1.2 : 0);
+      this.aimGunTo(tx, ty, tz, from);
+      dir.set(tx - from.x, ty - from.y, tz - from.z).normalize();
     }
     if (shot.kind === 'cshot') {
       g.projectiles.heroBeam(this, from, dir, CHARGE_SHOT);
