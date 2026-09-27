@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { voxelMesh } from '../core/voxel.js';
 import { P } from '../core/rig.js';
-import { gundamDef, gundamWeapons } from '../models/suits.js';
+import { gundamDef, gundamWeapons, GUNDAM_VOXEL, GUNDAM_R } from '../models/gundam.js';
 import { MOVES, STANCE, BLADE } from './moves.js';
 import { Hero, FLASH, curve } from './hero.js';
 import { damp, lerp } from '../core/util.js';
@@ -19,6 +19,7 @@ const SABER_TRAIL = 0xff4fb8;
 export const GUNDAM = {
   id: 'gundam', pilot: 'amuro', def: gundamDef, moves: MOVES, stance: STANCE,
   hp: 1200, run: 9.4, boostSpeed: 23, boostTime: 1.9, sprintSpeed: 18, defense: 1,
+  nozzles: [[-0.13, 0.08, -0.34], [0.13, 0.08, -0.34]], // the backpack's two thrusters
   debris: [0xe8eaf0, 0x2346a6, 0xcc2230], spAirY: 4.5, spAirReach: 7,
 };
 
@@ -33,7 +34,7 @@ export class Gundam extends Hero {
     this.saberLit = 0;
     this.rifleVis = 0;
     this.hamR = 0; // hammer chain length
-    this.hilt = voxelMesh(w.hilt, { scale: 0.1 });
+    this.hilt = voxelMesh(w.hilt, { scale: GUNDAM_VOXEL });
     hand.add(this.hilt);
     this.blade = new THREE.Group();
     this.blade.position.z = 0.3;
@@ -45,22 +46,22 @@ export class Gundam extends Hero {
     this.bladeCore = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.6, 3), toneMapped: false }));
     this.blade.add(this.bladeOuter, this.bladeCore);
     hand.add(this.blade);
-    this.rifle = voxelMesh(w.rifle, { scale: 0.1 });
+    this.rifle = voxelMesh(w.rifle, { scale: GUNDAM_VOXEL });
     this.rifle.position.set(0, -0.05, 0);
     hand.add(this.rifle);
     this.rifle.visible = false;
-    this.javelin = voxelMesh(w.javelin, { scale: 0.1 });
+    this.javelin = voxelMesh(w.javelin, { scale: GUNDAM_VOXEL });
     this.javelin.position.set(0, -0.05, 0);
-    this.bazooka = voxelMesh(w.bazooka, { scale: 0.1 });
+    this.bazooka = voxelMesh(w.bazooka, { scale: GUNDAM_VOXEL });
     this.bazooka.position.set(0, 0.12, 0);
-    this.grip = voxelMesh(w.grip, { scale: 0.1 });
+    this.grip = voxelMesh(w.grip, { scale: GUNDAM_VOXEL });
     for (const m of [this.javelin, this.bazooka, this.grip]) { m.visible = false; hand.add(m); }
     // the hammer's ball and chain live in world space, swung out from the fist
-    this.ball = this.own(voxelMesh(w.ball, { scale: 0.1 }));
+    this.ball = this.own(voxelMesh(w.ball, { scale: GUNDAM_VOXEL }));
     this.ball.visible = false;
     this.links = [];
     for (let i = 0; i < 16; i++) {
-      const l = this.own(voxelMesh(w.link, { scale: 0.12 }));
+      const l = this.own(voxelMesh(w.link, { scale: 0.12 / GUNDAM_R }));
       l.visible = false;
       this.links.push(l);
     }
