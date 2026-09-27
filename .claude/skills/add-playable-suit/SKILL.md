@@ -12,7 +12,7 @@ to the new suit first: the Guncannon for a humanoid with guns and grabs, the Bal
 
 | Piece | Where |
 | --- | --- |
-| Voxel model `xxxDef()` (+ weapons) | `src/models/<id>.js` for new suits (`import { pal } from './suits.js'` and build with `new VoxelModel(pal)`; the older suits live in `suits.js`) |
+| Voxel model `xxxDef()` (+ weapons) | `src/models/<id>.js`, sculpted with `src/core/sculpt.js` on the shared `pal` from `suits.js` (see step 2) |
 | Moveset `XX_MOVES`, `XX_STANCE` | `src/game/xxx_moves.js` |
 | Suit class (extends `Hero`) + config object | `src/game/xxx.js` |
 | Roster entry (select card, spec sheet, combo guide), with `cfg` (the suit config) | `src/game/roster.js` |
@@ -76,14 +76,27 @@ fraction of height), colour blocking, and the three or four signature features.
   game-style models are the best voxel reference. The G Generation unit render in `assets/units/` helps too.
 - **Proportions:** crop the best reference and measure it before touching coordinates.
 
-**Model with `src/core/sculpt.js`** (the Sazabi in `src/models/sazabi.js` is the example). Parts are solid shapes in
+**Model with `src/core/sculpt.js`** (every suit in `src/models/` is an example: `sazabi.js` for curved armour,
+`gundam.js` for a classic humanoid, `ball.js` for a non-humanoid, `zaku.js` for one model at two densities). Parts are solid shapes in
 design units (one unit = one voxel at the old density), rasterized at `R` voxels per unit; `rigDef(R, scale, hipHeight,
 parts)` scales pivots so the suit keeps its world size, and weapons meshed apart use `scale / R`. Shapes: `box`,
 `rbox` (rounded), `ell`, `cyl` (tapers), `prism` (a polygon extruded), `hull(front, side, top)` (silhouettes as
 `[x,y]`, `[z,y]`, `[x,z]` extruded and intersected: the workhorse for armour), `half` (a chamfer plane), `fn` (custom),
 combined with `and`, `or`, `sub`, `move`, `rot`, `mirror` and `both` (shape plus its mirror). `Sculpt` has `add`, `cut`,
 `paint` (recolour what's there, e.g. a panel line or rim band), `decal` and `project` (pixel art stamped onto slanted
-or curved armour), and `mirror`. Author the suit's left half (+x), mirror, then add asymmetric bits.
+or curved armour), `mirror`, and `Sculpt.on(model, R)` to keep working on a mirrored clone (the F91 letters "F" and
+"91" on its two shoulders that way). Author the suit's left half (+x), mirror, then add asymmetric bits.
+
+- **Density:** playable suits and officers build at `R = 2`; the crowd Zaku at `R = 1`, since up to 300 are drawn at
+  once (a 2x suit is about 25-40k triangles, the 1x grunt about 6k). `zakuDef(colors, horn, R)` serves both.
+- **Thin features vanish at low R:** a voxel is solid only if its centre is inside the shape, and centres sit at
+  (i + 0.5) / R. A 0.4-unit antenna from x 2.7 to 3.1 has no centre inside it at R = 1 or R = 2. Give anything that
+  must survive at least one full unit, or span a centre at every density you use.
+- **`half(nx, ny, nz, d)` keeps n·p <= d:** `half(0, 1, 0, -2)` is everything below y = -2, `half(0, -1, 0, 2)` everything
+  above y = -2. Getting the sign backwards cost the Zaku its shins once; check isolated parts with `&show=`.
+- **Anchors in the suit class are in world units,** relative to the node (the Sazabi's first funnel home was
+  `(0, 13, -9)`: voxel units, 13 world units in the air). When a model moves, update its muzzles, nozzles and trail
+  points to design units x scale, or export the numbers from the model module (the Guncannon's `GC_CANNON_TOP`).
 
 **Look at it every few edits:** `tools/turnaround.sh out.png "only=<id>&views=front,rside,back,q" 1600,560` renders an
 orthographic model sheet with headless Chrome (no dev server, no browser pane); `&show=head,torso` isolates parts and
@@ -91,10 +104,11 @@ frames them, `&pose=rest` drops the stance, `&R=1` renders a sculpted suit at an
 the reference crop and fix the biggest difference first: silhouette and proportion before colour, colour before detail.
 Then check it in game from behind (the camera's usual view) as well as from the front.
 
-The older suits use `VoxelModel` directly. API: `box`, `sbox` (symmetric in x), `ellipsoid`, `set`, `clearBox`, `paint`, `mirrorX`, `flipX`,
-`clone`, and `recolor`. Colors are hex values; `{ glow, jitter }` opts make emissive voxels. Conventions:
+Under the sculpt layer, `VoxelModel` has `box`, `sbox` (symmetric in x), `ellipsoid`, `set`, `clearBox`, `paint`,
+`mirrorX`, `flipX`, `clone` and `recolor`. Colors are hex values; `{ glow, jitter }` opts make emissive voxels. Conventions:
 
-- Characters face +Z, and their right side is -X. Each part is authored around its own pivot at the origin; `scale: 0.1`.
+- Characters face +Z, and their right side is -X. Each part is authored around its own pivot at the origin; `scale: 0.1`
+  per design unit for an 18m suit (the Sazabi uses 0.11, the X1 0.088).
 - Rig parts (`src/core/rig.js`): `hips torso head uArmL fArmL uArmR fArmR thighL shinL thighR shinR hand handL`. Any may be
   missing or model-less, but `hips`, `torso` and `hand` must exist (Hero hangs the thruster flames on `torso`, and the
   default muzzle uses `hand`). Extra nodes (the Guncannon's `cannons`) are fine: pose them yourself in `preVisuals`.
