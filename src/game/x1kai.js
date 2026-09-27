@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { voxelMesh } from '../core/voxel.js';
 import { P } from '../core/rig.js';
-import { x1kaiDef, x1kaiWeapons } from '../models/x1kai.js';
+import { x1kaiDef, x1kaiWeapons, X1_WEAPON_VOXEL, X1_R } from '../models/x1kai.js';
 import { MOVES, STANCE, BLADE, SBLADE, WHIP_R } from './x1kai_moves.js';
 import { Hero, curve } from './hero.js';
 import { damp, lerp } from '../core/util.js';
@@ -22,7 +22,7 @@ const SABER_TRAIL = 0xff5fd0;
 export const X1KAI = {
   id: 'x1kai', pilot: 'tobia', def: x1kaiDef, moves: MOVES, stance: STANCE,
   hp: 1080, run: 9.4, boostSpeed: 23, boostTime: 1.9, sprintSpeed: 18, defense: 1.28, power: 1.03,
-  nozzles: [[0.62, 0.44, -0.44], [-0.62, 0.44, -0.44], [0.62, -0.18, -0.44], [-0.62, -0.18, -0.44]],
+  nozzles: [[0.84, 1.47, -0.33], [-0.84, 1.47, -0.33], [0.86, -0.36, -0.33], [-0.86, -0.36, -0.33]], // the X booms' tips
   debris: [0xc4c9d6, 0x122c58, 0x1a1a20], spAirY: 4.2, spAirReach: 6.5,
   impactColor: 0xff5fd0, ringColor: 0xffb0e0, impactLight: 0xff6fd0, domeColor: 0xff4fc0,
   spColor: 0xff5fd0, spDome: 0xffa0e0, spAura: 0x8ad8ff,
@@ -42,31 +42,31 @@ export class X1Kai extends Hero {
     this.spinAngle = 0;
     this.mantleFlare = 0;
 
-    this.hilt = voxelMesh(w.zanberHilt, { scale: 0.1 });
+    this.hilt = voxelMesh(w.zanberHilt, { scale: X1_WEAPON_VOXEL });
     hand.add(this.hilt);
     this.blade = this.makeBlade(SABER_COLOR, BLADE);
     hand.add(this.blade);
 
-    this.offHilt = voxelMesh(w.saberHilt, { scale: 0.1 });
+    this.offHilt = voxelMesh(w.saberHilt, { scale: X1_WEAPON_VOXEL });
     handL.add(this.offHilt);
     this.offBlade = this.makeBlade(OFF_COLOR, SBLADE);
     handL.add(this.offBlade);
 
-    this.buster = voxelMesh(w.buster, { scale: 0.1 });
+    this.buster = voxelMesh(w.buster, { scale: X1_WEAPON_VOXEL });
     this.buster.position.set(0, -0.03, 0);
     hand.add(this.buster);
     this.buster.visible = false;
 
-    this.shieldPanel = voxelMesh(w.shieldPanel, { scale: 0.1 });
+    this.shieldPanel = voxelMesh(w.shieldPanel, { scale: X1_WEAPON_VOXEL });
     handL.add(this.shieldPanel);
     this.shieldPanel.visible = false;
 
     // screw whip: the claw and its chain live in world space, lashed straight out from the fist
-    this.whipHead = this.own(voxelMesh(w.whipHead, { scale: 0.1 }));
+    this.whipHead = this.own(voxelMesh(w.whipHead, { scale: X1_WEAPON_VOXEL }));
     this.whipHead.visible = false;
     this.whipLinks = [];
     for (let i = 0; i < 10; i++) {
-      const l = this.own(voxelMesh(w.whipLink, { scale: 0.12 }));
+      const l = this.own(voxelMesh(w.whipLink, { scale: 0.12 / X1_R }));
       l.visible = false;
       this.whipLinks.push(l);
     }

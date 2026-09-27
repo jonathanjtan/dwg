@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { voxelMesh } from '../core/voxel.js';
 import { P } from '../core/rig.js';
-import { deltaplusDef, deltaplusWeapons } from '../models/deltaplus.js';
+import { deltaplusDef, deltaplusWeapons, DELTAPLUS_VOXEL } from '../models/deltaplus.js';
 import { MOVES, STANCE, BLADE } from './deltaplus_moves.js';
 import { Hero, FLASH } from './hero.js';
 import { damp, lerp } from '../core/util.js';
@@ -24,7 +24,7 @@ const SABER_TRAIL = 0x5fc8ff;
 export const DELTAPLUS = {
   id: 'deltaplus', pilot: 'riddhe', def: deltaplusDef, moves: MOVES, stance: STANCE,
   hp: 1200, run: 9.6, boostSpeed: 24, boostTime: 2.0, sprintSpeed: 18.5, defense: 1.02, power: 1.05,
-  nozzles: [[-0.25, 0.15, -0.58], [0.25, 0.15, -0.58]],
+  nozzles: [[-0.14, 0.12, -0.34], [0.14, 0.12, -0.34]], // the backpack's two thrusters
   debris: [0xe8ebf2, 0x364683, 0xa8283a], spAirY: 4.7, spAirReach: 7.2,
   impactColor: 0x8fe0ff, ringColor: 0xbfeeff, impactLight: 0x8fe0ff, domeColor: 0x7fd0ff,
   spColor: 0xffc860, spDome: 0xffe0a0, spAura: 0xffc860, hitColor: 0xcfeeff,
@@ -40,7 +40,7 @@ export class DeltaPlus extends Hero {
     const hand = this.rig.nodes.hand;
     this.saberLit = 0;
     this.rifleVis = 0;
-    this.hilt = voxelMesh(w.hilt, { scale: 0.1 });
+    this.hilt = voxelMesh(w.hilt, { scale: DELTAPLUS_VOXEL });
     hand.add(this.hilt);
     this.blade = new THREE.Group();
     this.blade.position.z = 0.3;
@@ -52,7 +52,7 @@ export class DeltaPlus extends Hero {
     this.bladeCore = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 3, 3.2), toneMapped: false }));
     this.blade.add(this.bladeOuter, this.bladeCore);
     hand.add(this.blade);
-    this.rifle = voxelMesh(w.rifle, { scale: 0.1 });
+    this.rifle = voxelMesh(w.rifle, { scale: DELTAPLUS_VOXEL });
     this.rifle.position.set(0, -0.05, 0);
     hand.add(this.rifle);
     this.rifle.visible = false;

@@ -194,6 +194,12 @@ export class Sculpt {
   get model() {
     return this.m;
   }
+  // keep sculpting a model already built (a mirrored clone, say, that needs its own lettering)
+  static on(model, R) {
+    const s = new Sculpt(model.palette, R);
+    s.m = model;
+    return s;
+  }
 }
 
 // A rig definition authored in design units: pivots and hipHeight are scaled into voxels, and the voxel size shrinks

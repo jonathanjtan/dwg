@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { voxelMesh } from '../core/voxel.js';
 import { P } from '../core/rig.js';
-import { f91Def, f91Weapons, VSBR_BEAM } from '../models/f91.js';
+import { f91Def, f91Weapons, VSBR_BEAM, F91_VOXEL } from '../models/f91.js';
 import { MOVES, STANCE, BLADE } from './f91_moves.js';
 import { Hero, FLASH, curve } from './hero.js';
 import { damp, lerp } from '../core/util.js';
@@ -22,7 +22,7 @@ const VSBR_TILT = 1.5; // radians the VSBR swing through, racked to forward-firi
 export const F91_SUIT = {
   id: 'f91', pilot: 'seabook', def: f91Def, moves: MOVES, stance: STANCE,
   hp: 1100, run: 8.0, boostSpeed: 19.5, boostTime: 1.5, sprintSpeed: 15.5, defense: 0.98, power: 1.12,
-  nozzles: [[-0.22, 0.15, -0.5], [0.22, 0.15, -0.5]],
+  nozzles: [[-0.12, 0.12, -0.3], [0.12, 0.12, -0.3]], // the backpack's two thrusters
   debris: [0xf2f4f7, 0x3f6fc4, 0xd8342a], spAirY: 4.2, spAirReach: 6.5,
   impactColor: 0xfff2a0, ringColor: 0xfff6c8, domeColor: 0x9fd8ff,
   spColor: 0x7fffbe, spDome: 0xbfffdc, spAura: 0x7fffbe,
@@ -40,7 +40,7 @@ export class F91 extends Hero {
     this.rifleVis = 0;
     this.vsbrWant = 0;
     this.vsbrAim = 0;
-    this.hilt = voxelMesh(w.hilt, { scale: 0.1 });
+    this.hilt = voxelMesh(w.hilt, { scale: F91_VOXEL });
     hand.add(this.hilt);
     this.blade = new THREE.Group();
     this.blade.position.z = 0.3;
@@ -52,11 +52,11 @@ export class F91 extends Hero {
     this.bladeCore = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.6, 3), toneMapped: false }));
     this.blade.add(this.bladeOuter, this.bladeCore);
     hand.add(this.blade);
-    this.rifle = voxelMesh(w.rifle, { scale: 0.1 });
+    this.rifle = voxelMesh(w.rifle, { scale: F91_VOXEL });
     this.rifle.position.set(0, -0.05, 0);
     hand.add(this.rifle);
     this.rifle.visible = false;
-    this.launcher = voxelMesh(w.launcher, { scale: 0.1 });
+    this.launcher = voxelMesh(w.launcher, { scale: F91_VOXEL });
     this.launcher.position.set(0, 0.1, 0);
     hand.add(this.launcher);
     this.launcher.visible = false;
