@@ -47,6 +47,10 @@ export class Audio {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = (this.ctx = new AC());
+    // iPhones route Web Audio through the "ambient" session by default, which the hardware ring/silent
+    // switch mutes: with the switch flipped the game is silent however loud the volume is. Asking for the
+    // playback session opts out of that. Safari 16.4+; older iOS keeps the old behaviour.
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* not supported */ }
     this.master = ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 0.8;
     const comp = ctx.createDynamicsCompressor();
@@ -203,7 +207,19 @@ export class Audio {
 
   resume() {
     this.init();
-    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    // Some iOS versions leave the output dead until a source has actually run inside a user gesture,
+    // even once the context reports "running". One silent frame is enough to wake it.
+    if (!this.unlocked) {
+      this.unlocked = true;
+      try {
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+        src.connect(this.ctx.destination);
+        src.start(0);
+      } catch (e) { /* nothing to wake */ }
+    }
   }
 
   toggleMute() {

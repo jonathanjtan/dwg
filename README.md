@@ -67,7 +67,7 @@ Staying alive:
 | SP attack (hold for the charge SP) | I / F | RB / R1 | SP |
 | Pause, sound on/off, hide keys | Esc, M, H | Start | ⏸ (sound lives in the pause menu) |
 
-Sound starts off. Press M, or use the SOUND button in the pause menu, to turn it on.
+Sound starts off. Press M, or use the SOUND button in the pause menu, to turn it on. On touch there is no M key, so there is a SOUND button on the title screen next to FULLSCREEN and a speaker toggle in the HUD beside the pause button; all of them stay in step.
 
 **Lock-on** works on commanders only: squad leaders, Denim, Gene and Char. Press R to lock on to the one nearest the middle of the view. The camera swings round behind you to keep it in frame, attacks and shots aim at it while it's in reach, and a red reticle marks it (pinned to the screen edge when it's out of view). While locked on, your suit keeps facing the target: left and right strafe round it, back backs off, and boost dashes, the boost sprint and dodges strafe the same way. Press R again to let go. With no commander around, R recenters the camera.
 
@@ -76,6 +76,8 @@ Sound starts off. Press M, or use the SOUND button in the pause menu, to turn it
 Hold the phone sideways. The movement stick appears wherever your left thumb lands and follows it if you drag past the ring, so you never run out of travel; drag anywhere on the right half to swing the camera. The action buttons sit in a diamond under your right thumb and hold exactly like the keys do — hold BOOST to dash (and keep holding to sprint), JUMP to hover, CHG to charge a shot, SP for the charge SP. The SP button lights up when the gauge is full. Lock-on is worth leaning on here: it aims your attacks for you and saves a lot of camera work.
 
 The combo guide starts **off** on touch, since it is a lot of a phone screen; turn it on from the pause menu and it comes back as a compact two-column strip along the top, labelled ATK / CHG rather than J / K, and it fades out of the way whenever a radio line is on screen. Double-tap-to-zoom and pinch are refused everywhere, including in the menus, because a stray zoom leaves the game in a viewport it cannot draw to and iOS Safari ignores `user-scalable=no`.
+
+If the game is silent on an iPhone even with sound on, it used to be the ring/silent switch: Web Audio defaults to the "ambient" session, which that switch mutes however loud the volume is. The game now asks for the playback session (`navigator.audioSession`, Safari 16.4+) so the switch no longer applies, and plays a silent frame on the first tap, which some iOS versions need before any sound comes out at all.
 
 Tap **FULLSCREEN** on the title screen, or sortie — the game asks for fullscreen and a landscape lock on the way in, which is worth a third of the screen back from the browser's address bar and tab strip. iPhone Safari supports neither, so there the game offers **Share → Add to Home Screen** instead; launched from the home screen it runs without browser chrome. Rendering is capped at 1x device pixels on touch devices and steps down to 0.5x if frames get long.
 

@@ -37,6 +37,7 @@ export class TouchControls {
     root.innerHTML = `
       <div id="tc-stick" class="hidden"><div class="tc-ring"></div><div class="tc-knob"></div></div>
       <button type="button" id="tc-pause" aria-label="Pause"><span></span><span></span></button>
+      <button type="button" id="tc-sound" class="off" aria-label="Sound"><i class="spk"></i></button>
       <div id="tc-pad">${BTNS.map((b) => `<button type="button" class="tc-btn" data-a="${b.a}" aria-label="${b.label}"><b>${b.label}</b>${b.hint ? `<i>${b.hint}</i>` : ''}</button>`).join('')}</div>`;
     document.getElementById('app').appendChild(root);
     this.root = root;
@@ -50,13 +51,15 @@ export class TouchControls {
       el.dataset.code = b.code;
       el.addEventListener('pointerdown', (e) => this.btnDown(e, el), { passive: false });
     }
-    const pause = root.querySelector('#tc-pause');
-    pause.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.input.pressKey('KeyP');
-      this.input.releaseKey('KeyP');
-    }, { passive: false });
+    // Pause and sound go through the keys they are already bound to, like every other control here.
+    for (const [sel, code] of [['#tc-pause', 'KeyP'], ['#tc-sound', 'KeyM']]) {
+      root.querySelector(sel).addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.input.pressKey(code);
+        this.input.releaseKey(code);
+      }, { passive: false });
+    }
 
     // The stick and the look drag live on the whole surface, so a thumb can start anywhere.
     const app = document.getElementById('app');

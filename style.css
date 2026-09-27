@@ -259,6 +259,11 @@ button.big:hover { transform: translateX(4px); filter: brightness(1.1); }
 
 #tc-pause { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: calc(150px + env(safe-area-inset-right, 0px)); width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
 #tc-pause span { width: 4px; height: 15px; background: var(--text); }
+#tc-sound { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: calc(198px + env(safe-area-inset-right, 0px)); width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); padding: 0; }
+#tc-sound .spk { width: 18px; height: 16px; background: currentColor; clip-path: polygon(0 32%, 26% 32%, 55% 0, 55% 100%, 26% 68%, 0 68%); }
+/* muted: struck through, and dimmed so "on" is the one that draws the eye */
+#tc-sound.off { color: var(--muted); }
+#tc-sound.off::after { content: ''; position: absolute; left: 7px; right: 7px; top: 50%; height: 2px; background: var(--warn); transform: rotate(-38deg); }
 
 @media (max-height: 430px) { #touch { --tcs: 0.84; } }
 @media (max-height: 360px) { #touch { --tcs: 0.72; } }
@@ -273,7 +278,8 @@ button.big:hover { transform: translateX(4px); filter: brightness(1.1); }
 
 #touch-help { display: none; margin-top: 14px; font-size: 14px; color: var(--muted); line-height: 1.45; }
 .th-row b { color: var(--text); }
-#touch-help .coop-btn { margin-top: 10px; }
+#touch-help .th-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+#touch-help .coop-btn { margin-top: 0; }
 #a2hs { margin-top: 8px; font-size: 13px; line-height: 1.4; max-width: 420px; }
 #a2hs b { color: var(--accent); }
 body.touch #touch-help { display: block; }

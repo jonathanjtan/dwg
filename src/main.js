@@ -206,13 +206,11 @@ class Game {
     });
     $('lobby-leave').addEventListener('click', () => this.leaveCoop());
     $('lobby-suit').addEventListener('click', () => this.openGuestSelect());
-    $('mute-btn').addEventListener('click', () => {
-      const m = this.audio.toggleMute();
-      $('mute-btn').textContent = m ? 'SOUND: OFF' : 'SOUND: ON';
-    });
+    for (const id of ['mute-btn', 'sound-btn']) $(id).addEventListener('click', () => this.toggleSound());
     $('guide-btn').addEventListener('click', () => this.hud.toggleGuide());
     for (const id of ['fs-btn', 'fs-btn-pause']) $(id).addEventListener('click', () => toggleFullscreen());
     this.setupFullscreenUI();
+    this.syncSoundUI();
     // title theme starts on the first gesture (browsers block audio before one)
     const titleMusic = () => {
       if (this.mode !== 'title') return;
@@ -247,6 +245,23 @@ class Game {
     const label = on ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
     document.getElementById('fs-btn').firstChild.textContent = label;
     document.getElementById('fs-btn-pause').textContent = label;
+  }
+
+  // Sound starts off. On a desktop M toggles it; a phone has no M, so the title screen carries its own
+  // button beside FULLSCREEN and both stay in step with the one in the pause menu.
+  toggleSound() {
+    this.audio.resume(); // the tap that turns sound on is also the gesture that unlocks the context
+    this.audio.toggleMute();
+    this.syncSoundUI();
+  }
+
+  syncSoundUI() {
+    const label = this.audio.muted ? 'SOUND: OFF' : 'SOUND: ON';
+    document.getElementById('mute-btn').textContent = label;
+    const b = document.getElementById('sound-btn');
+    b.firstChild.textContent = label;
+    b.querySelector('small').textContent = this.audio.muted ? 'tap to turn it on' : 'tap to mute';
+    document.getElementById('tc-sound')?.classList.toggle('off', this.audio.muted);
   }
 
   setupTitle() {
@@ -910,7 +925,7 @@ class Game {
       this.pausedAt = performance.now();
       if (open) { this.ignoreUnlock = true; document.exitPointerLock?.(); } else lockPointer(this.canvas);
     }
-    if (act.mute) $('mute-btn').textContent = this.audio.toggleMute() ? 'SOUND: OFF' : 'SOUND: ON';
+    if (act.mute) this.toggleSound();
     if (act.help) this.hud.toggleKeys();
     if (act.guide) this.hud.toggleGuide();
     if (act.recenter) this.camera.recenter(L.heading);
@@ -1001,10 +1016,7 @@ class Game {
       if (this.mode === 'play') this.pause(true);
       else if (this.mode === 'paused') this.pause(false);
     }
-    if (act.mute) {
-      const m = this.audio.toggleMute();
-      document.getElementById('mute-btn').textContent = m ? 'SOUND: OFF' : 'SOUND: ON';
-    }
+    if (act.mute) this.toggleSound();
     if (act.help) this.hud.toggleKeys();
     if (act.guide) this.hud.toggleGuide();
     if (act.recenter) this.camera.recenter(this.local.heading);
