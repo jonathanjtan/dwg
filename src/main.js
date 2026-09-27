@@ -362,18 +362,33 @@ class Game {
     if (this.net.role === 'host') this.net.send({ y: 'title' });
   }
 
+  // A guest simulates nothing, so for them "paused" is only the menu being open — the host plays on.
+  // It still has to go through here, or the RESUME button (which calls pause(false)) does nothing.
+  pauseGuest(on) {
+    const p = document.getElementById('pause');
+    if (p.classList.contains('hidden') !== on) return;
+    p.classList.toggle('hidden', !on);
+    document.getElementById('restart').classList.add('hidden');
+    this.pausedAt = performance.now();
+    if (on) { this.ignoreUnlock = true; document.exitPointerLock?.(); }
+    else if (!this.isTouch) lockPointer(this.canvas);
+  }
+
   pause(on) {
+    if (this.mode === 'guest') return this.pauseGuest(on);
     if (on && this.mode !== 'play') return;
     if (!on && this.mode !== 'paused') return;
     this.mode = on ? 'paused' : 'play';
     this.pausedAt = performance.now();
     document.getElementById('pause').classList.toggle('hidden', !on);
+    // a guest's menu hides RESTART (only the host can restart); put it back for anyone who isn't one
+    document.getElementById('restart').classList.remove('hidden');
     if (on) {
       this.audio.ctx?.suspend();
       if (this.input.locked) { this.ignoreUnlock = true; document.exitPointerLock(); }
     } else {
       this.audio.resume();
-      lockPointer(this.canvas);
+      if (!this.isTouch) lockPointer(this.canvas);
     }
   }
 
@@ -918,12 +933,7 @@ class Game {
   guestFrame(rdt, act) {
     const L = this.local;
     if (act.pause && performance.now() - (this.pausedAt || 0) > 350) {
-      const p = $('pause');
-      const open = p.classList.contains('hidden');
-      p.classList.toggle('hidden', !open);
-      $('restart').classList.add('hidden');
-      this.pausedAt = performance.now();
-      if (open) { this.ignoreUnlock = true; document.exitPointerLock?.(); } else lockPointer(this.canvas);
+      this.pauseGuest($('pause').classList.contains('hidden'));
     }
     if (act.mute) this.toggleSound();
     if (act.help) this.hud.toggleKeys();
@@ -982,10 +992,11 @@ class Game {
     this.last = now;
     this.adaptQuality(rdt);
     // the pad is only up while there is a suit to drive, and never over a menu
-    this.input.touch?.update(
-      (this.mode === 'play' || this.mode === 'guest') && document.getElementById('pause').classList.contains('hidden'),
-      this.local
-    );
+    // 'paused' counts as in-mission: the pad goes away but the pause button stays, so the menu can
+    // always be closed even if its own buttons are somehow not taking taps.
+    const menuOpen = !document.getElementById('pause').classList.contains('hidden');
+    const inMission = this.mode === 'play' || this.mode === 'guest' || this.mode === 'paused';
+    this.input.touch?.update(inMission && !menuOpen, inMission && menuOpen, this.local);
     const act = this.input.poll();
 
     if (this.mode === 'guest') return this.guestFrame(rdt, act);

@@ -54,6 +54,7 @@ export class TouchControls {
     // Pause and sound go through the keys they are already bound to, like every other control here.
     for (const [sel, code] of [['#tc-pause', 'KeyP'], ['#tc-sound', 'KeyM']]) {
       root.querySelector(sel).addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return; // iOS replays a tap as a mouse event
         e.preventDefault();
         e.stopPropagation();
         this.input.pressKey(code);
@@ -160,12 +161,16 @@ export class TouchControls {
 
   // Called once a frame: show the pad only while there is something to drive, and mirror the two gauges
   // the thumb cluster covers up.
-  update(on, local) {
+  // `on`: there is a suit to drive. `menuOpen`: a menu is over the top of it. The pad only belongs on
+  // screen for the first, but the pause button stays put for the second, so there is always a way back
+  // out of a menu even if its own buttons misbehave.
+  update(on, menuOpen, local) {
     if (on !== this.active) {
       this.active = on;
-      this.root.classList.toggle('hidden', !on);
       if (!on) this.releaseAll();
     }
+    this.root.classList.toggle('hidden', !on && !menuOpen);
+    this.root.classList.toggle('menu-only', !on);
     if (!on || !local) return;
     this.spEl.classList.toggle('ready', local.sp >= local.maxSp);
     this.boostEl.classList.toggle('low', (local.boost ?? 1) < 0.25);
@@ -186,9 +191,16 @@ function refuseZoomGestures() {
     if (!t) return;
     const now = performance.now();
     const near = Math.abs(t.clientX - lastTapX) < 40 && Math.abs(t.clientY - lastTapY) < 40;
-    // A second tap in the same spot within the double-tap window is the zoom gesture, never a real
-    // second press: swallowing it costs nothing, and the far-apart taps that menus rely on still land.
-    if (now - lastTapT < 350 && near && !e.target.closest('input, textarea, select, a')) e.preventDefault();
+    // Preventing touchend is what stops the zoom, but on iOS it also stops the click the tap would have
+    // produced. Controls live on clicks, so they are never candidates: a menu button tapped twice in a
+    // hurry has to work both times. The game surface underneath is all pointerdown, so it loses nothing.
+    const control = e.target.closest('button, input, textarea, select, a, label, [role="button"]');
+    if (now - lastTapT < 350 && near && !control) {
+      e.preventDefault();
+      // Deliberately not re-arming the window here: otherwise impatient tapping in one spot keeps
+      // re-triggering the guard and the target stays dead for as long as the finger keeps going.
+      return;
+    }
     lastTapT = now;
     lastTapX = t.clientX;
     lastTapY = t.clientY;

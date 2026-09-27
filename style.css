@@ -265,6 +265,9 @@ button.big:hover { transform: translateX(4px); filter: brightness(1.1); }
 #tc-sound.off { color: var(--muted); }
 #tc-sound.off::after { content: ''; position: absolute; left: 7px; right: 7px; top: 50%; height: 2px; background: var(--warn); transform: rotate(-38deg); }
 
+/* a menu is up: only the pause button stays, so there is always a way back out */
+#touch.menu-only #tc-pad, #touch.menu-only #tc-sound, #touch.menu-only #tc-stick { display: none; }
+
 @media (max-height: 430px) { #touch { --tcs: 0.84; } }
 @media (max-height: 360px) { #touch { --tcs: 0.72; } }
 
