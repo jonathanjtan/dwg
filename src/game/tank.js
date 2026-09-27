@@ -3,7 +3,7 @@
 // Space: thruster hop. L/Shift: tread boost. I/F: full-burst SP. Treads turn the hull; the torso tracks targets.
 import * as THREE from 'three';
 import { RigObject, makePose, lerpPose, poseFrom, P, RPITCH, RY } from '../core/rig.js';
-import { guntankDef } from '../models/suits.js';
+import { guntankDef } from '../models/guntank.js';
 import { clamp, damp, angleDamp, wrapAngle, rand } from '../core/util.js';
 
 const SPEED = 8.8;
