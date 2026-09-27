@@ -710,6 +710,37 @@ function whip(s) {
   s.noise(0.05, 0.28, 0.32, { type: 'bandpass', f0: 2200, f1: 1300, q: 1, dest: main });
 }
 
+// ---------------------------------------------------------------- Sazabi
+// Beam shot rifle: heavier than the Gundam's. Over the footage's shot combo, its report puts half its excess energy
+// in a 70-86 Hz body, a quarter in a 330-680 Hz growl, and the rest in a zap near 1.75-2.1 kHz, so: a sub thump, a
+// detuned saw growl under a low-mid bandpass, and a zap sweeping down through 2 kHz.
+function srifle(s) {
+  const main = s.bus();
+  const bp = s.filter('bandpass', 2100 * s.r(0.95, 1.05), 1.4, main);
+  bp.frequency.setValueAtTime(2100, 0);
+  bp.frequency.exponentialRampToValueAtTime(1700, 0.3);
+  const hot = s.bus({ dest: bp, drive: 4, gain: 0.8 });
+  for (const d of [-10, 0, 10]) s.tone('sawtooth', 165, 138, 0, 0.3, 0.24, { dest: hot, detune: d, a: 0.003 });
+  const mid = s.filter('bandpass', 480, 1.1, main);
+  for (const f of [330, 500]) s.tone('sawtooth', f, f * 0.8, 0, 0.24, 0.16, { dest: mid, a: 0.004 });
+  s.tone('sine', 110, 72, 0, 0.3, 0.9, { dest: main });
+  s.click(0, 0.7, main);
+  s.noise(0, 0.05, 0.55, { type: 'bandpass', f0: 2600, q: 1, dest: main, a: 0.001 });
+  s.noise(0.02, 0.4, 0.3, { type: 'bandpass', f0: 2000, f1: 900, q: 1.3, dest: main });
+  s.crackle(0.05, 0.35, 5, 0.1, { f0: 1500, f1: 4000, dest: main });
+}
+
+// Funnel beam: a small, sharp shot from a remote weapon pod. The footage's funnel volleys sit near 580-590 Hz with
+// a zing at 2.35-2.4 kHz over a faint body below 150 Hz: a short sine blip, a ringing bandpassed zing, a tick.
+function funnel(s) {
+  const main = s.bus({ pan: s.r(-0.5, 0.5) });
+  s.tone('square', 590 * s.r(0.94, 1.06), 420, 0, 0.12, 0.14, { dest: s.filter('lowpass', 1400, 1, main), a: 0.002 });
+  s.tone('sine', 2400 * s.r(0.96, 1.04), 1500, 0, 0.14, 0.18, { dest: main, glide: 0.1 });
+  s.noise(0, 0.16, 0.35, { type: 'bandpass', f0: 2400, f1: 1600, q: 3, dest: main, a: 0.001 });
+  s.tone('sine', 140, 70, 0, 0.1, 0.35, { dest: main });
+  s.click(0, 0.35, main);
+}
+
 // ---------------------------------------------------------------- movement
 // Footfall: sub thump, a knock of steel on concrete, a clank from the leg, crumbling ground, hydraulics and a servo.
 function step(s, v) {
@@ -817,6 +848,8 @@ export const RECIPES = {
   broll: { n: 3, dur: 0.45, level: 0.7, build: broll },
   vsbr: { n: 3, dur: 1.0, level: 0.85, build: vsbr },
   whip: { n: 4, dur: 0.5, level: 0.75, build: whip },
+  srifle: { n: 4, dur: 0.55, level: 0.85, build: srifle },
+  funnel: { n: 6, dur: 0.3, level: 0.5, build: funnel },
 };
 
 const hashName = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };

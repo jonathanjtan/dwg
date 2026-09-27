@@ -8,11 +8,13 @@ import { rand, wrapAngle } from '../core/util.js';
 const TAU = Math.PI * 2;
 const $ = (id) => document.getElementById(id);
 
-// How each control is named on each kind of input. [cap, alternative]
+// How each control is named on each kind of input: [cap, alternative]. On a keyboard the alternative is a second key
+// cap (the mouse, or the other key bound to it), shown as a whole second sequence after the keyboard-only one; on a
+// phone it is a note under the caps.
 const CAPS = {
   kb: {
-    move: ['W A S D'], look: ['MOUSE', 'or Q / E'], jump: ['SPACE'], boost: ['SHIFT', 'or L'],
-    atk: ['J', 'or left click'], chg: ['K', 'or right click'], sp: ['I', 'or F'], lock: ['R', 'or middle click'],
+    move: ['W A S D'], look: ['Q / E', 'MOUSE'], jump: ['SPACE'], boost: ['SHIFT', 'L'],
+    atk: ['J', 'LMB'], chg: ['K', 'RMB'], sp: ['I', 'F'], lock: ['R', 'MMB'],
   },
   pad: {
     move: ['L-STICK'], look: ['R-STICK'], jump: ['A'], boost: ['B'], atk: ['X'], chg: ['Y'], sp: ['RB'], lock: ['R3'],
@@ -120,15 +122,17 @@ export class Tutorial {
     this.el.step.textContent = `DRILL ${this.i + 1} / ${DRILLS.length}`;
     this.el.jp.textContent = d.jp;
     this.el.name.textContent = d.name;
-    const alts = [];
-    this.el.keys.innerHTML = d.keys.map((k, n) => {
-      const hold = k.endsWith('+'), mash = k.endsWith('*');
-      const [cap, alt] = caps[k.replace(/[+*]$/, '')];
-      if (alt && !alts.includes(alt) && mode === 'kb') alts.push(alt);
-      else if (alt && mode === 'touch' && !alts.includes(alt)) alts.push(alt);
-      const tag = hold ? '<em>HOLD</em>' : mash ? '<em>× MASH</em>' : '';
-      return `${n ? '<span class="dr-then">›</span>' : ''}<kbd>${cap}</kbd>${tag}`;
-    }).join('') + (alts.length ? `<span class="dr-alt">${alts.join(' · ')}</span>` : '');
+    // one sequence of caps; `alt` swaps in each key's alternative where it has one
+    const seq = (alt) => `<span class="dr-seq">${d.keys.map((k, n) => {
+      const [cap, other] = caps[k.replace(/[+*]$/, '')];
+      const tag = k.endsWith('+') ? '<em>HOLD</em>' : k.endsWith('*') ? '<em>× MASH</em>' : '';
+      return `${n ? '<span class="dr-then">›</span>' : ''}<kbd>${alt && other ? other : cap}</kbd>${tag}`;
+    }).join('')}</span>`;
+    const hasAlt = d.keys.some((k) => caps[k.replace(/[+*]$/, '')][1]);
+    let html = seq(false);
+    if (hasAlt && mode === 'kb') html += `<span class="dr-or">or</span>${seq(true)}`;
+    else if (hasAlt && mode === 'touch') html += `<span class="dr-alt">${[...new Set(d.keys.map((k) => caps[k.replace(/[+*]$/, '')][1]).filter(Boolean))].join(' · ')}</span>`;
+    this.el.keys.innerHTML = html;
     this.el.text.textContent = d.text.replace('{unit}', suitInfo(g.hero.suit.id).unitShort);
     this.el.tip.textContent = d.tip || '';
     this.el.tip.classList.toggle('hidden', !d.tip);

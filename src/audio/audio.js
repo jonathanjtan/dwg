@@ -14,6 +14,7 @@ const REV = {
   bcannon: 0.3, clawhit: 0.08, clawhit_heavy: 0.25, broll: 0.1,
   vsbr: 0.3,
   whip: 0.15,
+  srifle: 0.3, funnel: 0.2,
 };
 // live-synth stand-ins used until the rendered bank is ready
 const FALLBACK = {
@@ -26,6 +27,7 @@ const FALLBACK = {
   claw: 'swing', spin_ball: 'swing', bflail: 'swing', clawhit: 'hit', clawhit_heavy: 'hit', bcannon: 'boom', broll: 'slam',
   vsbr: 'swing',
   whip: 'clang',
+  srifle: 'rifle', funnel: 'rifle',
 };
 
 export class Audio {
