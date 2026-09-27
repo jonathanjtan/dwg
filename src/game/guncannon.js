@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { voxelMesh } from '../core/voxel.js';
 import { RYAW } from '../core/rig.js';
-import { guncannonDef, guncannonWeapons } from '../models/suits.js';
+import { guncannonDef, guncannonWeapons, GUNCANNON_VOXEL, GC_CANNON_X, GC_CANNON_TOP } from '../models/guncannon.js';
 import { GC_MOVES, GC_STANCE } from './guncannon_moves.js';
 import { Hero, curve } from './hero.js';
 import { damp, lerp } from '../core/util.js';
@@ -20,7 +20,7 @@ const TRAIL_COLOR = 0xcfe4ff;
 export const GUNCANNON = {
   id: 'guncannon', pilot: 'kai', def: guncannonDef, moves: GC_MOVES, stance: GC_STANCE,
   hp: 1010, run: 8.4, boostSpeed: 20.5, boostTime: 1.55, sprintSpeed: 16.2, defense: 0.86,
-  nozzles: [[-0.25, 0.1, -0.86], [0.25, 0.1, -0.86]],
+  nozzles: [[-0.16, 0.18, -0.42], [0.16, 0.18, -0.42]], // under the cannon backpack
   debris: [0xc8342a, 0x3f8f8c, 0x565c69], spAirY: 2.8, spAirReach: 5, stepVol: 1.15, stepPitch: 0.9,
   impactColor: 0xff9a40, ringColor: 0xffd2a0, impactLight: 0xffa050, domeColor: 0xff8a40,
   spColor: 0xffa040, spDome: 0xffc070, spAura: 0x7fe8ff,
@@ -36,7 +36,7 @@ export class Guncannon extends Hero {
 
   buildWeapons() {
     const w = guncannonWeapons();
-    this.rifle = voxelMesh(w.rifle, { scale: 0.1 });
+    this.rifle = voxelMesh(w.rifle, { scale: GUNCANNON_VOXEL });
     this.rifle.position.set(0, -0.05, 0.05);
     this.rig.nodes.hand.add(this.rifle);
     this.cannonAim = 0;
@@ -221,13 +221,13 @@ export class Guncannon extends Hero {
   // ---------- guns ----------
   // Left fist (for trails and effects).
   handPoint(out) {
-    return this.rig.nodes.fArmL.localToWorld(out.set(0, -0.72, 0));
+    return this.rig.nodes.fArmL.localToWorld(out.set(0, -0.66, 0));
   }
 
   // side: 0 right cannon, 1 left; 'rifle' for the beam rifle.
   muzzle(out, side) {
     if (side === 'rifle' || side === undefined) return this.rifle.localToWorld(out.set(0, 0.05, 1.5));
-    return this.rig.nodes.cannons.localToWorld(out.set(side ? 0.4 : -0.4, 1.42, -0.05));
+    return this.rig.nodes.cannons.localToWorld(out.set(side ? GC_CANNON_X : -GC_CANNON_X, GC_CANNON_TOP, -0.01));
   }
 
   cannonDir(out) {
@@ -352,10 +352,10 @@ export class Guncannon extends Hero {
   postVisuals(dt, inMove) {
     const n = this.rig.nodes;
     // left fist, rifle fist, feet: a ribbon from mid-limb to just past the end
-    this.pushTrail('L', n.fArmL, 0.35, 0.9);
-    this.pushTrail('R', n.fArmR, 0.35, 0.9);
-    this.pushTrail('FL', n.shinL, 0.3, 0.95);
-    this.pushTrail('FR', n.shinR, 0.3, 0.95);
+    this.pushTrail('L', n.fArmL, 0.35, 0.76);
+    this.pushTrail('R', n.fArmR, 0.35, 0.76);
+    this.pushTrail('FL', n.shinL, 0.5, 1.15);
+    this.pushTrail('FR', n.shinR, 0.5, 1.15);
     // flurry afterimages
     const blur = inMove && this.move?.blur;
     this.ghosts.count = blur ? 8 : 0;

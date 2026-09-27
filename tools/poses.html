@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import { RigObject } from '../src/core/rig.js';
 import { voxelMesh } from '../src/core/voxel.js';
-import { guncannonWeapons } from '../src/models/suits.js';
+import { guncannonWeapons, GUNCANNON_VOXEL } from '../src/models/guncannon.js';
 import { gundamWeapons, GUNDAM_VOXEL } from '../src/models/gundam.js';
 import { BLADE } from '../src/game/moves.js';
 import { ROSTER } from '../src/game/roster.js';
@@ -45,7 +45,7 @@ ts.forEach((t, i) => {
   holder.add(rig.root);
   const hand = rig.nodes.hand, w = gc ? 'rifle' : gd ? weaponAt(t) : null;
   if (cfg.hover) rig.nodes.hips.position.y += 0.32; // a hovering suit's float (Ball.carryPose)
-  if (gc) hand.add(voxelMesh(W.rifle, { scale: 0.1 }));
+  if (gc) hand.add(voxelMesh(W.rifle, { scale: GUNCANNON_VOXEL }));
   else if (w === 'saber') {
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.17, 1).translate(0, 0, 0.5), new THREE.MeshBasicMaterial({ color: 0xff5fc8 }));
     blade.position.z = 0.3; blade.scale.z = BLADE; hand.add(blade);
