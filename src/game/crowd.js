@@ -1,7 +1,7 @@
 // Zaku II grunt crowd: instanced rendering + lightweight squad AI.
 import * as THREE from 'three';
 import { InstancedRig, Clip, makePose, poseFrom, lerpPose, P, RY, RPITCH, RROLL, RYAW } from '../core/rig.js';
-import { zakuDef, Z } from '../models/suits.js';
+import { zakuDef, Z } from '../models/zaku.js';
 import { SpatialHash, rand, clamp, angleDamp, wrapAngle, damp } from '../core/util.js';
 import { lensClear } from '../core/lensclear.js';
 

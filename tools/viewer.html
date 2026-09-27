@@ -7,7 +7,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RigObject, poseFrom } from '../src/core/rig.js';
-import { zakuDef, charDef, guntankDef } from '../src/models/suits.js';
+import { guntankDef } from '../src/models/suits.js';
+import { zakuDef, charDef } from '../src/models/zaku.js';
 import { ROSTER } from '../src/game/roster.js';
 const r = new THREE.WebGLRenderer({antialias:true}); r.setSize(innerWidth, innerHeight); r.shadowMap.enabled = true;
 document.body.appendChild(r.domElement);

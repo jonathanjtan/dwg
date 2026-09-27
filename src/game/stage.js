@@ -1,7 +1,7 @@
 // Mission 01: Side 7. Clear the plaza, take the three Zeon landing zones, then face the officers and Char.
 // Enemies come as squads posted around the colony (the landing yards most of all). A squad holds its post until a
 // pilot comes near, fights, and falls back to its post if the pilots move on.
-import { commanderDef, charDef, captainDef, CMD_COLORS, CHAR_COLORS, CAPT_COLORS } from '../models/suits.js';
+import { commanderDef, charDef, captainDef, CMD_COLORS, CHAR_COLORS, CAPT_COLORS } from '../models/zaku.js';
 import { rand, randi } from '../core/util.js';
 import { ARENA, ROADS, fieldAt } from '../world/world.js';
 import { LZ_SITES } from './bases.js';
