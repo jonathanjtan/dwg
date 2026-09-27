@@ -3,7 +3,7 @@
 // a turret the moves aim). The charge SP calls in the rest of the squadron.
 import * as THREE from 'three';
 import { RigObject, RY, RPITCH, P } from '../core/rig.js';
-import { ballDef } from '../models/suits.js';
+import { ballDef } from '../models/ball.js';
 import { BALL_MOVES, BALL_STANCE } from './ball_moves.js';
 import { Hero } from './hero.js';
 import { clamp, damp, lerp, angleDamp, rand } from '../core/util.js';
