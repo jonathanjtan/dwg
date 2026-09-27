@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { voxelMesh } from '../core/voxel.js';
 import { P } from '../core/rig.js';
-import { sazabiDef, sazabiWeapons } from '../models/sazabi.js';
+import { sazabiDef, sazabiWeapons, SAZABI_R, SAZABI_VOXEL } from '../models/sazabi.js';
 import { MOVES, STANCE, BLADE } from './sazabi_moves.js';
 import { Hero, curve } from './hero.js';
 import { damp, lerp } from '../core/util.js';
@@ -26,7 +26,7 @@ const FUNNEL_MODE_OF = [null, 'tgt', 'ring', 'field'];
 export const SAZABI = {
   id: 'sazabi', pilot: 'charcca', def: sazabiDef, moves: MOVES, stance: STANCE,
   hp: 1260, run: 8.6, boostSpeed: 21.5, boostTime: 2.0, sprintSpeed: 16.8, defense: 1.1, power: 1.06,
-  nozzles: [[0.3, 0.2, -0.9], [-0.3, 0.2, -0.9], [0.4, 1.3, -1.0], [-0.4, 1.3, -1.0]],
+  nozzles: [[0.24, 0.07, -0.6], [-0.24, 0.07, -0.6], [0.42, 0.8, -0.8], [-0.42, 0.8, -0.8]], // backpack bells, upper verniers
   flameScale: 1.2, exhaust: 0xffa060,
   debris: [0xb81c2a, 0x1c1c24, 0xe8b830], spAirY: 4.8, spAirReach: 7.5,
   impactColor: 0xffc040, ringColor: 0xffe090, impactLight: 0xffb040, domeColor: 0xff6040,
@@ -45,12 +45,12 @@ export class Sazabi extends Hero {
     this.saberLit = 0; this.rifleVis = 0;
     this.bladeLen = 1; // `bl` multiplier: the charge SP's giant axe
 
-    this.hilt = voxelMesh(w.hawk, { scale: 0.1 });
+    this.hilt = voxelMesh(w.hawk, { scale: SAZABI_VOXEL });
     hand.add(this.hilt);
     this.blade = this.makeBlade();
     hand.add(this.blade);
 
-    this.rifle = voxelMesh(w.rifle, { scale: 0.1 });
+    this.rifle = voxelMesh(w.rifle, { scale: SAZABI_VOXEL });
     this.rifle.position.set(0, -0.03, 0);
     hand.add(this.rifle);
     this.rifle.visible = false;
@@ -58,7 +58,7 @@ export class Sazabi extends Hero {
     // six funnels, in world space: they fly off the backpack and back
     this.funnels = [];
     for (let i = 0; i < N_FUNNELS; i++) {
-      const f = this.own(voxelMesh(w.funnel, { scale: 0.16 }));
+      const f = this.own(voxelMesh(w.funnel, { scale: 0.16 / SAZABI_R })); // funnels fly a little larger than life
       f.visible = false;
       this.funnels.push(f);
     }
@@ -192,7 +192,7 @@ export class Sazabi extends Hero {
 
   placeFunnels() {
     const on = this.funnelOut > 0.04;
-    this.rig.nodes.torso.localToWorld(this._home.set(0, 13, -9));
+    this.rig.nodes.torso.localToWorld(this._home.set(0, 1.6, -0.8)); // the racks behind the head
     for (let i = 0; i < N_FUNNELS; i++) {
       const f = this.funnels[i];
       f.visible = on;
@@ -237,14 +237,14 @@ export class Sazabi extends Hero {
         break;
       }
       case 'megacharge': { // the abdominal port gathers light
-        const c = this.rig.nodes.torso.localToWorld(this._w.set(0, 1, 4));
+        const c = this.rig.nodes.torso.localToWorld(this._w.set(0, 0.15, 0.4));
         g.fx.star(c, 0xff8ab0, 1.4);
         g.fx.aura(c, 0xff6a9a, 3, 0.8);
         g.audio.play('charge', { vol: 0.6 });
         break;
       }
       case 'mega': { // C2: the mega particle cannon point-blank
-        const c = this.rig.nodes.torso.localToWorld(this._w.set(0, 1, 4));
+        const c = this.rig.nodes.torso.localToWorld(this._w.set(0, 0.15, 0.4));
         const dir = this._f.set(fx, 0, fz);
         g.fx.muzzle(c, dir, 0xff8ab0, 2.4);
         for (let i = 0; i < 3; i++) g.projectiles.heroBeam(this, c, dir, { dmg: 6, kb: 3, up: 2, w: 2, r: 1.4, max: 0.12 });
@@ -266,7 +266,7 @@ export class Sazabi extends Hero {
         break;
       }
       case 'megabeam': { // SP finisher: the mega particle cannon's full-length beam, a thick column of pink light
-        const c = this.rig.nodes.torso.localToWorld(this._w.set(0, 1, 4));
+        const c = this.rig.nodes.torso.localToWorld(this._w.set(0, 0.15, 0.4));
         const dir = this._f.set(fx, 0, fz);
         g.fx.muzzle(c, dir, 0xff8ab0, 3.2);
         g.fx.star(c, 0xffffff, 3);
@@ -313,7 +313,7 @@ export class Sazabi extends Hero {
   }
 
   muzzle(out) {
-    if (this.wpn === 'rifle' || this.rifle.visible) return this.rifle.localToWorld(out.set(0, 0.03, 1.1));
+    if (this.wpn === 'rifle' || this.rifle.visible) return this.rifle.localToWorld(out.set(0, 0.02, 1.25));
     return this.rig.nodes.hand.localToWorld(out.set(0, 0.05, 1.3));
   }
 

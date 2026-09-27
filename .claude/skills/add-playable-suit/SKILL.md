@@ -65,7 +65,33 @@ build recipes to match.
 
 ## 2. The model
 
-`VoxelModel` API: `box`, `sbox` (symmetric in x), `ellipsoid`, `set`, `clearBox`, `paint`, `mirrorX`, `flipX`,
+**Start from reference, not memory.** Suits built from memory came out generic (the first Sazabi had a scorpion-tail
+crest, a green eye, a black chest and black slabs for funnel racks). Before modelling, gather reference and write down
+what makes the suit read as itself: silhouette, proportions (shoulder span, where the knees and skirt hem sit as a
+fraction of height), colour blocking, and the three or four signature features.
+
+- **Sketchfab** (the user suggested it): the public API works with curl even though the browser pane blocks the site.
+  `https://api.sketchfab.com/v3/search?type=models&q=<suit>&count=24&sort_by=-likeCount` returns thumbnails
+  (`results[].thumbnails.images`). Lay them out as one contact sheet with PIL and pick the clean full-body ones; low-poly
+  game-style models are the best voxel reference. The G Generation unit render in `assets/units/` helps too.
+- **Proportions:** crop the best reference and measure it before touching coordinates.
+
+**Model with `src/core/sculpt.js`** (the Sazabi in `src/models/sazabi.js` is the example). Parts are solid shapes in
+design units (one unit = one voxel at the old density), rasterized at `R` voxels per unit; `rigDef(R, scale, hipHeight,
+parts)` scales pivots so the suit keeps its world size, and weapons meshed apart use `scale / R`. Shapes: `box`,
+`rbox` (rounded), `ell`, `cyl` (tapers), `prism` (a polygon extruded), `hull(front, side, top)` (silhouettes as
+`[x,y]`, `[z,y]`, `[x,z]` extruded and intersected: the workhorse for armour), `half` (a chamfer plane), `fn` (custom),
+combined with `and`, `or`, `sub`, `move`, `rot`, `mirror` and `both` (shape plus its mirror). `Sculpt` has `add`, `cut`,
+`paint` (recolour what's there, e.g. a panel line or rim band), `decal` and `project` (pixel art stamped onto slanted
+or curved armour), and `mirror`. Author the suit's left half (+x), mirror, then add asymmetric bits.
+
+**Look at it every few edits:** `tools/turnaround.sh out.png "only=<id>&views=front,rside,back,q" 1600,560` renders an
+orthographic model sheet with headless Chrome (no dev server, no browser pane); `&show=head,torso` isolates parts and
+frames them, `&pose=rest` drops the stance, `&R=1` renders a sculpted suit at another density. Put the sheet next to
+the reference crop and fix the biggest difference first: silhouette and proportion before colour, colour before detail.
+Then check it in game from behind (the camera's usual view) as well as from the front.
+
+The older suits use `VoxelModel` directly. API: `box`, `sbox` (symmetric in x), `ellipsoid`, `set`, `clearBox`, `paint`, `mirrorX`, `flipX`,
 `clone`, and `recolor`. Colors are hex values; `{ glow, jitter }` opts make emissive voxels. Conventions:
 
 - Characters face +Z, and their right side is -X. Each part is authored around its own pivot at the origin; `scale: 0.1`.

@@ -1,0 +1,103 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Turnaround</title>
+<style>html,body{margin:0;background:#8d99a6}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+</head><body>
+<script>
+// headless runs only have the screenshot to go on: print any failure on the page
+const showErr = (m) => { document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff;background:#a00;padding:8px;white-space:pre-wrap">${m}</pre>`); };
+addEventListener('error', (e) => showErr(e.message + '\n' + (e.error?.stack || '')));
+addEventListener('unhandledrejection', (e) => showErr(String(e.reason?.stack || e.reason)));
+</script>
+<!--
+Model sheet: every suit asked for, side by side, from the front, its left side, the back and a 3/4 view, all in
+orthographic projection at one shared scale so sizes compare. Renders a single frame (no loop).
+  ?only=sazabi,gundam   suits (roster ids, or zaku / char / commander / captain / guntank)
+  &views=front,side,back,q,qb,top   which columns (q = 3/4 front-left, qr = 3/4 front-right, qb = 3/4 back, rside)
+  &pose=stance|rest|{"uArmR":[-0.4,0,-1.8]}   default stance (the suit's idle pose; rest = arms straight down)
+  &px=360   pixels per column; &ppu=90 pixels per world unit (by default both fit the window)
+  &show=head,torso   only draw these rig parts (the others stay in place, just hidden), framed to fill the cell
+Screenshot it headless with tools/turnaround.sh.
+-->
+<script type="module">
+import * as THREE from 'three';
+import { RigObject, poseFrom } from '../src/core/rig.js';
+import { zakuDef, charDef, commanderDef, captainDef, guntankDef } from '../src/models/suits.js';
+import { ROSTER } from '../src/game/roster.js';
+
+const q = new URLSearchParams(location.search);
+const ALL = {
+  ...Object.fromEntries(ROSTER.filter((r) => r.cfg).map((r) => [r.id, r.cfg])),
+  guntank: { def: guntankDef }, zaku: { def: zakuDef }, char: { def: charDef }, commander: { def: commanderDef }, captain: { def: captainDef },
+};
+const ids = (q.get('only') || Object.keys(ALL).join(',')).split(',');
+const VIEWS = {
+  front: [0, 0], side: [Math.PI / 2, 0], back: [Math.PI, 0], rside: [-Math.PI / 2, 0],
+  q: [Math.PI / 4, 0.18], qr: [-Math.PI / 4, 0.18], qb: [Math.PI * 0.8, 0.22], top: [0, 1.45], low: [0.5, -0.25],
+};
+const views = (q.get('views') || 'front,side,back,q').split(',');
+const PX = +(q.get('px') || Math.floor(innerWidth / views.length));
+
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+r.setPixelRatio(1);
+r.toneMapping = THREE.ACESFilmicToneMapping;
+r.toneMappingExposure = 1.05;
+r.shadowMap.enabled = true;
+r.setScissorTest(true);
+
+const rigs = [];
+let maxH = 0;
+for (const id of ids) {
+  const cfg = ALL[id];
+  if (!cfg) { console.warn('no suit', id); continue; }
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xfff4e0, 0x5c5446, 1.0));
+  const key = new THREE.DirectionalLight(0xfff0d8, 2.6);
+  scene.add(key); scene.add(key.target);
+  const rig = new RigObject(q.get('R') ? cfg.def(+q.get('R')) : cfg.def()); // R: density for sculpted suits
+  const p = q.get('pose') || 'stance';
+  rig.applyPose(p === 'rest' ? poseFrom({}) : p === 'stance' ? (cfg.stance || poseFrom({})) : poseFrom(JSON.parse(p)));
+  scene.add(rig.root);
+  const show = q.get('show')?.split(',');
+  if (show) for (const n in rig.nodes) for (const c of rig.nodes[n].children) if (c.isMesh) c.visible = show.includes(n);
+  rig.root.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  rig.root.traverseVisible((o) => { if (o.isMesh) box.expandByObject(o); });
+  maxH = Math.max(maxH, box.max.y);
+  rigs.push({ id, scene, key, box });
+}
+// frame from the ground up, or just the parts on show
+const bot = q.get('show') ? Math.min(...rigs.map((s) => s.box.min.y)) : Math.min(0, ...rigs.map((s) => s.box.min.y));
+// scale: given, or whatever fits the window (every suit shares it, so sizes compare)
+const PPU = +(q.get('ppu') || (innerHeight / rigs.length - 24) / (maxH - bot + 0.5));
+const H = Math.ceil((maxH - bot + 0.5) * PPU) + 24;
+const W = PX * views.length;
+r.setSize(W, H * rigs.length);
+document.body.appendChild(r.domElement);
+
+const bg = new THREE.Color(0x8d99a6), bg2 = new THREE.Color(0x7d8996);
+rigs.forEach((s, row) => {
+  const cy = (maxH + bot) / 2 + 0.1;
+  views.forEach((v, col) => {
+    const [yaw, pitch] = VIEWS[v] || VIEWS.front;
+    const hw = PX / 2 / PPU, hh = H / 2 / PPU;
+    const cam = new THREE.OrthographicCamera(-hw, hw, hh, -hh, 0.1, 200);
+    const cx = (s.box.min.x + s.box.max.x) / 2;
+    cam.position.set(cx + Math.sin(yaw) * Math.cos(pitch) * 50, cy + Math.sin(pitch) * 50, Math.cos(yaw) * Math.cos(pitch) * 50);
+    cam.lookAt(cx, cy, 0);
+    // key light rides with the camera: above, ahead and to its left, so tops read brightest, faces toward the camera
+    // next and left-facing sides darker, the same in every view
+    const side = new THREE.Vector3(-Math.cos(yaw), 0, Math.sin(yaw));
+    const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    s.key.position.set(cx + side.x * 18 + fwd.x * 28, cy + 38, side.z * 18 + fwd.z * 28);
+    s.key.target.position.set(cx, cy, 0);
+    const y0 = (rigs.length - 1 - row) * H;
+    r.setViewport(col * PX, y0, PX, H);
+    r.setScissor(col * PX, y0, PX, H);
+    r.setClearColor((row + col) % 2 ? bg2 : bg);
+    r.render(s.scene, cam);
+  });
+});
+document.title = 'ready';
+window.READY = true;
+</script></body></html>
