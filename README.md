@@ -69,13 +69,15 @@ New to it? **TRAINING** on the title screen walks you through every essential co
 | SP attack (hold for the charge SP) | I / F | RB / R1 | SP |
 | Pause, sound on/off, hide keys | Esc, M, H | Start | ⏸ (sound lives in the pause menu) |
 
+**SP** works as in Reborn: the gauge under the HP bar holds three stocks, filling as you land hits and take them. The ground and aerial SP each spend one stock. Hold SP through the starburst for the charge SP: the suit crouches in a cyan aura, and every 0.6 s you keep holding commits another banked stock (they turn orange on the bar). The charge SP lasts longer for every stock it takes; for a suit whose charge SP can't run longer, each stock makes it hit harder instead. An E-CAP pickup refills one stock.
+
 Sound starts off. Press M, or use the SOUND button in the pause menu, to turn it on. On touch there is no M key, so there is a SOUND button on the title screen next to FULLSCREEN and a speaker toggle in the HUD beside the pause button; all of them stay in step.
 
 **Lock-on** works on commanders only: squad leaders, Denim, Gene and Char. Press R to lock on to the one nearest the middle of the view. The camera swings round behind you to keep it in frame, attacks and shots aim at it while it's in reach, and a red reticle marks it (pinned to the screen edge when it's out of view). While locked on, your suit keeps facing the target: left and right strafe round it, back backs off, and boost dashes, the boost sprint and dodges strafe the same way. Press R again to let go. With no commander around, R recenters the camera.
 
 ### Touch
 
-Hold the phone sideways. The movement stick appears wherever your left thumb lands and follows it if you drag past the ring, so you never run out of travel; drag anywhere on the right half to swing the camera. The action buttons sit in a diamond under your right thumb and hold exactly like the keys do — hold BOOST to dash (and keep holding to sprint), JUMP to hover, CHG to charge a shot, SP for the charge SP. The SP button lights up when the gauge is full. Lock-on is worth leaning on here: it aims your attacks for you and saves a lot of camera work.
+Hold the phone sideways. The movement stick appears wherever your left thumb lands and follows it if you drag past the ring, so you never run out of travel; drag anywhere on the right half to swing the camera. The action buttons sit in a diamond under your right thumb and hold exactly like the keys do — hold BOOST to dash (and keep holding to sprint), JUMP to hover, CHG to charge a shot, SP for the charge SP. The SP button lights up whenever a stock is ready. Lock-on is worth leaning on here: it aims your attacks for you and saves a lot of camera work.
 
 The combo guide starts **off** on touch, since it is a lot of a phone screen; turn it on from the pause menu and it comes back as a compact two-column strip along the top, labelled ATK / CHG rather than J / K, and it fades out of the way whenever a radio line is on screen. Double-tap-to-zoom and pinch are refused everywhere, including in the menus, because a stray zoom leaves the game in a viewport it cannot draw to and iOS Safari ignores `user-scalable=no`.
 
@@ -85,23 +87,23 @@ Tap **FULLSCREEN** on the title screen, or sortie — the game asks for fullscre
 
 ## Mobile suits
 
-LAUNCH opens the mobile suit select. A / D or the arrow keys choose, Enter sorties, and the choice is remembered for next time. On touch, tap a card to select it and SORTIE to launch; the combos are listed as button names rather than keys. The movesets follow *Dynasty Warriors: Gundam Reborn*, with reach scaled from gameplay footage in suit heights. The suits aren't evenly matched: the Ball is the weak one. Charge attacks change with how far into the combo you are.
+LAUNCH opens the mobile suit select. A / D or the arrow keys choose, Enter sorties, and the choice is remembered for next time. On touch, tap a card to select it and SORTIE to launch; the combos are listed as button names rather than keys. The movesets follow *Dynasty Warriors: Gundam Reborn*, with reach scaled from gameplay footage in suit heights. The select screen and the combo guide tag each move with where it comes from: **RB** is shown in Reborn's move footage, **DWG** comes from the earlier *Dynasty Warriors: Gundam* games' move lists, and **NEW** is made up for this game. The suits aren't evenly matched: the Ball is the weak one. Charge attacks change with how far into the combo you are.
 
 ### RX-78-2 Gundam (Amuro Ray)
 
-Amuro's moveset follows the RX-78-2's in *Dynasty Warriors: Gundam Reborn*, with its beam saber, beam rifle, beam javelin, hyper bazooka and Gundam hammer. Reach is scaled from gameplay footage: the saber blade is about 1.3 Gundam heights long, as in the game. Charge attacks change with how far into the combo you are:
+Amuro's moveset follows the RX-78-2's in *Dynasty Warriors: Gundam Reborn*, checked beat by beat against its move footage, with its two beam sabers, beam rifle, beam javelin, hyper bazooka, shield and Gundam hammer. Reach is scaled from gameplay footage: the saber blade is about 1.3 Gundam heights long, as in the game. Charge attacks change with how far into the combo you are:
 
 - **J × 6**: six saber cuts. The sixth is a thruster hop into a full-circle cut that launches everything around you.
 - **K**: beam rifle shot. Mash it for a shot combo, or hold it for a charge shot that throws its target.
-- **J K**: rising launcher cut, a spin under the falling target, then the beam javelin speared up into it
-- **J J K**: the hyper bazooka comes off the back and fires four rounds point-blank
-- **J J J K**: a flurry of cuts, a crescent sweep, then a thruster dash straight through the target
+- **J K**: a cut into a rising launcher, then the beam javelin thrust straight up into the airborne target. Press **K** again to swing the shield flat across the front
+- **J J K**: the hyper bazooka comes off the back and fires five rounds point-blank
+- **J J J K**: the second beam saber comes out: an overhead chop, a cut from each blade crossing in an X, then a thruster rush straight through the target
 - **J J J J K**: a spin, then a huge rising crescent that carries the Gundam up with its target
-- **J J J J J K**: a spin, a hop, and a saber stab into the ground that sends out a shockwave about 2.8 Gundam heights across
-- In the air: **J** aerial slash, **K** plunging slam
-- During a boost dash: **J** dash rush (keep pressing J for up to 12 cuts and a launcher), **K** point-blank bazooka, **Space** boost jump
+- **J J J J J K**: the "Last Shooting" from the anime's final duel: the beam rifle held straight up and fired into the sky, and a shockwave races out along the ground about 2.8 Gundam heights around
+- In the air (this game's own; Reborn's footage shows none): **J** aerial slash, **K** plunging slam
+- During a boost dash: **J** dash rush (keep pressing J for up to 12 cuts and a launcher), **K** saber cuts on the move, a spinning cut and the hyper bazooka point-blank, **Space** boost jump
 
-SP attacks: on the ground, a long saber flurry, then the javelin skewers, lifts and slams, and purple lightning erupts. Hold SP through the starburst for the charge SP: the Gundam hammer, whirled around you on its chain. In the air, the Gundam hovers and shells the crowd with the hyper bazooka.
+SP attacks: on the ground, a storm of beam javelin thrusts, then the javelin skewers its target, hoists it and slams it down, and purple lightning erupts. Hold SP through the starburst for the charge SP: the Gundam hammer, whirled around you on its chain, longer for every stock it takes (about 7 s of hammer with two). In the air, the Gundam hovers and shells the crowd with the hyper bazooka.
 
 ### RX-77-2 Guncannon (Kai Shiden)
 
@@ -114,26 +116,26 @@ Slower, with less armor but more defense than the Gundam (the game's spec sheet:
 - **J J J K**: the cannons level and pound the target point-blank: three salvos of both barrels
 - **J J J J K**: braced on its thrusters, a rapid string of shells that juggles the target higher with every hit
 - **J J J J J K**: grab, then the giant swing: round and round with the soldier as a club, and let go. Tap K during the swing for more turns
-- In the air: **J** punch, **K** both cannons fired down at the ground ahead
+- In the air: **J** punch, **K** both cannons fired down at the ground ahead (neither is in the Reborn footage: this game's own)
 - During a boost dash: **J J J** a flying kick, an air punch and a heel drop, **K** launch the target, blast it with both cannons as it comes down, and back-flip clear
 
-SP attacks: on the ground, a storm of punches that walks forward (afterimage fists) and a last blow that blasts the target away. Hold SP through the starburst for the charge SP: shells fired out in every direction while the suit turns on the spot, then a ring of blasts. In the air, the Guncannon hovers low and shells its target point-blank.
+SP attacks each spend one of the three SP stocks. On the ground, a storm of punches that walks forward for about five and a half seconds (afterimage fists), and a last blow that blasts the target away. Hold SP through the starburst for the charge SP: the suit crouches in a blue aura, committing another stock for every 0.8 s it's held, then fires shells out in every direction while it turns on the spot, about 2.6 s of barrage for each stock, and ends in a ring of blasts. In the air, the Guncannon hovers low and shells its target point-blank.
 
 ### RB-79 Ball (Ball Leader)
 
-The Federation's mass-produced space pod: a sphere with a 180mm recoilless cannon on top and two manipulator arms. It's deliberately the weakest suit here: thin armor (the game's spec sheet: armor 9087, mobility 240), a slow drift and blows that land lighter than a real mobile suit's. Only its thrusters (904) keep up with the Gundam's. It floats instead of walking, and it fights by tumbling into the enemy claws first. The moves the Reborn footage shows are taken from it; the rest are built from the same tools.
+The Federation's mass-produced space pod: a sphere with a 180mm recoilless cannon on top and two manipulator arms. It's deliberately the weakest suit here: thin armor (the game's spec sheet: armor 9087, mobility 240), a slow drift and blows that land lighter than a real mobile suit's. Only its thrusters (904) keep up with the Gundam's. It floats instead of walking, and it fights by tumbling into the enemy claws first. The moves the Reborn footage shows are taken from it. The Reborn Ball has no charge attacks past J K (the footage and the Koei wiki agree), so J J K to J J J J J K, the jump attacks and the charge SP are this game's own, built from the same tools.
 
 - **J × 6**: tumbling claw swipes (a diagonal swipe, a backhand, a forward somersault, a barrel roll, a flat spin), then a thruster backflip that launches everything in front
 - **K**: the 180mm cannon. Mash it for a shot combo, or hold it for one heavy shell whose kick rocks the pod back and shoves it about its own width
 - **J K**: dash in, a tumbling flurry of claw swipes, a gold flash and a rising cut that launches
-- **J J K**: arms tucked in, it rolls along the ground like a bowling ball
-- **J J J K**: a spinning top that drags the crowd in and flings it away
-- **J J J J K**: a launching swipe, then three cannon shells at the target in the air
-- **J J J J J K**: the meteor drop: straight up on the thrusters, then down body first into a shockwave
-- In the air: **J** a forward tumble, **K** the cannon fired down at the ground ahead
-- During a boost dash: **J** spins along the ground with both arms out (keep pressing J) and ends in a launching flip, **K** spins, flashes violet and fires point-blank
+- **J J K** (this game's own): arms tucked in, it rolls along the ground like a bowling ball
+- **J J J K** (this game's own): a spinning top that drags the crowd in and flings it away
+- **J J J J K** (this game's own): a launching swipe, then three cannon shells at the target in the air
+- **J J J J J K** (this game's own): the meteor drop: straight up on the thrusters, then down body first into a shockwave
+- In the air (this game's own): **J** a forward tumble, **K** the cannon fired down at the ground ahead
+- During a boost dash: **J** spins along the ground with both arms out (keep pressing J) and ends in a launching flip, **K** about a second of spinning swipes, a violet flash, the cannon glowing gold, and a point-blank shell
 
-SP attacks: on the ground, both arms flail in a blur while the pod pushes forward, and a point-blank shell ends it. Hold SP through the starburst for the charge SP: the rest of the Ball squadron drops in from the colony sky, forms up round its leader and fires six volleys before peeling off. In the air, the Ball dives at its target and blasts it point-blank.
+SP attacks each spend one of the three SP stocks. On the ground, both arms flail in a blur for under two seconds while the pod pushes forward, and a point-blank shell ends it. Hold SP through the starburst for the charge SP (this game's own): the rest of the Ball squadron drops in from the colony sky, forms up round its leader and fires six volleys for each stock committed before peeling off. In the air, the Ball dives at its target and blasts it point-blank.
 
 ### MSN-001A1 Delta Plus (Riddhe Marcenas)
 
@@ -189,15 +191,15 @@ Char's Neo Zeon flagship from Char's Counterattack, flown against his own younge
 
 - **J × 6**: beam tomahawk cuts ending in a rising thruster slash that launches
 - **K**: the beam shot rifle, slow and heavy. Mash it for a shot combo, or hold it: the Sazabi boosts in, stabs its target into the air, and the funnels converge on it
-- **J K**: a tomahawk spin, then the mega particle cannon point-blank
+- **J K**: a tomahawk spin, then the mega particle cannon point-blank. Press **K** again for a turning cut and a thruster dash that drives the tomahawk up through the target and carries it into the air
 - **J J K**: cuts into a launcher, then all six funnels surround the catch and fire at once
 - **J J J K**: a thruster-driven spin sweep
 - **J J J J K**: a rising flurry on the thrusters
 - **J J J J J K**: cuts and a spin, then the funnels ring the suit and fire in every direction
-- In the air: **J** a tomahawk chop, **K** a missile volley at the ground
-- During a boost dash: **J** a rush of tomahawk cuts that ends with the whole suit slamming down and skidding along on its front (keep pressing J), **K** spin cuts into an uppercut and a funnel volley
+- In the air (this game's own; Reborn's footage shows none): **J** a tomahawk chop, **K** a missile volley at the ground
+- During a boost dash: **J** a rush of tomahawk cuts that ends with the whole suit slamming down and skidding along on its front (keep pressing J), **K** tomahawk cuts on the move, a spin, an uppercut that launches, then from the hover one heavy shot rifle beam straight up into the catch
 
-SP attacks: on the ground, the funnels spread out over the field and rain beams while the shot rifle picks off the rest, then the mega particle cannon fires full length. Hold SP through the starburst for the charge SP: a tomahawk frenzy with the funnels firing all around, finished by the tomahawk's beam stretched into a giant axe for one sweeping cut. In the air, it hovers and hammers the ground with the shot rifle, then ends with one green-white burst.
+SP attacks: on the ground, the funnels spread out over the field and rain beams while the shot rifle picks off the rest, then they come home, line up in front of the Sazabi and fire down the line. Hold SP through the starburst for the charge SP: a tomahawk frenzy on the thrusters with the funnels firing all around, about 3.3 s for each stock it takes, then a last rising cut and the funnels closing round the catch to fire at once. In the air, it hovers and hammers the ground with the shot rifle, then ends with one green-white burst.
 
 The boost gauge under the SP bar drains while you dash or hover and refills once the thrusters rest. Keep holding boost after the dash runs out and the suit settles into a **boost sprint**, skating on its thrusters at about twice its running speed without using the gauge. It's the quick way from one field to the next, and attacks come out of it as dash attacks.
 

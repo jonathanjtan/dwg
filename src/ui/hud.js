@@ -4,6 +4,7 @@ import { portrait, loadPortraits, hasSheet, renderingFor, holdsTalk } from './po
 import { unitImg, unitSprite } from './units.js';
 import { suitInfo } from '../game/roster.js';
 import { isTouch } from '../core/touch.js';
+import { srcTag, srcLegend } from './select.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -128,7 +129,7 @@ export class HUD {
     const el = this.el.guide;
     el.innerHTML = '<div class="gd-head">COMBOS · C</div>';
     this.guideRows.clear();
-    for (const [keys, text, id] of info.guide) {
+    for (const [keys, text, id, src] of info.guide) {
       const row = document.createElement('div');
       row.className = 'gd-row';
       const k = document.createElement('div');
@@ -144,12 +145,17 @@ export class HUD {
       }
       const v = document.createElement('div');
       v.className = 'gd-v';
+      const t = document.createElement('span');
+      t.className = 'gd-t';
       // descriptions name keys too ("keep pressing J"), so they follow the same translation
-      v.textContent = touch ? text.replace(/\bJ\b/g, 'ATK').replace(/\bK\b/g, 'CHG') : text;
+      t.textContent = touch ? text.replace(/\bJ\b/g, 'ATK').replace(/\bK\b/g, 'CHG') : text;
+      v.append(t);
+      v.insertAdjacentHTML('beforeend', srcTag(src)); // where the move comes from (select.js)
       row.append(k, v);
       el.appendChild(row);
       this.guideRows.set(id, row);
     }
+    el.insertAdjacentHTML('beforeend', srcLegend(info.guide.map((r) => r[3])));
     this.guideFor = info.id;
     this.guideState = '';
   }

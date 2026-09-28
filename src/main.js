@@ -16,7 +16,7 @@ import { Tutorial, TRAINING } from './game/tutorial.js';
 import { Net, RemoteInput, GRUNT_STATES, GF, LOCALNET, MAX_PLAYERS } from './net/net.js';
 import { CameraRig } from './camera.js';
 import { HUD } from './ui/hud.js';
-import { SuitSelect } from './ui/select.js';
+import { SuitSelect, srcTag } from './ui/select.js';
 import { Audio } from './audio/audio.js';
 import { rand, wrapAngle } from './core/util.js';
 import { unitSprite } from './ui/units.js';
@@ -778,7 +778,7 @@ class Game {
     img.style.imageRendering = renderingFor(info.pilot);
     $('lobby-unit').src = unitSprite(info.id);
     $('lobby-name').textContent = `${info.unit} · ${info.pilotName}`;
-    $('lobby-controls').innerHTML = info.moves.map(([k, v]) => `<div><b>${k}</b> ${v}</div>`).join('');
+    $('lobby-controls').innerHTML = info.moves.map(([k, v, src]) => `<div><b>${k}</b> ${v} ${srcTag(src)}</div>`).join('');
   }
 
   // The lobby's list of who else is in, from the host's snapshots: suit ids by slot (null: still choosing, false:

@@ -11,6 +11,19 @@ const STAT_MAX = { ARMOR: 10000 };
 // The roster writes its combos in keys. On a phone those are buttons with names on them.
 const comboKeys = (k) => (isTouch() ? k.replace(/\bJ\b/g, 'ATK').replace(/\bK\b/g, 'CHG') : k);
 
+// Where a combo comes from (the roster's `src`): shown in Reborn's "ALL MOVES" footage, only in the Koei wiki's
+// Dynasty Warriors: Gundam 1-3 move lists, or made up for this game. A row that mixes sources ("tap · hold: ...")
+// gives an array, one tag per part in the text's order. A move without one shows no tag.
+export const SOURCES = {
+  reborn: ['RB', 'Reborn', 'Shown in Dynasty Warriors: Gundam Reborn'],
+  dwg: ['DWG', 'earlier games', 'From Dynasty Warriors: Gundam 1-3; not shown in Reborn'],
+  new: ['NEW', 'made up here', 'Made up for this game'],
+};
+export const srcTag = (src) => [src ?? []].flat().map((s) => (SOURCES[s] ? `<i class="src" data-src="${s}" title="${SOURCES[s][2]}">${SOURCES[s][0]}</i>` : '')).join('');
+// One line saying what the tags mean, for a list that has any.
+export const srcLegend = (rows, tag = 'div') => (rows.flat().some((r) => SOURCES[r]) ? `<${tag} class="src-legend">${
+  Object.keys(SOURCES).map((k) => `${srcTag(k)} ${SOURCES[k][1]}`).join(' · ')}</${tag}>` : '');
+
 export class SuitSelect {
   constructor(game) {
     this.game = game;
@@ -85,12 +98,12 @@ export class SuitSelect {
       const pct = Math.min(100, (v / (STAT_MAX[k] || 1000)) * 100);
       return `<div class="st-k">${k}</div><div class="st-bar"><div style="width:${pct}%"></div></div><div class="st-v">${v}</div>`;
     }).join('');
-    const moves = s.moves.map(([k, v]) => `<div class="mv-k">${comboKeys(k)}</div><div class="mv-v">${v}</div>`).join('');
+    const moves = s.moves.map(([k, v, src]) => `<div class="mv-k">${comboKeys(k)}</div><div class="mv-v">${v}</div><div class="mv-s">${srcTag(src)}</div>`).join('');
     this.detail.innerHTML = `
       <div class="sd-head"><div class="sd-role">${s.role}</div>${unitImg(s.id, 'sd-unit')}</div>
       <div class="sd-stats">${bars}</div>
       <div class="sd-equip">${s.equipment.map((e) => `<span>${e}</span>`).join('')}</div>
-      <div class="sd-moves">${moves}</div>`;
+      <div class="sd-moves">${moves}</div>${srcLegend(s.moves.map((m) => m[2]))}`;
     this.rendered = true;
   }
 

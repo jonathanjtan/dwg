@@ -63,6 +63,8 @@ button { font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer;
 #guide .gd-k b { --c: var(--accent); min-width: 14px; padding: 0 3px; text-align: center; border-radius: 2px; background: rgba(255,255,255,0.1); color: var(--text); font-weight: 700; }
 #guide .gd-k b[data-t="K"] { --c: var(--gold); }
 #guide .gd-k b[data-t="S"] { --c: var(--sp); }
+#guide .gd-v { display: flex; align-items: center; gap: 5px; min-width: 0; }
+#guide .src-legend { grid-column: 1 / -1; margin-top: 3px; padding-left: 5px; font-size: 10.5px; }
 /* mid-combo: everything but the move in progress and the charge attack K would start next steps back */
 #guide.busy .gd-row:not(.on):not(.next) { opacity: 0.3; }
 /* the move in progress: a bar and a wash in its colour, pushed out of the column */
@@ -393,9 +395,18 @@ body.touch #bars { width: min(42vw, 360px); }
 .st-v { font-family: 'Russo One', sans-serif; font-size: 13px; text-align: right; }
 .sd-equip { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .sd-equip span { font-weight: 700; font-size: 12px; letter-spacing: 1px; padding: 2px 8px; border: 1px solid #5f86d8; color: #b8ccff; }
-.sd-moves { display: grid; grid-template-columns: auto 1fr; gap: 1px 12px; font-size: 14px; }
+.sd-moves { display: grid; grid-template-columns: auto 1fr auto; gap: 1px 12px; font-size: 14px; align-items: baseline; }
 .mv-k { font-weight: 700; color: var(--gold); white-space: nowrap; }
 .mv-v { color: var(--text); }
+/* where a combo comes from: Reborn's footage (quiet), the DWG1-3 move lists (blue), or made up here (stands out) */
+.src { display: inline-block; flex: none; font-style: normal; font-weight: 700; font-size: 0.72em; line-height: 1.3; letter-spacing: 1px; padding: 0 3px; border: 1px solid; border-radius: 2px; vertical-align: 0.1em; text-shadow: none; }
+.src[data-src="reborn"] { color: var(--muted); border-color: rgba(147, 164, 191, 0.4); }
+.src[data-src="dwg"] { color: #b8ccff; border-color: #5f86d8; background: rgba(95, 134, 216, 0.16); }
+.src[data-src="new"] { color: #1a0d04; border-color: #ff9a4a; background: #ff9a4a; }
+.src-legend { color: var(--muted); font-size: 12px; font-weight: 600; }
+.sd-moves + .src-legend { margin-top: 6px; }
+.mv-s { text-align: right; white-space: nowrap; }
+.mv-s .src + .src, .lobby-controls .src + .src { margin-left: 3px; }
 /* the spec sheet can be taller than the window (a phone held sideways, a long roster), so SORTIE stays pinned to the
    bottom of the scroll */
 .sel-buttons { position: sticky; bottom: 0; margin-top: 10px; padding: 10px 0 8px; background: #060b15; box-shadow: 0 -10px 14px 4px #060b15; }
@@ -478,7 +489,9 @@ body.touch #guide .gd-row { padding: 0 3px; }
 body.touch #guide .gd-row.on { transform: translateX(2px); }
 body.touch #guide .gd-k { gap: 1px; }
 body.touch #guide .gd-k b { min-width: 0; padding: 0 2px; font-size: 8px; letter-spacing: 0; }
-body.touch #guide .gd-v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.touch #guide .gd-v { gap: 3px; }
+body.touch #guide .gd-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+body.touch #guide .src-legend { font-size: 8.5px; margin-top: 1px; padding-left: 3px; }
 @media (max-height: 430px) {
   body.touch #guide { top: calc(112px + env(safe-area-inset-top, 0px)); font-size: 9px; max-width: min(62vw, 470px); }
   body.touch #guide .gd-k b { font-size: 7.5px; }
