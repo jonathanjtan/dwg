@@ -1,6 +1,7 @@
 // Humanoid rig shared by the Gundam, commanders (Object3D hierarchy) and crowds (InstancedMesh).
 import * as THREE from 'three';
 import { meshVoxels, VoxMat } from './voxel.js';
+import { ditherFade } from './lensclear.js';
 
 export const PARTS = ['hips', 'torso', 'head', 'uArmL', 'fArmL', 'uArmR', 'fArmR', 'thighL', 'shinL', 'thighR', 'shinR', 'hand', 'handL'];
 export const P = Object.fromEntries(PARTS.map((n, i) => [n, i]));
@@ -164,12 +165,18 @@ export class InstancedRig {
     this.world = {};
     this.meshes = [];
     this.parts = [];
-    this.mat = VoxMat.solid.clone();
+    // per-instance opacity (1 = solid), shared by every part: bodies, eyes and shadows dissolve together
+    this.fade = new THREE.InstancedBufferAttribute(new Float32Array(max).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
+    this.mat = ditherFade(VoxMat.solid.clone());
+    this.glowMat = ditherFade(VoxMat.glow.clone());
+    this.depthMat = ditherFade(new THREE.MeshDepthMaterial());
     for (const n of this.order) {
       const g = geoms[n];
       const entry = { name: n, solid: null, glow: null, idx: P[n], parent: def.parts[n].parent, pivot: def.parts[n].pivot, bit: def.parts[n].bit || 0 };
       if (g.solid) {
+        g.solid.setAttribute('instFade', this.fade);
         entry.solid = new THREE.InstancedMesh(g.solid, this.mat, max);
+        entry.solid.customDepthMaterial = this.depthMat;
         entry.solid.castShadow = true;
         entry.solid.receiveShadow = true;
         entry.solid.frustumCulled = false;
@@ -180,7 +187,8 @@ export class InstancedRig {
         this.meshes.push(entry.solid);
       }
       if (g.glow) {
-        entry.glow = new THREE.InstancedMesh(g.glow, VoxMat.glow, max);
+        g.glow.setAttribute('instFade', this.fade);
+        entry.glow = new THREE.InstancedMesh(g.glow, this.glowMat, max);
         entry.glow.frustumCulled = false;
         entry.glow.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         scene.add(entry.glow);
@@ -191,9 +199,10 @@ export class InstancedRig {
     }
     this.count = 0;
   }
-  // root: {x,y,z,yaw,scale}; hide: bitmask of parts to hide; flash: [r,g,b] multiplier
-  set(i, x, y, z, yaw, scale, pose, hide, cr, cg, cb) {
+  // root: {x,y,z,yaw,scale}; hide: bitmask of parts to hide (-1: all); flash: [r,g,b] multiplier; fade: 1 solid .. 0 gone
+  set(i, x, y, z, yaw, scale, pose, hide, cr, cg, cb, fade = 1) {
     const s = this.def.scale;
+    this.fade.array[i] = fade;
     _e.set(pose[RPITCH], yaw + pose[RYAW], pose[RROLL], 'YXZ');
     _q.setFromEuler(_e);
     _s.set(scale, scale, scale);
@@ -223,6 +232,7 @@ export class InstancedRig {
   }
   commit(count) {
     this.count = count;
+    this.fade.needsUpdate = true;
     for (const e of this.parts) {
       if (e.solid) {
         e.solid.count = count;

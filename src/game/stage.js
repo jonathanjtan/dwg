@@ -194,10 +194,14 @@ export class Stage {
     return d;
   }
 
-  // In front of the local camera (within ~50 degrees either side), where a squad appearing would be seen.
+  // In front of the local camera, where a squad appearing would be seen: within ~72 degrees of the play heading, or of
+  // where the lens really points (a musou cut swings it far round) with a wide margin past the frame's edge.
   inView(x, z) {
-    const g = this.game, h = g.local.pos;
-    return Math.cos(Math.atan2(x - h.x, z - h.z) - g.camera.yaw) > 0.3;
+    const g = this.game, h = g.local.pos, cam = g.cam, e = cam.matrixWorld.elements;
+    const dx = x - cam.position.x, dz = z - cam.position.z;
+    const half = Math.min(Math.PI, Math.atan(Math.tan((cam.fov * Math.PI) / 360) * cam.aspect) + 0.5);
+    const ahead = -(dx * e[8] + dz * e[10]) / ((Math.hypot(e[8], e[10]) || 1) * (Math.hypot(dx, dz) || 1));
+    return ahead > Math.cos(half) || Math.cos(Math.atan2(x - h.x, z - h.z) - g.camera.yaw) > 0.3;
   }
 
   // Man one empty post near the pilots (yards first, then the nearest crossing), and stand down idle squads the

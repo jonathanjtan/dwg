@@ -52,6 +52,7 @@ function mirrorPose(src) {
   out[RROLL] *= -1; out[RYAW] *= -1;
   return out;
 }
+const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const hash01 = (i, k) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
 const TAU = Math.PI * 2;
 const AIRPOSE = poseFrom({ torso: [-0.4, 0, 0], head: [-0.5, 0, 0], uArmR: [-2.2, 0, -0.8], fArmR: [-0.3, 0, 0], uArmL: [-2.2, 0, 0.8], fArmL: [-0.3, 0, 0], thighR: [-0.6, 0, -0.2], shinR: [0.9, 0, 0], thighL: [-0.2, 0, 0.2], shinL: [0.5, 0, 0] }, ZSTANCE);
@@ -82,8 +83,10 @@ export class Crowd {
     this.feintUntil = 0;
     this.pressT = 0;
     this._cand = [];
-    this.lensHid = new Uint8Array(MAX);
     this._v = new THREE.Vector3();
+    this._fw = new THREE.Vector3();
+    this._rt = new THREE.Vector3();
+    this._up = new THREE.Vector3();
     this._r = [0, 0];
     this.serial = 0;
   }
@@ -93,7 +96,7 @@ export class Crowd {
       i, alive: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, hp: 60, maxHp: 60,
       state: 'idle', t: 0, phase: rand(0, 6), gun: false, cd: 0, token: 0, flash: 0,
       hitIds: [0, 0, 0, 0], hitCursor: 0, ringA: 0, ringR: 6, spin: 0, pitch: 0, roll: 0, aimYaw: 0, aimY: 0,
-      pose: makePose(), scale: 1, radius: 0.95, dieT: 0, spawnVy: 0, fired: 0, think: 0, lastHitT: -9,
+      pose: makePose(), scale: 1, radius: 0.95, fade: 1, dieT: 0, spawnVy: 0, fired: 0, think: 0, lastHitT: -9,
       kind: 'grunt', height: 3.1, staggerAlt: false, aggro: rand(0.6, 1.2),
       squad: null, slotX: 0, slotZ: 0, press: false, outerR: 13,
     };
@@ -120,6 +123,7 @@ export class Crowd {
     g.cd = gun ? rand(3, 8) : rand(0.5, 2.5);
     g.token = 0;
     g.flash = 0;
+    g.fade = 1;
     g.pitch = g.roll = g.spin = 0;
     g.pitchRate = 0; g.pitchTarget = 0; g.shudder = 0; g.hitKind = 0; g.feint = false; g.bounced = false;
     g.hitIds.fill(0);
@@ -630,6 +634,7 @@ export class Crowd {
         g.alive = true;
         g.x = x; g.y = y; g.z = z; g.yaw = yaw;
         g.phase = Math.random() * 6;
+        g.fade = 1;
         g.scale = 0.97 + ((id * 7919) % 70) / 1000;
         g.netId = id;
         this.list.push(g);
@@ -681,24 +686,39 @@ export class Crowd {
   render(dt) {
     const rig = this.rig;
     const list = this.list;
-    // lens-side clear (DW-style): soldiers standing between the camera and the hero aren't drawn,
-    // except those about to hit him, so the near crowd never walls off the frame
-    const cam = this.game.camera.cam.position, hp = this.game.local.pos;
-    const ax = cam.x, az = cam.z, abx = hp.x - ax, abz = hp.z - az;
-    const L = Math.hypot(abx, abz) || 1;
+    // lens-side clear (DW-style): soldiers covering the hero on screen, or looming right at the lens, dissolve out of
+    // the way (except those about to hit him), so the near crowd never walls off the frame. Judged in view space from
+    // the real camera and FOV so it holds at any zoom, pitch or orbit, and eased over a few frames so nothing pops.
+    const cam = this.game.camera.cam, cp = cam.position, hp = this.game.local.pos;
+    const fw = cam.getWorldDirection(this._fw), rt = this._rt.crossVectors(fw, cam.up).normalize(), up = this._up.crossVectors(rt, fw);
+    const hx = hp.x - cp.x, hy = hp.y + 1.9 - cp.y, hz = hp.z - cp.z;
+    const hd = Math.max(1, hx * fw.x + hy * fw.y + hz * fw.z);
+    const hsx = (hx * rt.x + hy * rt.y + hz * rt.z) / hd, hsy = (hx * up.x + hy * up.y + hz * up.z) / hd;
+    // depths at which a soldier fills 85% / 50% of the frame's height
+    const tan2 = 2 * Math.tan((cam.fov * Math.PI) / 360), near0 = 3.1 / (tan2 * 0.85), near1 = 3.1 / (tan2 * 0.5);
     const lensOn = this.game.mode !== 'title';
+    const ease = 1 - Math.exp(-16 * dt);
     for (let n = 0; n < list.length; n++) {
       const g = list[n];
       const p = g.pose;
       const base = g.gun ? GUN_STANCE : ZSTANCE;
-      let hideAll = false;
+      let want = 1;
       if (lensOn) {
-        const front = L - ((g.x - ax) * abx + (g.z - az) * abz) / L;
-        const attacking = g.state === 'windup' || g.state === 'strike' || g.state === 'charge';
-        const lim = (this.lensHid[n] ? 1.2 : 1.6) + (attacking ? 2.4 : 0);
-        hideAll = front > lim;
-        this.lensHid[n] = hideAll ? 1 : 0;
+        const gx = g.x - cp.x, gy = g.y + 1.55 - cp.y, gz = g.z - cp.z;
+        const d = gx * fw.x + gy * fw.y + gz * fw.z;
+        let clear = d > -2 ? 1 - smooth(near0, near1, d) : 0;
+        if (d > 0.5) {
+          // screen overlap with the hero: 1 once the soldier covers his middle, 0 when their outlines merely touch
+          const ox = Math.abs((gx * rt.x + gy * rt.y + gz * rt.z) / d - hsx) / (1 / d + 1.3 / hd);
+          const oy = Math.abs((gx * up.x + gy * up.y + gz * up.z) / d - hsy) / (1.55 / d + 2 / hd);
+          let cover = (1 - smooth(0.5, 1, ox)) * (1 - smooth(0.5, 1, oy)) * smooth(1, 2.2, hd - d);
+          if (g.state === 'windup' || g.state === 'strike' || g.state === 'charge') cover *= smooth(4, 5, Math.hypot(g.x - hp.x, g.z - hp.z));
+          clear = Math.max(clear, cover);
+        }
+        want = 1 - clear;
       }
+      g.fade += (want - g.fade) * ease;
+      if (Math.abs(want - g.fade) < 0.02) g.fade = want;
       switch (g.state) {
         case 'idle':
         case 'approach':
@@ -750,7 +770,7 @@ export class Crowd {
         cr = 1 + C[0] * k; cg = 1 + C[1] * k; cb = 1 + C[2] * k;
       }
       const jit = g.shudder > 0 ? Math.sin(g.shudder * 400 + g.i) * 0.07 : 0;
-      rig.set(n, g.x + jit, g.y + lift, g.z, g.yaw, g.scale, p, hideAll ? -1 : g.gun ? 1 : 2, cr, cg, cb);
+      rig.set(n, g.x + jit, g.y + lift, g.z, g.yaw, g.scale, p, g.fade <= 0 ? -1 : g.gun ? 1 : 2, cr, cg, cb, g.fade);
     }
     rig.commit(list.length);
   }
