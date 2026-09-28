@@ -316,27 +316,30 @@ export const BALL_MOVES = {
     ev: [[0.62, 'land']],
     sfxs: [[0.04, 'uppercut']],
   },
-  DC: {
-    dur: 1.45, chain: 1.2, rate: 1, next: null, charge: null, armor: true,
-    slide: [0, 0.55, 3.5],
-    lunge: [[0.84, 0], [1.02, -1]], // the point-blank shell rocks the pod back and shoves it about a width
-    jets: [0, 0.55, false],
+  DC: { // timed off the Reborn footage: about a second of spinning swipes, a beat to settle, the violet flash, the
+    // cannon glows gold, and the point-blank shell ~2.7 s in
+    dur: 3.3, chain: 3.05, rate: 1, next: null, charge: null, armor: true,
+    slide: [0, 1.2, 2],
+    lunge: [[2.71, 0], [2.89, -1]], // the point-blank shell rocks the pod back and shoves it about a width
+    jets: [0, 1.2, false],
     clip: clip([
       k(0, { torso: [0.3, 0, 0.5], ...ARMS_OUT, yaw: 0 }),
-      k(0.58, { torso: [0.3, 0, -0.5], yaw: PI * 4 }, 'linear'),
-      k(0.72, { torso: [0.2, 0, 0], yaw: PI * 4, ...CAN_LEVEL, ...REST }),
-      k(0.84, { torso: [0.25, 0, 0] }),
-      k(0.88, { torso: [-0.45, 0, 0], head: [1.1, 0, 0], y: 0.15 }, 'snap'),
-      k(1.2, { torso: [-0.1, 0, 0], ...CAN_LEVEL, y: 0 }),
-      k(1.45, { torso: [0.06, 0, 0], ...CAN_REST }),
+      k(1.2, { torso: [0.3, 0, -0.5], yaw: PI * 8 }, 'linear'),
+      k(1.5, { torso: [0.15, 0, 0], yaw: PI * 8, ...REST }),
+      k(2.0, { torso: [0.2, 0, 0], ...CAN_LEVEL }),
+      k(2.7, { torso: [0.25, 0, 0] }),
+      k(2.75, { torso: [-0.45, 0, 0], head: [1.1, 0, 0], y: 0.15 }, 'snap'),
+      k(3.05, { torso: [-0.1, 0, 0], ...CAN_LEVEL, y: 0 }),
+      k(3.3, { torso: [0.06, 0, 0], ...CAN_REST }),
     ]),
     hits: [
-      ...every(0.04, 0.56, 0.18, { shape: 'arc', range: 4.9, arc: 360, dmg: 16, kb: 1, up: 1, pull: 1.2, stop: 1 }),
+      ...every(0.05, 1.2, 0.2, { shape: 'arc', range: 4.9, arc: 360, dmg: 12, kb: 1, up: 1, pull: 1.2, stop: 1 }),
     ],
-    tr: [[0, 0.58, 'R'], [0, 0.58, 'L']],
-    ev: [[0.6, 'flash', 'violet']],
-    shots: [{ t: 0.85, kind: 'pb', last: true }],
-    sfxs: [[0.02, 'spin_ball'], [0.2, 'spin_ball'], [0.38, 'spin_ball']],
+    tr: [[0, 1.22, 'R'], [0, 1.22, 'L']],
+    ev: [[1.95, 'flash', 'violet']],
+    chargeFx: [2.05, 2.6],
+    shots: [{ t: 2.72, kind: 'pb', last: true }],
+    sfxs: times(0.02, 1.2, 0.18).map((t) => [t, 'spin_ball']),
   },
 
   // ---- aerial ----

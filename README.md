@@ -105,17 +105,17 @@ SP attacks: on the ground, a long saber flurry, then the javelin skewers, lifts 
 
 ### RX-77-2 Guncannon (Kai Shiden)
 
-Slower, with less armor but more defense than the Gundam (the game's spec sheet: armor 8429, mobility 667, thruster 790 against 10000, 800 and 1000). The right hand keeps the beam rifle; the left fist and the feet do the close work, and the twin 240mm shoulder cannons swing down over the shoulders for everything heavy. As in the game, a blow lands a little past its swing arc, reaching about as far into a crowd as the Gundam's saber.
+Slower, with less armor but more defense than the Gundam (the game's spec sheet: armor 8429, mobility 667, thruster 790 against 10000, 800 and 1000). The right hand keeps the beam rifle (and bashes and hooks with it in the fist); the left fist and the feet do the rest of the close work, and the twin 240mm shoulder cannons swing down over the shoulders for everything heavy. As in the game, a blow lands a little past its swing arc, reaching about as far into a crowd as the Gundam's saber.
 
-- **J × 6**: left hook, backhand, stepping straight, spinning back kick, roundhouse, then a thruster hop into a spin with both arms out that launches everything around it
+- **J × 6**: a rifle bash (the rifle swung like a club), right hook, stepping left straight, roundhouse, spinning back kick, then a thruster hop into a spin with both arms out that launches everything around it
 - **K**: beam rifle. Mash it for a shot combo, or hold it for a charge shot: the suit braces and both cannons fire, blowing the target away
-- **J K**: a thruster uppercut that carries the Guncannon up with its target
-- **J J K**: grabs the soldier in front, hoists it overhead, hurls it into the sky and shells it with both cannons on the way down
-- **J J J K**: the cannons level and pound the target point-blank, four times
+- **J K**: a flying knee that breaks guard, then the thrusters drive the knee on up and launch the target
+- **J J K**: a thruster hop and a body slam that bounces everything around into the air; press K again and both cannons shell what it bounced up
+- **J J J K**: the cannons level and pound the target point-blank: three salvos of both barrels
 - **J J J J K**: braced on its thrusters, a rapid string of shells that juggles the target higher with every hit
-- **J J J J J K**: grab, then the giant swing: round and round with the soldier as a club, and let go
+- **J J J J J K**: grab, then the giant swing: round and round with the soldier as a club, and let go. Tap K during the swing for more turns
 - In the air: **J** punch, **K** both cannons fired down at the ground ahead
-- During a boost dash: **J** a rush of punches ending in an uppercut, **K** launch the target, blast it with both cannons as it comes down, and back-flip clear
+- During a boost dash: **J J J** a flying kick, an air punch and a heel drop, **K** launch the target, blast it with both cannons as it comes down, and back-flip clear
 
 SP attacks: on the ground, a storm of punches that walks forward (afterimage fists) and a last blow that blasts the target away. Hold SP through the starburst for the charge SP: shells fired out in every direction while the suit turns on the spot, then a ring of blasts. In the air, the Guncannon hovers low and shells its target point-blank.
 

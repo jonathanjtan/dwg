@@ -1,11 +1,13 @@
-// Guncannon moveset after Dynasty Warriors: Gundam Reborn's RX-77-2 (Kai Shiden): the right hand keeps the beam rifle,
-// the left fist and the feet do the close work, and the twin 240mm shoulder cannons do everything heavy. Reach was
-// measured off gameplay footage in heights (H ~ 3.4 units): the swing arcs sweep ~1.2 H out, and as in the game the
-// blow lands a little past the arc (~1.5-1.7 H, level with the Gundam's saber) so it reaches into a crowd packed
-// around the suit; the giant swing ~1.9 H, cannon blasts ~1 H across, the radial barrage bursting ~3 H out.
+// Guncannon moveset after Dynasty Warriors: Gundam Reborn's RX-77-2 (Kai Shiden): the right hand keeps the beam rifle
+// (and bashes and hooks with it in the fist), the left fist and the feet do the rest of the close work, and the twin
+// 240mm shoulder cannons do everything heavy. Reach was measured off gameplay footage in heights (H ~ 3.4 units): the
+// swing arcs sweep ~1.2 H out, and as in the game the blow lands a little past the arc (~1.5-1.7 H, level with the
+// Gundam's saber) so it reaches into a crowd packed around the suit; the giant swing ~1.9 H, cannon blasts ~1 H across,
+// the radial barrage bursting ~3 H out.
 // Move fields as in moves.js, plus: tr: [[t0, t1, 'L' | 'R' | 'FL' | 'FR']] motion trails on the left fist, right fist or
-// a foot; can: cannon aim curve (0 barrels up, 1 levelled forward over the shoulders, >1 angled down); hold: where a
-// grabbed soldier is carried ('lift' overhead, 'swing' at arm's length while spinning); barrage: [t0, t1, every].
+// a foot; can: cannon aim curve (0 barrels up, 1 levelled forward over the shoulders, >1 angled down); hold: 'swing',
+// the grabbed soldier carried at arm's length while spinning; keepHold: a follow-up that keeps hold of it (and the
+// facing) from the move before; barrage: [t0, t1, every].
 import { Clip, poseFrom } from '../core/rig.js';
 
 const PI = Math.PI;
@@ -36,12 +38,19 @@ const LEGS_LUNGE_L = { thighL: [-0.9, 0, 0.1], shinL: [0.9, 0, 0], thighR: [0.45
 const LEGS_WIDE = { thighR: [-0.2, 0, -0.45], shinR: [0.6, 0, 0], thighL: [-0.2, 0, 0.45], shinL: [0.6, 0, 0] };
 const LEGS_AIR = { thighR: [-1.0, 0, -0.1], shinR: [1.5, 0, 0], thighL: [-0.3, 0, 0.1], shinL: [0.8, 0, 0] };
 const LEGS_BRACE = { thighR: [-0.5, 0, -0.35], shinR: [0.9, 0, 0], thighL: [0.25, 0, 0.35], shinL: [0.5, 0, 0] };
+const KNEE = { thighR: [-1.9, 0, -0.1], shinR: [2.2, 0, 0], thighL: [0.35, 0, 0.1], shinL: [0.7, 0, 0] }; // right knee driven up
 // Left arm: out to the side and cocked back / swept across the front to the right / a straight punch / chambered.
 const HOOK_OUT = { uArmL: [0, 0.45, 1.45], fArmL: [-0.7, 0, 0] };
 const HOOK_IN = { uArmL: [0, -1.75, 1.45], fArmL: [-0.35, 0, 0] };
 const JAB = { uArmL: [-1.5, -0.15, 0.08], fArmL: [-0.05, 0, 0] };
 const CHAMBER = { uArmL: [-0.35, 0.25, 0.35], fArmL: [-2.1, 0, 0] };
 const UPPER = { uArmL: [-2.7, 0, 0.1], fArmL: [-0.9, 0, 0] };
+// Right arm (the rifle stays in the fist): cocked out to the side and back / swept across the front, for the rifle bash
+// (the rifle swung like a club) and the right hook.
+const BASH_OUT = { uArmR: [0, -0.5, -1.4], fArmR: [-0.3, 0, 0], hand: [0.5, 0, 0] };
+const BASH_IN = { uArmR: [0, 1.7, -1.4], fArmR: [-0.2, 0, 0], hand: [0.5, 0, 0] };
+const R_HOOK_OUT = { uArmR: [0, -0.45, -1.45], fArmR: [-0.8, 0, 0], hand: [0.2, 0, 0] };
+const R_HOOK_IN = { uArmR: [0, 1.45, -1.45], fArmR: [-0.45, 0, 0], hand: [0.2, 0, 0] };
 // Right arm: the rifle levelled at the target / held back out of the way / swung as a right hook.
 const RIFLE = { torso: [0, -0.5, 0], uArmR: [-1.57, 0, 0.1], fArmR: [0, 0, 0], hand: [1.57, 0, 0], uArmL: [-0.6, 0, 0.28], fArmL: [-1.5, 0, 0], head: [0, -0.35, 0] };
 const RIFLE_BACK = { uArmR: [0.35, 0, -0.35], fArmR: [-0.4, 0, 0], hand: [0.9, 0, 0] };
@@ -50,30 +59,31 @@ const BOTH_REACH = { uArmL: [-1.45, -0.2, 0.3], fArmL: [-0.2, 0, 0], uArmR: [-1.
 const OVERHEAD = { uArmL: [-2.95, 0, 0.35], fArmL: [-0.35, 0, 0], uArmR: [-2.95, 0, -0.35], fArmR: [-0.35, 0, 0], hand: [0.5, 0, 0] };
 
 export const GC_MOVES = {
-  // ---- normal string: hook, backhand, straight, spinning back kick, roundhouse, a hopping spin that launches ----
-  N1: { // left hook
+  // ---- normal string (the Reborn footage): rifle bash, right hook, left straight, roundhouse, spinning back kick,
+  // a hopping spin that launches ----
+  N1: { // rifle bash: the rifle swung like a club, backhand from out on the right across the front
     dur: 0.5, chain: 0.3, next: 'N2', charge: 'C2',
     lunge: [[0.04, 0], [0.18, 1.3]],
     clip: clip([
-      k(0, { torso: [0.1, 0.55, 0], ...HOOK_OUT, y: -0.2, ...LEGS_LUNGE_L }),
-      k(0.07, { torso: [0.12, 0.65, 0] }),
-      k(0.18, { torso: [0.15, -0.7, 0], ...HOOK_IN, y: -0.25, ...LEGS_LUNGE_R }, 'snap'),
-      k(0.5, { torso: [0.1, -0.45, 0], uArmL: [-0.5, -1.2, 0.9], fArmL: [-0.9, 0, 0], y: -0.2 }),
+      k(0, { torso: [0.1, -0.6, 0], ...BASH_OUT, y: -0.2, ...LEGS_WIDE }),
+      k(0.08, { torso: [0.12, -0.72, 0] }),
+      k(0.19, { torso: [0.2, 0.7, 0], ...BASH_IN, y: -0.3, ...LEGS_LUNGE_L }, 'snap'),
+      k(0.5, { torso: [0.12, 0.45, 0], uArmR: [-0.5, 1.2, -1.0], fArmR: [-0.4, 0, 0], hand: [0.8, 0, 0], y: -0.2 }),
     ]),
-    hits: [{ t: 0.09, t1: 0.2, shape: 'arc', range: 5.2, arc: 160, dmg: 27, kb: 4, up: 1 }],
-    tr: [[0.06, 0.24, 'L']], sfx: 'punch', swing: 0.07,
+    hits: [{ t: 0.1, t1: 0.21, shape: 'arc', range: 5.3, arc: 170, dmg: 27, kb: 4, up: 1 }],
+    tr: [[0.07, 0.25, 'R']], sfx: 'punch', swing: 0.08,
   },
-  N2: { // left backhand, swinging back out across the body
+  N2: { // right hook, the rifle still in the fist
     dur: 0.5, chain: 0.3, next: 'N3', charge: 'C3',
     lunge: [[0.03, 0], [0.16, 1.2]],
     clip: clip([
-      k(0, { torso: [0.12, -0.8, 0], uArmL: [-0.2, -1.9, 1.2], fArmL: [-1.4, 0, 0], y: -0.2, ...LEGS_WIDE }),
-      k(0.07, { torso: [0.14, -0.9, 0] }),
-      k(0.17, { torso: [0.1, 0.75, 0], uArmL: [0, 0.3, 1.5], fArmL: [-0.1, 0, 0], y: -0.25, ...LEGS_LUNGE_L }, 'snap'),
-      k(0.5, { torso: [0.1, 0.45, 0], uArmL: [-0.4, 0.2, 1.1], fArmL: [-0.8, 0, 0], y: -0.2 }),
+      k(0, { torso: [0.1, -0.5, 0], ...R_HOOK_OUT, y: -0.2, ...LEGS_WIDE }),
+      k(0.07, { torso: [0.12, -0.62, 0] }),
+      k(0.17, { torso: [0.15, 0.6, 0], ...R_HOOK_IN, y: -0.28, ...LEGS_LUNGE_L }, 'snap'),
+      k(0.5, { torso: [0.1, 0.4, 0], uArmR: [-0.6, 1.0, -1.0], fArmR: [-0.8, 0, 0], y: -0.2 }),
     ]),
-    hits: [{ t: 0.07, t1: 0.18, shape: 'arc', range: 5.3, arc: 200, dmg: 27, kb: 4.5, up: 0 }],
-    tr: [[0.05, 0.22, 'L']], sfx: 'punch', swing: 0.07,
+    hits: [{ t: 0.07, t1: 0.18, shape: 'arc', range: 5.2, arc: 170, dmg: 27, kb: 4.5, up: 0 }],
+    tr: [[0.05, 0.22, 'R']], sfx: 'punch', swing: 0.07,
   },
   N3: { // stepping left straight
     dur: 0.48, chain: 0.3, next: 'N4', charge: 'C4',
@@ -87,21 +97,8 @@ export const GC_MOVES = {
     hits: [{ t: 0.1, t1: 0.2, shape: 'arc', range: 5.8, arc: 110, dmg: 31, kb: 6.5, up: 0 }],
     tr: [[0.08, 0.22, 'L']], sfx: 'punch', swing: 0.09,
   },
-  N4: { // spinning back kick: turn away, the right leg drives out behind into the target, keep turning to face it
-    dur: 0.62, chain: 0.4, next: 'N5', charge: 'C5',
-    lunge: [[0.04, 0], [0.3, 1.4]],
-    clip: clip([
-      k(0, { torso: [0.1, 0.2, 0], yaw: 0, y: -0.25, ...LEGS_WIDE }),
-      k(0.14, { yaw: PI * 0.8, torso: [0.2, 0, 0], uArmL: [-0.8, 0, 0.9], ...RIFLE_BACK, thighR: [-0.4, 0, -0.2], shinR: [1.6, 0, 0], y: -0.15 }),
-      k(0.24, { yaw: PI * 1.05, torso: [0.55, 0, 0], thighR: [1.35, 0, -0.1], shinR: [0.05, 0, 0], thighL: [-0.3, 0, 0.1], shinL: [0.5, 0, 0], y: -0.05 }, 'snap'),
-      k(0.4, { yaw: PI * 1.5, torso: [0.3, 0, 0], thighR: [0.4, 0, -0.1], shinR: [1.0, 0, 0] }),
-      k(0.62, { yaw: PI * 2, torso: [0.1, -0.2, 0], y: -0.2, ...LEGS_WIDE }),
-    ]),
-    hits: [{ t: 0.17, t1: 0.3, shape: 'arc', range: 5.6, arc: 180, dmg: 33, kb: 6, up: 1 }],
-    tr: [[0.14, 0.34, 'FR']], sfx: 'kick', swing: 0.14,
-  },
-  N5: { // left roundhouse: the body turns right and the leg sweeps round in front
-    dur: 0.58, chain: 0.36, next: 'N6', charge: 'C6',
+  N4: { // left roundhouse: the body turns right and the leg sweeps round in front, turning the suit away
+    dur: 0.58, chain: 0.36, next: 'N5', charge: 'C5',
     lunge: [[0.04, 0], [0.22, 1.5]],
     clip: clip([
       k(0, { torso: [0.1, 0.4, 0], yaw: 0.35, uArmL: [-0.8, 0, 0.8], y: -0.25, ...LEGS_WIDE }),
@@ -112,6 +109,19 @@ export const GC_MOVES = {
     ]),
     hits: [{ t: 0.1, t1: 0.25, shape: 'arc', range: 5.6, arc: 220, dmg: 33, kb: 5.5, up: 3 }],
     tr: [[0.08, 0.3, 'FL']], sfx: 'kick', swing: 0.09,
+  },
+  N5: { // spinning back kick: on round, the right leg drives out behind into the target, keep turning to face it
+    dur: 0.62, chain: 0.4, next: 'N6', charge: 'C6',
+    lunge: [[0.04, 0], [0.3, 1.4]],
+    clip: clip([
+      k(0, { torso: [0.1, 0.2, 0], yaw: 0, y: -0.25, ...LEGS_WIDE }),
+      k(0.14, { yaw: PI * 0.8, torso: [0.2, 0, 0], uArmL: [-0.8, 0, 0.9], ...RIFLE_BACK, thighR: [-0.4, 0, -0.2], shinR: [1.6, 0, 0], y: -0.15 }),
+      k(0.24, { yaw: PI * 1.05, torso: [0.55, 0, 0], thighR: [1.35, 0, -0.1], shinR: [0.05, 0, 0], thighL: [-0.3, 0, 0.1], shinL: [0.5, 0, 0], y: -0.05 }, 'snap'),
+      k(0.4, { yaw: PI * 1.5, torso: [0.3, 0, 0], thighR: [0.4, 0, -0.1], shinR: [1.0, 0, 0] }),
+      k(0.62, { yaw: PI * 2, torso: [0.1, -0.2, 0], y: -0.2, ...LEGS_WIDE }),
+    ]),
+    hits: [{ t: 0.17, t1: 0.3, shape: 'arc', range: 5.6, arc: 180, dmg: 33, kb: 6, up: 1 }],
+    tr: [[0.14, 0.34, 'FR']], sfx: 'kick', swing: 0.14,
   },
   N6: { // a thruster hop into a full spin with both arms out: throws everyone around it into the air
     dur: 0.95, chain: 0.72, next: null, charge: null,
@@ -142,7 +152,7 @@ export const GC_MOVES = {
     shots: [{ t: 0.12, kind: 'rifle' }],
   },
   C1R: {
-    dur: 0.26, chain: 0.1, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 12,
+    dur: 0.26, chain: 0.1, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 5, // five shots, as in Reborn
     clip: clip([
       k(0, { ...RIFLE }),
       k(0.05, { uArmR: [-1.75, 0, 0.1], hand: [1.42, 0, 0] }, 'snap'),
@@ -165,48 +175,62 @@ export const GC_MOVES = {
     shots: [{ t: 0.62, kind: 'heavy', side: 0 }, { t: 0.74, kind: 'heavy', side: 1 }],
   },
 
-  // J K: a thruster-assisted uppercut that carries the Guncannon up with its target.
+  // J K: a flying knee that breaks guard (the violet flash), then the thrusters drive the knee on up and launch the target.
   C2: {
-    dur: 1.35, chain: 1.15, rate: 1, next: null, charge: null, armor: true,
-    lunge: [[0.24, 0], [0.4, 1.2]],
-    air: [[0.28, 0], [0.55, 2.6], [0.8, 2.8], [1.1, 0]],
-    jets: [0.28, 0.75, true],
+    dur: 1.5, chain: 1.28, rate: 1, next: null, charge: null, armor: true,
+    lunge: [[0.04, 0], [0.2, 1.6]],
+    air: [[0.06, 0], [0.2, 0.9], [0.5, 0.8], [0.8, 2.6], [1.0, 2.8], [1.28, 0]],
+    jets: [0.5, 0.95, true],
     clip: clip([
-      k(0, { torso: [0.35, 0.3, 0], uArmL: [0.4, 0.2, 0.25], fArmL: [-1.4, 0, 0], y: -0.5, ...LEGS_LUNGE_R }),
-      k(0.24, { torso: [0.45, 0.4, 0], y: -0.55 }),
-      k(0.34, { torso: [-0.3, -0.35, 0], ...UPPER, head: [-0.3, 0, 0], y: 0, ...LEGS_AIR }, 'snap'),
-      k(0.8, { torso: [-0.2, -0.3, 0], uArmL: [-2.5, 0, 0.15] }),
-      k(1.1, { torso: [0.35, 0, 0], uArmL: [-0.6, 0, 0.4], fArmL: [-1.3, 0, 0], y: -0.45, ...LEGS_WIDE }),
-      k(1.35, { torso: [0.1, -0.1, 0], y: -0.15 }),
+      k(0, { torso: [0.35, 0.2, 0], uArmL: [-0.8, 0, 0.5], fArmL: [-1.4, 0, 0], ...RIFLE_BACK, y: -0.45, ...LEGS_LUNGE_L }),
+      k(0.18, { torso: [-0.1, 0, 0], ...KNEE, uArmL: [-0.4, 0, 0.7], fArmL: [-1.7, 0, 0], y: 0 }, 'snap'),
+      k(0.5, { torso: [0, 0, 0] }),
+      k(0.66, { torso: [-0.3, 0, 0], thighR: [-2.4, 0, -0.1], head: [-0.3, 0, 0] }, 'snap'),
+      k(1.0, { torso: [-0.2, 0, 0], ...LEGS_AIR }),
+      k(1.28, { torso: [0.3, 0, 0], uArmL: [-0.6, 0, 0.4], fArmL: [-1.3, 0, 0], y: -0.45, ...LEGS_WIDE }),
+      k(1.5, { torso: [0.1, -0.1, 0], y: -0.15 }),
     ]),
-    hits: [{ t: 0.28, t1: 0.44, shape: 'arc', range: 5.3, arc: 160, hy: 7, dmg: 44, kb: 2, up: 15, big: true }],
-    tr: [[0.26, 0.5, 'L']],
-    ev: [[0.02, 'flash', 'gold'], [1.1, 'land']],
-    sfxs: [[0.26, 'uppercut']],
+    hits: [
+      { t: 0.14, t1: 0.26, shape: 'arc', range: 5.2, arc: 150, dmg: 26, kb: 0.5, up: 0.5, stop: 5 },
+      { t: 0.6, t1: 0.76, shape: 'arc', range: 5.2, arc: 160, hy: 7, dmg: 40, kb: 2, up: 15, big: true },
+    ],
+    tr: [[0.12, 0.3, 'FR'], [0.58, 0.8, 'FR']],
+    ev: [[0.13, 'gbreak'], [0.16, 'flash', 'violet'], [1.28, 'land']],
+    sfxs: [[0.12, 'kick'], [0.58, 'uppercut']],
   },
 
-  // J J K: grab the soldier in front, hoist it overhead, hurl it into the sky and shell it with both cannons.
+  // J J K: a thruster hop and a body slam that bounces everything round the landing into the air. Press K again for
+  // the follow-up: both cannons shell what the slam bounced up.
   C3: {
-    dur: 2.2, chain: 1.95, rate: 1, next: null, charge: null, armor: true,
-    lunge: [[0.1, 0], [0.3, 1.8]],
-    jets: [0.08, 0.3, false],
-    hold: 'lift', holdT: [0.3, 1.02],
+    dur: 1.3, chain: 0.86, rate: 1, next: null, charge: 'C3F', armor: true,
+    lunge: [[0.3, 0], [0.66, 2]],
+    air: [[0.3, 0], [0.5, 2.3], [0.66, 0]],
+    jets: [0.02, 0.55, true],
     clip: clip([
-      k(0, { torso: [0.2, 0, 0], ...BOTH_REACH, y: -0.25, ...LEGS_LUNGE_L }),
-      k(0.3, { torso: [0.3, 0, 0], y: -0.3 }),
-      k(0.7, { torso: [-0.2, 0, 0], ...OVERHEAD, head: [-0.3, 0, 0], y: -0.2, ...LEGS_WIDE }),
-      k(0.95, { torso: [-0.3, 0, 0], y: -0.35 }),
-      k(1.05, { torso: [0.2, 0, 0], uArmL: [-2.6, 0, 0.3], uArmR: [-2.6, 0, -0.3], fArmL: [0, 0, 0], fArmR: [0, 0, 0], y: -0.1 }, 'snap'),
-      k(1.25, { torso: [-0.35, 0, 0], head: [-0.55, 0, 0], ...RIFLE_BACK, uArmL: [-0.4, 0, 0.6], fArmL: [-1.2, 0, 0], y: -0.35, ...LEGS_BRACE }),
-      k(1.8, { torso: [-0.25, 0, 0], y: -0.35 }),
-      k(2.2, { torso: [0.08, -0.12, 0], head: [-0.05, 0.1, 0], y: -0.15 }),
+      k(0, { torso: [0.35, 0, 0], uArmL: [-0.4, 0, 0.8], fArmL: [-1.0, 0, 0], ...RIFLE_BACK, y: -0.55, ...LEGS_WIDE }),
+      k(0.28, { torso: [0.45, 0, 0], y: -0.6 }),
+      k(0.5, { torso: [-0.25, 0, 0], ...ARMS_OUT, y: 0, ...LEGS_AIR }),
+      k(0.66, { torso: [0.55, 0, 0], uArmL: [-0.3, 0, 1.0], fArmL: [-0.6, 0, 0], uArmR: [-0.3, 0, -1.0], fArmR: [-0.6, 0, 0], y: -0.75, ...LEGS_BRACE }, 'in'),
+      k(1.0, { torso: [0.35, 0, 0], y: -0.6 }),
+      k(1.3, { torso: [0.08, -0.12, 0], ...RIFLE_BACK, uArmL: [-0.6, 0, 0.28], fArmL: [-1.5, 0, 0], y: -0.15, ...LEGS_WIDE }),
     ]),
-    ev: [[0.0, 'flash', 'violet'], [0.3, 'grab'], [1.02, 'throw', 'up']],
-    shots: [{ t: 1.45, kind: 'aa', side: 0 }, { t: 1.53, kind: 'aa', side: 1 }],
-    sfxs: [[0.1, 'kick'], [1.0, 'throw']],
+    hits: [{ t: 0.66, t1: 0.76, shape: 'circle', range: 5.4, dmg: 38, kb: 2.5, up: 12, big: true }],
+    ev: [[0.0, 'flash', 'pink'], [0.66, 'slam']],
+    sfxs: [[0.3, 'qb']],
+  },
+  C3F: { // the follow-up: cannons swing up and shell whatever the slam bounced into the air
+    dur: 1.1, chain: 0.9, rate: 1, next: null, charge: null, armor: true,
+    can: [[0.05, 0], [0.3, 0.35], [0.85, 0.35], [1.1, 0]],
+    clip: clip([
+      k(0, { torso: [0.35, 0, 0], ...RIFLE_BACK, uArmL: [-0.5, 0, 0.6], fArmL: [-1.2, 0, 0], y: -0.6, ...LEGS_BRACE }),
+      k(0.3, { torso: [-0.25, 0, 0], head: [-0.5, 0, 0], y: -0.45 }),
+      k(0.85, { torso: [-0.2, 0, 0] }),
+      k(1.1, { torso: [0.08, -0.12, 0], head: [-0.05, 0.1, 0], y: -0.15, ...LEGS_WIDE }),
+    ]),
+    shots: [{ t: 0.4, kind: 'aa', side: 0 }, { t: 0.5, kind: 'aa', side: 1 }],
   },
 
-  // J J J K: the cannons level over the shoulders and pound the target point-blank, four times.
+  // J J J K: the cannons level over the shoulders and pound the target point-blank: three salvos.
   C4: {
     dur: 1.9, chain: 1.65, rate: 1, next: null, charge: null, armor: true,
     can: [[0.1, 0], [0.34, 1]],
@@ -217,7 +241,8 @@ export const GC_MOVES = {
       k(1.9, { torso: [0.08, -0.12, 0], y: -0.15 }),
     ]),
     ev: [[0.0, 'flash', 'gold']],
-    shots: [0.42, 0.72, 1.0, 1.28].map((t, i) => ({ t, kind: 'pb', side: i % 2, last: i === 3 })),
+    // three salvos, both cannons a beat apart (as in Reborn); the last pair blows the target away
+    shots: [0.42, 0.55, 0.86, 0.99, 1.3, 1.43].map((t, i) => ({ t, kind: 'pb', side: i % 2, dmg: i < 4 ? 24 : 30, last: i === 5 })),
   },
 
   // J J J J K: braced on its thrusters, a rapid string of shells that juggles the target higher with every hit.
@@ -235,9 +260,11 @@ export const GC_MOVES = {
     shots: [0.36, 0.47, 0.58, 0.69, 0.8, 0.91, 1.02].map((t, i) => ({ t, kind: 'juggle', side: i % 2, last: i === 6 })),
   },
 
-  // J J J J J K: grab, then the giant swing: round and round with the soldier as a club, and let go.
+  // J J J J J K: grab, then the giant swing: round and round with the soldier as a club, and let go. Tapping K during
+  // the swing adds two more turns (C6X) before the throw, up to three times. C6 chains just before its throw, at a
+  // point of the spin C6X picks up from (C6X's first key).
   C6: {
-    dur: 3.0, chain: 2.75, rate: 1, next: null, charge: null, armor: true,
+    dur: 3.0, chain: 2.36, rate: 1, next: null, charge: 'C6X', armor: true,
     lunge: [[0.08, 0], [0.3, 2.2]],
     jets: [0.06, 0.3, false],
     hold: 'swing', holdT: [0.28, 2.42],
@@ -250,44 +277,70 @@ export const GC_MOVES = {
       k(3.0, { yaw: -PI * 8, torso: [0.08, -0.12, 0], ...RIFLE_BACK, uArmL: [-0.6, 0, 0.28], fArmL: [-1.5, 0, 0], y: -0.15 }),
     ]),
     hits: every(0.5, 2.4, 0.14, { shape: 'circle', range: 6.6, dmg: 12, kb: 6, up: 3.5 }),
-    ev: [[0.0, 'flash', 'pink'], [0.28, 'grab'], ...times(0.55, 2.4, 0.3).map((t) => [t, 'whirl']), [2.42, 'throw', 'out']],
+    ev: [[0.0, 'flash', 'pink'], [0.28, 'grab'], ...times(0.55, 2.4, 0.3).map((t) => [t, 'whirl']), [2.42, 'throw']],
     sfxs: [[0.1, 'kick'], ...times(0.6, 2.4, 0.3).map((t) => [t, 'spin_gc']), [2.4, 'throw']],
   },
-
-  // ---- boost dash: a rush of punches (keep pressing J), then an uppercut; or a launch and an anti-air blast ----
-  DA: {
-    dur: 0.36, chain: 0.22, rate: 1, next: 'DA', charge: 'DC', armor: true, rush: true,
-    slide: [0, 0.36, 7],
-    jets: [0, 0.36, false],
+  C6X: {
+    dur: 1.55, chain: 0.95, rate: 1, next: null, charge: 'C6X', armor: true, keepHold: true,
+    hold: 'swing', holdT: [-1, 1],
     clip: clip([
-      k(0, { torso: [0.35, 0.5, 0], ...CHAMBER, y: -0.35, ...LEGS_LUNGE_L }),
-      k(0.09, { torso: [0.4, -0.5, 0], ...JAB, y: -0.4, ...LEGS_LUNGE_R }, 'snap'),
-      k(0.18, { torso: [0.3, -0.8, 0], uArmL: [-0.2, -1.9, 1.2], fArmL: [-1.3, 0, 0] }),
-      k(0.28, { torso: [0.35, 0.7, 0], uArmL: [0, 0.3, 1.5], fArmL: [-0.1, 0, 0], y: -0.35, ...LEGS_LUNGE_L }, 'snap'),
-      k(0.36, { torso: [0.35, 0.5, 0], ...CHAMBER }),
+      k(0, { yaw: PI * 0.2, torso: [-0.3, 0, 0], ...BOTH_REACH, uArmL: [-1.35, -0.3, 0.2], uArmR: [-1.35, 0.3, -0.2], y: -0.35, ...LEGS_WIDE }),
+      k(1.0, { yaw: -PI * 4, torso: [-0.35, 0, 0] }, 'linear'),
+      k(1.13, { yaw: -PI * 4.05, torso: [0.25, 0, 0], uArmL: [-2.2, 0, 0.3], uArmR: [-2.2, 0, -0.3], y: -0.15, ...LEGS_LUNGE_L }, 'snap'),
+      k(1.55, { yaw: -PI * 4, torso: [0.08, -0.12, 0], ...RIFLE_BACK, uArmL: [-0.6, 0, 0.28], fArmL: [-1.5, 0, 0], y: -0.15 }),
     ]),
-    hits: [
-      { t: 0.04, t1: 0.12, shape: 'arc', range: 5.1, arc: 170, dmg: 14, kb: 1.5, up: 0, pull: 1, stop: 1 },
-      { t: 0.22, t1: 0.31, shape: 'arc', range: 5.1, arc: 210, dmg: 14, kb: 1.5, up: 0, pull: 1, stop: 1 },
-    ],
-    tr: [[0.03, 0.34, 'L']],
-    sfxs: [[0.03, 'punch'], [0.21, 'punch']],
+    hits: every(0, 0.98, 0.14, { shape: 'circle', range: 6.6, dmg: 12, kb: 6, up: 3.5 }),
+    ev: [...times(0.1, 1, 0.3).map((t) => [t, 'whirl']), [1.0, 'throw']],
+    sfxs: [...times(0.05, 1, 0.3).map((t) => [t, 'spin_gc']), [0.98, 'throw']],
   },
-  DAF: {
-    dur: 0.8, chain: 0.55, rate: 1, next: null, charge: null, armor: true,
-    slide: [0, 0.2, 6],
-    air: [[0.08, 0], [0.3, 1.6], [0.6, 0]],
-    jets: [0, 0.35, true],
+
+  // ---- boost dash: J J J, a flying kick, an air punch and a heel drop (as in Reborn); or K, a launch and an anti-air
+  // blast ----
+  DA: { // flying kick: off the boost the right leg drives up through the target and the thrusters carry the suit up
+    dur: 0.62, chain: 0.34, rate: 1, next: 'DA2', charge: null, armor: true,
+    slide: [0, 0.3, 7],
+    air: [[0.04, 0], [0.26, 1.9], [0.5, 2.3], [0.62, 2.1]],
+    jets: [0, 0.45, true],
     clip: clip([
-      k(0, { torso: [0.35, 0.3, 0], uArmL: [0.4, 0.2, 0.25], fArmL: [-1.4, 0, 0], y: -0.5, ...LEGS_LUNGE_R }),
-      k(0.14, { torso: [-0.3, -0.35, 0], ...UPPER, head: [-0.3, 0, 0], y: 0, ...LEGS_AIR }, 'snap'),
-      k(0.6, { torso: [0.3, 0, 0], uArmL: [-0.6, 0, 0.4], fArmL: [-1.3, 0, 0], y: -0.4, ...LEGS_WIDE }),
-      k(0.8, { torso: [0.1, -0.1, 0], y: -0.15 }),
+      k(0, { torso: [0.3, 0, 0], ...RIFLE_BACK, uArmL: [-0.5, 0, 0.6], fArmL: [-1.3, 0, 0], y: -0.3, ...LEGS_LUNGE_L }),
+      k(0.16, { torso: [-0.35, 0, 0], uArmL: [0.3, 0, 0.7], fArmL: [-0.6, 0, 0], thighR: [-2.3, 0, -0.1], shinR: [0.15, 0, 0], thighL: [0.3, 0, 0.1], shinL: [0.9, 0, 0], y: 0 }, 'snap'),
+      k(0.38, { torso: [-0.1, 0, 0], ...LEGS_AIR }),
+      k(0.62, { torso: [0.1, 0, 0] }),
     ]),
-    hits: [{ t: 0.08, t1: 0.2, shape: 'arc', range: 5.3, arc: 190, hy: 6, dmg: 34, kb: 4, up: 12, big: true }],
-    tr: [[0.06, 0.3, 'L']],
-    ev: [[0.6, 'land']],
-    sfxs: [[0.05, 'uppercut']],
+    hits: [{ t: 0.08, t1: 0.2, shape: 'arc', range: 5.2, arc: 150, hy: 6, dmg: 30, kb: 1.5, up: 9, stop: 2 }],
+    tr: [[0.06, 0.24, 'FR']],
+    sfxs: [[0.06, 'kick']],
+  },
+  DA2: { // air punch: hanging on the thrusters, a left hook into the target it kicked up
+    dur: 0.55, chain: 0.3, rate: 1, next: 'DAF', charge: null, armor: true,
+    air: [[0, 0], [0.2, 0.3], [0.55, 0.1]],
+    jets: [0, 0.4, true],
+    clip: clip([
+      k(0, { torso: [0.1, 0.55, 0], ...HOOK_OUT, ...RIFLE_BACK, ...LEGS_AIR }),
+      k(0.07, { torso: [0.12, 0.65, 0] }),
+      k(0.18, { torso: [0.2, -0.7, 0], ...HOOK_IN }, 'snap'),
+      k(0.55, { torso: [0.15, -0.45, 0], uArmL: [-0.5, -1.2, 0.9], fArmL: [-0.9, 0, 0] }),
+    ]),
+    hits: [{ t: 0.09, t1: 0.2, shape: 'arc', range: 5.2, arc: 160, hy: 5, dmg: 28, kb: 2, up: 5 }],
+    tr: [[0.06, 0.24, 'L']],
+    sfxs: [[0.07, 'punch']],
+  },
+  DAF: { // heel drop: the right leg swings up overhead and chops down, driving the target into the ground; the suit
+    // drops back to earth after it
+    dur: 0.9, chain: 0.72, rate: 1, next: null, charge: null, armor: true,
+    air: [[0, 0], [0.16, 0.5], [0.34, 0.2], [0.72, -3.5]],
+    jets: [0, 0.3, true],
+    clip: clip([
+      k(0, { torso: [-0.2, 0, 0], ...RIFLE_BACK, uArmL: [-0.4, 0, 0.8], fArmL: [-1.0, 0, 0], ...LEGS_AIR }),
+      k(0.16, { torso: [-0.45, 0, 0], thighR: [-2.7, 0, -0.1], shinR: [0.1, 0, 0], thighL: [0.2, 0, 0.1], shinL: [0.6, 0, 0] }),
+      k(0.28, { torso: [0.45, 0, 0], thighR: [-0.4, 0, -0.1], shinR: [0.2, 0, 0], thighL: [0.1, 0, 0.1] }, 'snap'),
+      k(0.72, { torso: [0.3, 0, 0], uArmL: [-0.6, 0, 0.4], fArmL: [-1.3, 0, 0], y: -0.45, ...LEGS_WIDE }),
+      k(0.9, { torso: [0.1, -0.1, 0], y: -0.15 }),
+    ]),
+    hits: [{ t: 0.18, t1: 0.3, shape: 'arc', range: 5.2, arc: 150, hy: 5, dmg: 36, kb: 5, up: 1, big: true }],
+    tr: [[0.14, 0.32, 'FR']],
+    ev: [[0.72, 'land']],
+    sfxs: [[0.17, 'kick']],
   },
   DC: { // dash charge: launch the target, blast it with both cannons as it comes down, back-flip clear of the explosion
     dur: 1.35, chain: 1.15, rate: 1, next: null, charge: null, armor: true,

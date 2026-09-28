@@ -1,5 +1,5 @@
 // Kai's RX-77-2 Guncannon: beam rifle in the right hand, fists and feet up close, twin 240mm shoulder cannons for the
-// heavy work, and grabs (a hoist-and-throw, the giant swing).
+// heavy work, and a grab (the giant swing).
 import * as THREE from 'three';
 import { voxelMesh } from '../core/voxel.js';
 import { RYAW } from '../core/rig.js';
@@ -17,6 +17,7 @@ const SHELL = { speed: 70, fuse: 0.5, r: 3.2, dmg: 44, kb: 8, up: 6, big: true, 
 const HEAVY_SHELL = { speed: 80, fuse: 0.6, r: 3.9, dmg: 62, kb: 12, up: 9, big: true, smoke: 0.7, sound: 'cboom' };
 const RADIAL_SHELL = { speed: 46, fuse: 0.22, r: 3.0, dmg: 22, kb: 7, up: 5, big: false, sp: true, lite: true, smoke: 0.5, sound: 'cboom' };
 const TRAIL_COLOR = 0xcfe4ff;
+const MORE_SPINS = 3; // K taps that can each add two turns to the giant swing
 
 export const GUNCANNON = {
   id: 'guncannon', pilot: 'kai', def: guncannonDef, moves: GC_MOVES, stance: GC_STANCE,
@@ -72,9 +73,12 @@ export class Guncannon extends Hero {
   }
 
   // ---------- move hooks ----------
-  onMoveStart() {
-    this.dropHeld();
+  onMoveStart(m) {
     this.aaTarget = null;
+    if (!m.keepHold) { this.dropHeld(); this.spins = 0; return; }
+    // more turns of the giant swing: keep the soldier and the facing (startMove would turn onto the nearest enemy)
+    this.spins++;
+    this.heading = this.swingHeading;
   }
 
   onMoveEnd() {
@@ -90,6 +94,10 @@ export class Guncannon extends Hero {
     this.trailOn = {};
     if (m.tr) for (const [t0, t1, key] of m.tr) if (t >= t0 && t <= t1) this.trailOn[key] = true;
     if (this.held) this.carryHeld(m, t);
+    if (m.hold === 'swing') {
+      this.swingHeading = this.heading;
+      if (this.buffer === 'charge' && (!this.held || this.spins >= MORE_SPINS)) this.buffer = null;
+    }
     if (m.barrage && t >= m.barrage[0] && t <= m.barrage[1]) {
       const step = m.barrage[2];
       const n = Math.floor((t - m.barrage[0]) / step) - Math.floor(Math.max(0, prevT - m.barrage[0]) / step);
@@ -136,17 +144,11 @@ export class Guncannon extends Hero {
     g.fx.puff(hand, 3, 0.7, 0.6, 0.5, 1.5);
   }
 
-  // Keep the grabbed soldier in the hands: hoisted overhead, or at arm's length while spinning.
+  // Keep the grabbed soldier at arm's length while spinning.
   carryHeld(m, t) {
     const e = this.held, g = this.game;
     if (!e.alive || e.state !== 'held') { this.held = null; return; }
-    if (m.hold === 'lift') {
-      const u = Math.min(1, Math.max(0, (t - m.holdT[0]) / 0.4));
-      const s = u * u * (3 - 2 * u);
-      const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
-      const d = lerp(2.2, 0.3, s);
-      g.crowd.place(e, this.pos.x + fx * d, this.pos.y + lerp(0.8, 4.3, s), this.pos.z + fz * d, this.heading + Math.PI / 2, -Math.PI / 2 * s);
-    } else if (m.hold === 'swing') {
+    if (m.hold === 'swing') {
       const yaw = this.heading + this.pose[RYAW];
       const u = Math.min(1, Math.max(0, (t - m.holdT[0]) / 0.25));
       const r = lerp(2, 3.4, u);
@@ -154,22 +156,15 @@ export class Guncannon extends Hero {
     }
   }
 
-  throwHeld(how) {
+  throwHeld() {
     const e = this.held, g = this.game;
     this.held = null;
     if (!e || !e.alive || e.state !== 'held') return;
-    const mul = g.difficulty.dmgDealt;
-    if (how === 'up') {
-      // straight up into the sky, for the cannons to meet on the way down
-      g.crowd.fling(e, Math.sin(this.heading) * 1.5, 17, Math.cos(this.heading) * 1.5, 26 * mul);
-      this.aaTarget = e;
-    } else {
-      const yaw = this.heading + this.pose[RYAW];
-      g.crowd.fling(e, Math.sin(yaw) * 24, 10, Math.cos(yaw) * 24, 70 * mul, true);
-      // the body scythes through whoever stands in its way
-      g.combat.heroStrike(this, { shape: 'line', len: 9, width: 3.2, dmg: 30, kb: 12, up: 7, big: true }, ++this.hitSerial);
-      if (g.local === this) g.camera.shake(0.4);
-    }
+    const yaw = this.heading + this.pose[RYAW];
+    g.crowd.fling(e, Math.sin(yaw) * 24, 10, Math.cos(yaw) * 24, 70 * g.difficulty.dmgDealt, true);
+    // the body scythes through whoever stands in its way
+    g.combat.heroStrike(this, { shape: 'line', len: 9, width: 3.2, dmg: 30, kb: 12, up: 7, big: true }, ++this.hitSerial);
+    if (g.local === this) g.camera.shake(0.4);
     g.combat.registerHits(1, { big: true }, this);
   }
 
@@ -181,12 +176,23 @@ export class Guncannon extends Hero {
   }
 
   // ---------- events ----------
-  suitEvent(name, arg) {
+  suitEvent(name) {
     const g = this.game;
     const P0 = this.pos;
     switch (name) {
       case 'grab': this.grab(); break;
-      case 'throw': this.throwHeld(arg); break;
+      case 'throw': this.throwHeld(); break;
+      case 'gbreak': // the flying knee smashes through a guard: whoever is blocking in front is caught open
+        for (const c of g.commanders.list) {
+          if (!c.alive || c.state !== 'guard') continue;
+          const dx = c.pos.x - P0.x, dz = c.pos.z - P0.z, d = Math.hypot(dx, dz);
+          if (d > 6.5 || (dx * Math.sin(this.heading) + dz * Math.cos(this.heading)) / (d || 1) < 0.3) continue;
+          c.setState('hurt');
+          g.fx.sparks(this._w.set(c.pos.x, c.pos.y + 2.2, c.pos.z), 16, 0xd8a0ff, 14);
+          g.audio.play('clang', { vol: 0.8, pitch: 0.8 });
+        }
+        break;
+      case 'slam': this.impact(5.4, true); break; // the body slam lands
       case 'whirl': { // giant swing: wind rings sweep the ground around the suit
         g.fx.ring(P0, 1.5, 6.4, 0xe8f0ff, 0.45, 0.25, [0.06, 0]);
         g.fx.ring(P0, 1, 5.2, 0xffffff, 0.35, 0.6, [-0.05, 0.04]);
@@ -279,7 +285,7 @@ export class Guncannon extends Hero {
       this.report(side, shot.last);
       const tgt = this.aimAt(this.heading, 6, 0.6);
       const d = tgt ? Math.min(4, Math.max(2.4, Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z))) : 3.2;
-      g.projectiles.heroBlast(this, this._w.set(this.pos.x + fx * d, this.pos.y + 2, this.pos.z + fz * d), shot.last ? 3.8 : 3.2, shot.last ? 56 : 34, shot.last ? 14 : 5, shot.last ? 8 : 2, { big: !!shot.last, sound: 'cboom' });
+      g.projectiles.heroBlast(this, this._w.set(this.pos.x + fx * d, this.pos.y + 2, this.pos.z + fz * d), shot.last ? 3.8 : 3.2, shot.last ? 56 : shot.dmg ?? 34, shot.last ? 14 : 5, shot.last ? 8 : 2, { big: !!shot.last, sound: 'cboom' });
       return;
     }
     if (shot.kind === 'juggle') {
