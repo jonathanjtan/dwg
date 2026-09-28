@@ -124,7 +124,7 @@ SP attacks: on the ground, a storm of punches that walks forward (afterimage fis
 The Federation's mass-produced space pod: a sphere with a 180mm recoilless cannon on top and two manipulator arms. It's deliberately the weakest suit here: thin armor (the game's spec sheet: armor 9087, mobility 240), a slow drift and blows that land lighter than a real mobile suit's. Only its thrusters (904) keep up with the Gundam's. It floats instead of walking, and it fights by tumbling into the enemy claws first. The moves the Reborn footage shows are taken from it; the rest are built from the same tools.
 
 - **J × 6**: tumbling claw swipes (a diagonal swipe, a backhand, a forward somersault, a barrel roll, a flat spin), then a thruster backflip that launches everything in front
-- **K**: the 180mm cannon. Mash it for a shot combo, or hold it for one heavy shell fired braced on the thrusters
+- **K**: the 180mm cannon. Mash it for a shot combo, or hold it for one heavy shell whose kick rocks the pod back and shoves it about its own width
 - **J K**: dash in, a tumbling flurry of claw swipes, a gold flash and a rising cut that launches
 - **J J K**: arms tucked in, it rolls along the ground like a bowling ball
 - **J J J K**: a spinning top that drags the crowd in and flings it away

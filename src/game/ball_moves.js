@@ -153,15 +153,18 @@ export const BALL_MOVES = {
     ]),
     shots: [{ t: 0.04, kind: 'shell' }],
   },
-  CS: { // charge shot: gold rings, the pod braces on its thrusters and fires one heavy shell (a recoilless gun: it holds still)
+  CS: { // charge shot: gold rings, the pod braces on its thrusters and fires one heavy shell. As in Reborn (unlike the
+    // mashed shots) the kick rocks it back and shoves it about its own width: this lunge (the pod turns whole onto
+    // its aim, so it runs back down the line of fire) plus fire()'s shove.
     dur: 1.35, chain: 1.1, rate: 1, next: null, charge: null, armor: true,
     jets: [0.4, 0.9, false],
+    lunge: [[0.62, 0], [0.8, -1.1]],
     clip: clip([
       k(0, { torso: [0.1, 0, 0], ...CAN_REST, ...ARMS_OUT }),
       k(0.45, { torso: [0.25, 0, 0], ...CAN_LEVEL, uArmR: [0.3, 0, -1.3], uArmL: [0.3, 0, 1.3], y: -0.1 }),
       k(0.6, { torso: [0.28, 0, 0] }),
-      k(0.66, { head: [1.1, 0, 0] }, 'snap'),
-      k(1.0, { torso: [0.15, 0, 0], ...CAN_LEVEL, y: 0 }),
+      k(0.66, { torso: [-0.4, 0, 0], head: [1.1, 0, 0], y: 0.1 }, 'snap'),
+      k(1.0, { torso: [-0.1, 0, 0], ...CAN_LEVEL, y: 0 }),
       k(1.35, { torso: [0.06, 0, 0], ...CAN_REST, ...REST }),
     ]),
     ev: [[0.02, 'flash', 'gold'], [0.26, 'flash', 'gold']],
@@ -316,14 +319,15 @@ export const BALL_MOVES = {
   DC: {
     dur: 1.45, chain: 1.2, rate: 1, next: null, charge: null, armor: true,
     slide: [0, 0.55, 3.5],
+    lunge: [[0.84, 0], [1.02, -1]], // the point-blank shell rocks the pod back and shoves it about a width
     jets: [0, 0.55, false],
     clip: clip([
       k(0, { torso: [0.3, 0, 0.5], ...ARMS_OUT, yaw: 0 }),
       k(0.58, { torso: [0.3, 0, -0.5], yaw: PI * 4 }, 'linear'),
       k(0.72, { torso: [0.2, 0, 0], yaw: PI * 4, ...CAN_LEVEL, ...REST }),
       k(0.84, { torso: [0.25, 0, 0] }),
-      k(0.88, { head: [1.1, 0, 0] }, 'snap'),
-      k(1.2, { torso: [0.15, 0, 0], ...CAN_LEVEL }),
+      k(0.88, { torso: [-0.45, 0, 0], head: [1.1, 0, 0], y: 0.15 }, 'snap'),
+      k(1.2, { torso: [-0.1, 0, 0], ...CAN_LEVEL, y: 0 }),
       k(1.45, { torso: [0.06, 0, 0], ...CAN_REST }),
     ]),
     hits: [
@@ -386,14 +390,15 @@ export const BALL_MOVES = {
     tr: [[0, 3.0, 'R'], [0, 3.0, 'L']],
     sfxs: times(0, 2.9, 0.09).map((t) => [t + 0.02, 'bflail']),
   },
-  SP_FIN: {
+  SP_FIN: { // the blast tips the pod right back and throws it back a couple of widths, as in the footage
     dur: 1.1, rate: 1, armor: true, invuln: true, sp: true,
+    lunge: [[0.42, 0], [0.62, -2]],
     clip: clip([
       k(0, { torso: [0.2, 0, 0], ...ARMS_OUT, ...CAN_REST }),
       k(0.3, { torso: [0.3, 0, 0], ...CAN_LEVEL, ...ARMS_BACK, y: -0.1 }),
       k(0.4, { torso: [0.32, 0, 0] }),
-      k(0.45, { head: [1.05, 0, 0] }, 'snap'),
-      k(0.85, { torso: [0.15, 0, 0], ...CAN_LEVEL, y: 0 }),
+      k(0.45, { torso: [-0.8, 0, 0], head: [1.05, 0, 0], y: 0.2 }, 'snap'),
+      k(0.85, { torso: [-0.2, 0, 0], ...CAN_LEVEL, y: 0 }),
       k(1.1, { torso: [0.06, 0, 0], ...CAN_REST, ...REST }),
     ]),
     ev: [[0.05, 'charge'], [0.43, 'finblast']],
@@ -421,12 +426,13 @@ export const BALL_MOVES = {
     hits: [{ t: 0.3, t1: 0.46, shape: 'arc', range: 4.6, arc: 160, hy: 6, dmg: 40, kb: 3, up: 3, big: true, sp: true }],
     sfxs: [[0.02, 'qb'], [0.4, 'phit_heavy']],
   },
-  SPA_BLAST: {
+  SPA_BLAST: { // the blast tips the pod right back, belly to the target, and throws it clear
     dur: 1.0, rate: 1, armor: true, invuln: true, sp: true, isAir: true,
+    lunge: [[0.2, 0], [0.5, -2.5]],
     clip: clip([
       k(0, { torso: [0.1, 0, 0], ...CAN_LEVEL, ...ARMS_OUT }),
       k(0.16, { torso: [0.2, 0, 0] }),
-      k(0.21, { head: [1.0, 0, 0] }, 'snap'),
+      k(0.21, { torso: [-0.9, 0, 0], head: [1.0, 0, 0] }, 'snap'),
       k(1.0, { torso: [0.1, 0, 0], ...CAN_REST, ...REST }),
     ]),
     ev: [[0.02, 'charge'], [0.2, 'finblast', 'air']],

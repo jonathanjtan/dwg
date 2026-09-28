@@ -216,6 +216,8 @@ export class Ball extends Hero {
       this.report(true);
       const d = tgt ? clamp(Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z), 2.4, 4) : 3.2;
       g.projectiles.heroBlast(this, this._w.set(this.pos.x + ax * d, this.pos.y + 1.8, this.pos.z + az * d), 3.8, 58, 14, 8, { big: true, sound: 'cboom' });
+      this.vel.x -= ax * 4; // the kick shoves the pod back off the blast (the move's lunge does the rest)
+      this.vel.z -= az * 4;
       return;
     }
     if (shot.kind === 'aa') {
@@ -244,6 +246,8 @@ export class Ball extends Hero {
       const d = tgt ? Math.max(3, Math.hypot(tgt.x - from.x, tgt.z - from.z)) : 20;
       dir.y = (ty - from.y) / d;
       dir.normalize();
+      // the heavy shell's kick shoves the pod back down the line of fire; the mashed shells don't move it
+      if (heavy) { this.vel.x -= Math.sin(aim) * 5; this.vel.z -= Math.cos(aim) * 5; }
     }
     g.projectiles.shell(this, from, dir, o);
   }

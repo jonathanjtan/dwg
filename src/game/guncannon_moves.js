@@ -150,7 +150,8 @@ export const GC_MOVES = {
     ]),
     shots: [{ t: 0.03, kind: 'rifle' }],
   },
-  CS: { // charge shot: gold rings, the suit braces on its thrusters and both cannons fire; the shells blow the target away
+  CS: { // charge shot: gold rings, the suit braces on its thrusters and both cannons fire; the shells blow the target away.
+    // No recoil on the suit: in the footage it comes down where it stood, and no other cannon or rifle move budges it.
     dur: 1.55, chain: 1.3, rate: 1, next: null, charge: null, armor: true,
     can: [[0.2, 0], [0.5, 1]],
     jets: [0.5, 1.1, false],
