@@ -147,7 +147,7 @@ export const MOVES = {
     clip: clip([
       k(0, { ...RIFLE }),
       k(0.1, { ...RIFLE }, 'snap'),
-      k(0.16, { torso: [-0.1, -0.47, 0.05], uArmR: [-1.6, 0, -0.15], hand: [1.7, 0, 0], y: -0.06 }, 'snap'),
+      k(0.16, { uArmR: [-1.6, 0, -0.15], hand: [1.7, 0, 0] }, 'snap'),
       k(0.42, { ...RIFLE }),
     ]),
     shots: [{ t: 0.12, kind: 'srifle' }],
@@ -156,7 +156,7 @@ export const MOVES = {
     dur: 0.3, chain: 0.1, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 10,
     clip: clip([
       k(0, { ...RIFLE }),
-      k(0.05, { torso: [-0.08, -0.47, 0.05], uArmR: [-1.55, 0, -0.15], hand: [1.65, 0, 0], y: -0.06 }, 'snap'),
+      k(0.05, { uArmR: [-1.55, 0, -0.15], hand: [1.65, 0, 0] }, 'snap'),
       k(0.3, { ...RIFLE }),
     ]),
     shots: [{ t: 0.03, kind: 'srifle' }],
@@ -186,7 +186,7 @@ export const MOVES = {
   // J K: a tomahawk spin, then the abdominal mega particle cannon point-blank.
   C2: {
     dur: 1.6, chain: 1.35, saber: true, rate: 1, next: null, charge: null, armor: true,
-    lunge: [[0.02, 0], [0.2, 1.3], [0.9, 1.3], [1.05, 0.4]],
+    lunge: [[0.02, 0], [0.2, 1.3]],
     clip: clip([
       k(0, { torso: [0.1, -0.6, 0], ...SWEEP_R, y: -0.3, yaw: 0, ...LEGS_WIDE }),
       k(0.42, { yaw: PI * 2, torso: [0.1, 0.4, 0] }, 'linear'),
@@ -411,12 +411,12 @@ export const MOVES = {
     clip: clip([
       k(0, { ...RIFLE, y: -0.15, ...LEGS_WIDE }),
       k(0.5, { ...RIFLE, torso: [0, -0.3, 0] }),
-      k(0.55, { torso: [-0.1, -0.35, 0.05], uArmR: [-1.6, 0, -0.15], hand: [1.7, 0, 0] }, 'snap'),
+      k(0.55, { torso: [0, -0.35, 0.05], uArmR: [-1.6, 0, -0.15], hand: [1.7, 0, 0] }, 'snap'),
       k(1.0, { ...RIFLE, torso: [0, -0.6, 0] }),
       k(1.6, { ...RIFLE, torso: [0, 0.2, 0] }),
-      k(1.65, { torso: [-0.1, 0.15, 0.05], uArmR: [-1.6, 0, -0.15], hand: [1.7, 0, 0] }, 'snap'),
+      k(1.65, { torso: [0, 0.15, 0.05], uArmR: [-1.6, 0, -0.15], hand: [1.7, 0, 0] }, 'snap'),
       k(2.4, { ...RIFLE, torso: [0, -0.2, 0] }),
-      k(2.45, { torso: [-0.1, -0.25, 0.05], uArmR: [-1.6, 0, -0.15], hand: [1.7, 0, 0] }, 'snap'),
+      k(2.45, { torso: [0, -0.25, 0.05], uArmR: [-1.6, 0, -0.15], hand: [1.7, 0, 0] }, 'snap'),
       k(3.2, { ...RIFLE }),
     ]),
     shots: [
@@ -429,8 +429,7 @@ export const MOVES = {
     clip: clip([
       k(0, { torso: [0.1, 0, 0], uArmR: [-0.3, 0, -0.35], y: -0.15 }),
       k(0.4, { torso: [-0.35, 0, 0], uArmR: [0.2, 0, -1.0], uArmL: [0.2, 0, 1.0], fArmL: [-0.3, 0, 0], head: [-0.25, 0, 0], y: -0.45, ...LEGS_WIDE }),
-      k(0.5, { torso: [-0.5, 0, 0], y: -0.5 }, 'snap'),
-      k(1.2, { torso: [-0.45, 0, 0] }),
+      k(1.2, { torso: [-0.35, 0, 0] }),
       k(1.5, { torso: [0.1, -0.2, 0], y: -0.15 }),
     ]),
     hits: [{ t: 0.52, t1: 0.9, shape: 'line', len: 18, width: 4.2, dmg: 40, kb: 6, up: 5, sp: true }, { t: 0.95, t1: 1.02, shape: 'line', len: 18, width: 4.6, dmg: 90, kb: 14, up: 10, big: true, sp: true }],
@@ -453,7 +452,7 @@ export const MOVES = {
     jets: [0, 0.42, true],
     clip: clip([
       k(0, { ...RIFLE, torso: [0.55, -0.3, 0], uArmR: [-0.9, 0, -0.15], ...LEGS_AIR }),
-      k(0.05, { torso: [0.45, -0.35, 0], uArmR: [-1.1, 0, -0.15], hand: [1.3, 0, 0] }, 'snap'),
+      k(0.05, { torso: [0.55, -0.35, 0], uArmR: [-1.1, 0, -0.15], hand: [1.3, 0, 0] }, 'snap'),
       k(0.42, { torso: [0.55, -0.3, 0], uArmR: [-0.9, 0, -0.15] }),
     ]),
     shots: [{ t: 0.04, kind: 'down' }],
@@ -464,7 +463,7 @@ export const MOVES = {
     clip: clip([
       k(0, { ...RIFLE, torso: [0.5, -0.3, 0], ...LEGS_AIR }),
       k(0.3, { torso: [0.4, -0.3, 0], uArmR: [-1.0, 0, -0.15], hand: [1.3, 0, 0] }),
-      k(0.36, { torso: [0.2, -0.35, 0], uArmR: [-1.3, 0, -0.15] }, 'snap'),
+      k(0.36, { torso: [0.4, -0.35, 0], uArmR: [-1.3, 0, -0.15] }, 'snap'),
       k(1.0, { torso: [0.2, -0.2, 0], y: -0.2, ...LEGS_WIDE }),
     ]),
     ev: [[0.02, 'charge'], [0.34, 'burstgreen']],

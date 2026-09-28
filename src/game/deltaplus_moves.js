@@ -143,7 +143,7 @@ export const MOVES = {
     clip: clip([
       k(0, { ...RIFLE, torso: [0, -0.5, 0], uArmR: [-1.3, 0, 0.1], fArmR: [-0.3, 0, 0], hand: [1.6, 0, 0] }),
       k(0.09, { ...RIFLE }, 'snap'),
-      k(0.15, { torso: [-0.1, -0.55, 0], uArmR: [-1.8, 0, 0.1], hand: [1.4, 0, 0], y: -0.05 }, 'snap'),
+      k(0.15, { uArmR: [-1.8, 0, 0.1], hand: [1.4, 0, 0] }, 'snap'),
       k(0.38, { uArmR: [-1.55, 0, 0.1], hand: [1.55, 0, 0] }),
     ]),
     shots: [{ t: 0.11, kind: 'rifle' }],
@@ -152,7 +152,7 @@ export const MOVES = {
     dur: 0.24, chain: 0.09, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 12,
     clip: clip([
       k(0, { ...RIFLE }),
-      k(0.05, { torso: [-0.08, -0.55, 0], uArmR: [-1.75, 0, 0.1], hand: [1.42, 0, 0], y: -0.05 }, 'snap'),
+      k(0.05, { uArmR: [-1.75, 0, 0.1], hand: [1.42, 0, 0] }, 'snap'),
       k(0.24, { ...RIFLE }),
     ]),
     shots: [{ t: 0.03, kind: 'rifle' }],
@@ -163,7 +163,7 @@ export const MOVES = {
       k(0, { ...RIFLE, ...BLOCK, torso: [0.05, -0.2, 0], y: -0.2, ...LEGS_WIDE }),
       k(0.4, { ...RIFLE, ...BLOCK, torso: [0.05, -0.35, 0], y: -0.3 }),
       k(0.55, { ...RIFLE, ...BLOCK, torso: [0, -0.55, 0], y: -0.32 }),
-      k(0.62, { torso: [-0.2, -0.5, 0], uArmR: [-1.95, 0, 0.1], hand: [1.75, 0, 0], y: -0.28 }, 'snap'),
+      k(0.62, { uArmR: [-1.95, 0, 0.1], hand: [1.75, 0, 0] }, 'snap'),
       k(1.15, { ...RIFLE, torso: [0, -0.4, 0] }),
     ]),
     ev: [[0.02, 'flash', 'gold'], [0.24, 'flash', 'gold']],
@@ -320,8 +320,6 @@ export const MOVES = {
   DC: { // Dash Charge: a spin of cuts, then the shield swings round for a point-blank grenade blast
     dur: 1.1, chain: 0.9, rate: 1, next: null, charge: null, armor: true,
     saber: true,
-    lunge: [[0.56, 0], [0.7, -1.6]],
-    jets: [0.56, 0.7, false],
     clip: clip([
       k(0, { torso: [0.1, -0.6, 0], ...SWEEP_R, uArmL: [0, 0, 1.3], y: -0.3, yaw: 0, ...LEGS_WIDE }),
       k(0.2, { yaw: PI * 2, torso: [0.1, 0.3, 0] }, 'linear'),
@@ -428,7 +426,6 @@ export const MOVES = {
     jets: [0, 0.4, true],
     clip: clip([
       k(0, { torso: [0.35, -0.15, 0], uArmL: [-0.9, 0, 0.15], fArmL: [-0.45, 0, 0], handL: [0, 0.1, 0], ...LEGS_AIR }),
-      k(0.14, { torso: [0.15, -0.15, 0] }, 'snap'),
       k(0.4, { torso: [0.35, -0.15, 0] }),
     ]),
     shots: [{ t: 0.1, kind: 'grenade', dn: true }],

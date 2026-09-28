@@ -139,8 +139,8 @@ export const BALL_MOVES = {
     clip: clip([
       k(0, { torso: [0.05, 0, 0], ...CAN_REST }),
       k(0.1, { torso: [0.12, 0, 0], ...CAN_LEVEL }, 'snap'),
-      k(0.15, { torso: [-0.14, 0, 0], head: [1.2, 0, 0], y: 0.05 }, 'snap'),
-      k(0.42, { torso: [0.08, 0, 0], ...CAN_LEVEL, y: 0 }),
+      k(0.15, { head: [1.2, 0, 0] }, 'snap'),
+      k(0.42, { torso: [0.08, 0, 0], ...CAN_LEVEL }),
     ]),
     shots: [{ t: 0.12, kind: 'shell' }],
   },
@@ -148,21 +148,20 @@ export const BALL_MOVES = {
     dur: 0.33, chain: 0.12, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 8,
     clip: clip([
       k(0, { torso: [0.08, 0, 0], ...CAN_LEVEL }),
-      k(0.06, { torso: [-0.14, 0, 0], head: [1.2, 0, 0], y: 0.05 }, 'snap'),
-      k(0.33, { torso: [0.08, 0, 0], ...CAN_LEVEL, y: 0 }),
+      k(0.06, { head: [1.2, 0, 0] }, 'snap'),
+      k(0.33, { torso: [0.08, 0, 0], ...CAN_LEVEL }),
     ]),
     shots: [{ t: 0.04, kind: 'shell' }],
   },
-  CS: { // charge shot: gold rings, the pod braces on its thrusters and fires one heavy shell; the recoil shoves it back
+  CS: { // charge shot: gold rings, the pod braces on its thrusters and fires one heavy shell (a recoilless gun: it holds still)
     dur: 1.35, chain: 1.1, rate: 1, next: null, charge: null, armor: true,
     jets: [0.4, 0.9, false],
-    lunge: [[0.62, 0], [0.8, -1.1]],
     clip: clip([
       k(0, { torso: [0.1, 0, 0], ...CAN_REST, ...ARMS_OUT }),
       k(0.45, { torso: [0.25, 0, 0], ...CAN_LEVEL, uArmR: [0.3, 0, -1.3], uArmL: [0.3, 0, 1.3], y: -0.1 }),
       k(0.6, { torso: [0.28, 0, 0] }),
-      k(0.66, { torso: [-0.4, 0, 0], head: [1.1, 0, 0], y: 0.1 }, 'snap'),
-      k(1.0, { torso: [-0.1, 0, 0], ...CAN_LEVEL, y: 0 }),
+      k(0.66, { head: [1.1, 0, 0] }, 'snap'),
+      k(1.0, { torso: [0.15, 0, 0], ...CAN_LEVEL, y: 0 }),
       k(1.35, { torso: [0.06, 0, 0], ...CAN_REST, ...REST }),
     ]),
     ev: [[0.02, 'flash', 'gold'], [0.26, 'flash', 'gold']],
@@ -245,9 +244,9 @@ export const BALL_MOVES = {
       k(0.14, { torso: [-0.35, 0, 0], ...ARMS_UP }, 'snap'),
       k(0.4, { torso: [-0.3, 0, 0], ...CAN_SKY, ...REST, y: -0.1 }),
       ...[0.55, 0.85, 1.15].flatMap((t) => [
-        k(t, { torso: [-0.3, 0, 0] }),
-        k(t + 0.04, { torso: [-0.05, 0, 0], y: -0.2 }, 'snap'),
-        k(t + 0.2, { torso: [-0.28, 0, 0], y: -0.1 }),
+        k(t, { ...CAN_SKY }),
+        k(t + 0.04, { head: [-0.1, 0, 0] }, 'snap'),
+        k(t + 0.2, { ...CAN_SKY }),
       ]),
       k(1.7, { torso: [0.06, 0, 0], ...CAN_REST, y: 0 }),
     ]),
@@ -317,15 +316,14 @@ export const BALL_MOVES = {
   DC: {
     dur: 1.45, chain: 1.2, rate: 1, next: null, charge: null, armor: true,
     slide: [0, 0.55, 3.5],
-    lunge: [[0.84, 0], [1.02, -1.6]],
     jets: [0, 0.55, false],
     clip: clip([
       k(0, { torso: [0.3, 0, 0.5], ...ARMS_OUT, yaw: 0 }),
       k(0.58, { torso: [0.3, 0, -0.5], yaw: PI * 4 }, 'linear'),
       k(0.72, { torso: [0.2, 0, 0], yaw: PI * 4, ...CAN_LEVEL, ...REST }),
       k(0.84, { torso: [0.25, 0, 0] }),
-      k(0.88, { torso: [-0.45, 0, 0], head: [1.1, 0, 0], y: 0.15 }, 'snap'),
-      k(1.2, { torso: [-0.1, 0, 0], ...CAN_LEVEL, y: 0 }),
+      k(0.88, { head: [1.1, 0, 0] }, 'snap'),
+      k(1.2, { torso: [0.15, 0, 0], ...CAN_LEVEL }),
       k(1.45, { torso: [0.06, 0, 0], ...CAN_REST }),
     ]),
     hits: [
@@ -353,7 +351,7 @@ export const BALL_MOVES = {
     clip: clip([
       k(0, { torso: [0.15, 0, 0], ...CAN_REST }),
       k(0.16, { torso: [0.35, 0, 0], ...CAN_DOWN }),
-      k(0.22, { torso: [0.05, 0, 0], head: [2.0, 0, 0] }, 'snap'),
+      k(0.22, { head: [2.0, 0, 0] }, 'snap'),
       k(0.85, { torso: [0.2, 0, 0], ...CAN_DOWN }),
     ]),
     shots: [{ t: 0.2, kind: 'dn' }],
@@ -390,13 +388,12 @@ export const BALL_MOVES = {
   },
   SP_FIN: {
     dur: 1.1, rate: 1, armor: true, invuln: true, sp: true,
-    lunge: [[0.42, 0], [0.62, -2]],
     clip: clip([
       k(0, { torso: [0.2, 0, 0], ...ARMS_OUT, ...CAN_REST }),
       k(0.3, { torso: [0.3, 0, 0], ...CAN_LEVEL, ...ARMS_BACK, y: -0.1 }),
       k(0.4, { torso: [0.32, 0, 0] }),
-      k(0.45, { torso: [-0.5, 0, 0], head: [1.05, 0, 0], y: 0.2 }, 'snap'),
-      k(0.85, { torso: [-0.2, 0, 0], ...CAN_LEVEL, y: 0 }),
+      k(0.45, { head: [1.05, 0, 0] }, 'snap'),
+      k(0.85, { torso: [0.15, 0, 0], ...CAN_LEVEL, y: 0 }),
       k(1.1, { torso: [0.06, 0, 0], ...CAN_REST, ...REST }),
     ]),
     ev: [[0.05, 'charge'], [0.43, 'finblast']],
@@ -426,11 +423,10 @@ export const BALL_MOVES = {
   },
   SPA_BLAST: {
     dur: 1.0, rate: 1, armor: true, invuln: true, sp: true, isAir: true,
-    lunge: [[0.2, 0], [0.5, -2.5]],
     clip: clip([
       k(0, { torso: [0.1, 0, 0], ...CAN_LEVEL, ...ARMS_OUT }),
       k(0.16, { torso: [0.2, 0, 0] }),
-      k(0.21, { torso: [-0.6, 0, 0], head: [1.0, 0, 0] }, 'snap'),
+      k(0.21, { head: [1.0, 0, 0] }, 'snap'),
       k(1.0, { torso: [0.1, 0, 0], ...CAN_REST, ...REST }),
     ]),
     ev: [[0.02, 'charge'], [0.2, 'finblast', 'air']],
@@ -460,8 +456,8 @@ export const BALL_MOVES = {
     dur: 0.55, rate: 1, armor: true, invuln: true, sp: true, spRepeat: 6, spNext: 'SPC_END',
     clip: clip([
       k(0, { torso: [0.1, 0, 0], ...CAN_LEVEL }),
-      k(0.06, { torso: [-0.2, 0, 0], head: [1.2, 0, 0] }, 'snap'),
-      k(0.55, { torso: [0.1, 0, 0], ...CAN_LEVEL }),
+      k(0.06, { head: [1.2, 0, 0] }, 'snap'),
+      k(0.55, { ...CAN_LEVEL }),
     ]),
     ev: [[0.04, 'volley']],
     shots: [{ t: 0.04, kind: 'shell', sp: true }],

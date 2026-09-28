@@ -14,6 +14,10 @@ const RUSH_MAX = 6; // paired blows in a dash combo before the launching finishe
 // Hand-held guns the aim layer points down the line of fire (suit config `guns` overrides); all hang off `hand`
 // with no rotation of their own, so the barrel is the hand's +Z.
 const GUNS = ['rifle', 'bazooka', 'launcher'];
+// Shooting aims the gun, not the suit: a hand-held gun reaches AIM_REACH radians either side of the heading on the arm
+// and waist (the waist takes AIM_TWIST of it). A target past that turns the body at AIM_TURN until it is back inside
+// AIM_EASY; a gun without an arm to swing it (a head or shoulder cannon) turns the body the whole way, just as smoothly.
+const AIM_REACH = 1.2, AIM_EASY = 0.8, AIM_TWIST = 0.45, AIM_TURN = 16;
 const _aq = new THREE.Quaternion(), _aq2 = new THREE.Quaternion(), _aq3 = new THREE.Quaternion(), _av = new THREE.Vector3(), _aw = new THREE.Vector3();
 const REDEPLOY = 8; // seconds before a fallen co-op guest drops back in
 // Charge-attack swirl colours (gold for most, violet / pink / red on some).
@@ -101,6 +105,12 @@ export class Hero {
     this.wpn = null; // weapon in hand right now (per suit)
     this.stopT = 0; // hit-stop left on this suit
     this.respawnT = 0;
+    this.aimYaw = 0; // where the gun points (world yaw) during a move; follows the heading unless `aiming`
+    this.aiming = false;
+    this.aimTgt = null; // what it's tracking
+    this.aimReach = 0; // AIM_REACH for a move with a hand-held gun, else 0
+    this.aimTurn = false;
+    this.twist = 0; // waist twist the aim layer has added to this.pose
 
     // backpack flame jets: an outer cone around a white core, shown while the thrusters fire
     const cone = (r, h) => new THREE.ConeGeometry(r, h, 8, 1, true).rotateX(Math.PI).translate(0, -h / 2, 0).rotateX(Math.PI / 2);
@@ -156,6 +166,8 @@ export class Hero {
     this.boost = 1;
     this.state = 'move';
     this.heading = 0;
+    this.aiming = false;
+    this.aimTgt = null;
     this.lie = 0;
     this.wpn = null;
     this.spKind = null;
@@ -205,6 +217,7 @@ export class Hero {
 
   snapshotPose() {
     this.prevPose.set(this.pose);
+    this.prevPose[P.torso * 3 + 1] -= this.twist; // the aim layer's twist rides on top of whatever pose follows
     // spins, flips and tumbles end whole turns round: blend out of them the short way (every channel but RY is an angle)
     for (let i = 0; i < this.prevPose.length; i++) if (i !== RY) this.prevPose[i] = wrapAngle(this.prevPose[i]);
     this.blendT = 0;
@@ -218,12 +231,34 @@ export class Hero {
     return this.game.combat.acquire(this.pos, want, range, cone);
   }
 
-  // Turn the suit square onto a shot's aim so the gun points where the round goes; call before reading the muzzle.
-  faceShot(yaw) {
-    this.heading = yaw;
-    this.rig.root.rotation.y = yaw;
+  // Point the gun along a shot's aim (world yaw) before reading the muzzle, and keep tracking `tgt` after. A hand-held
+  // gun gets there on the arm and waist, and the body only turns for an aim past their reach; a gun without an arm
+  // turns the body. trackAim() has usually brought it most of the way already, so what's left is small.
+  aimShot(yaw, tgt = null) {
+    const reach = this.gunOut() ? AIM_REACH : 0;
+    const off = wrapAngle(yaw - this.heading);
+    if (Math.abs(off) > reach) this.heading += off - Math.sign(off) * reach;
+    this.aimYaw = yaw;
+    if (tgt) { this.aiming = true; this.aimTgt = tgt; }
+    this.rig.root.rotation.y = this.heading;
     this.rig.root.updateMatrixWorld(true);
     this.aimGun(true);
+  }
+
+  // Each frame of a move: follow the tracked target with the aim, and turn the body only when it's past the gun's
+  // reach (then far enough to bring it back to AIM_EASY), smoothly rather than snapping round.
+  trackAim(dt) {
+    const t = this.aimTgt;
+    if (t && (t.alive === false || t.state === 'dying')) this.aimTgt = null;
+    else if (t) this.aimYaw = Math.atan2(t.x - this.pos.x, t.z - this.pos.z);
+    if (!this.aiming) { this.aimYaw = this.heading; return; }
+    const keep = Math.min(this.aimReach, AIM_EASY);
+    let off = wrapAngle(this.aimYaw - this.heading);
+    if (Math.abs(off) > this.aimReach + 0.01) this.aimTurn = true;
+    if (!this.aimTurn) return;
+    this.heading = angleDamp(this.heading, this.aimYaw - Math.sign(off) * keep, AIM_TURN, dt);
+    off = wrapAngle(this.aimYaw - this.heading);
+    if (Math.abs(off) < keep + 0.03) this.aimTurn = false;
   }
 
   gunOut() {
@@ -245,16 +280,23 @@ export class Hero {
 
   // Aim layer for hand-held guns. The keyframed shooting poses only point a gun roughly ahead (the torso twists into
   // a bladed stance, snap keys kick the arm up), which left rounds leaving the barrel 20-35 degrees off. While a gun is
-  // out in a shooting move, swing the whole gun arm at the shoulder so the barrel lies along the line of fire: level
-  // down the heading, or `this.gunAim` for shots that go elsewhere (set through aimGunTo() in the suit's fire()). Written back into the pose, so co-op guests get it with the rest of the pose. `gunW` eases it in and out.
+  // out in a shooting move, twist the waist a share of the way toward the aim and swing the whole gun arm at the
+  // shoulder so the barrel lies along the line of fire: level along `aimYaw`, or `this.gunAim` for shots that go
+  // elsewhere (set through aimGunTo() in the suit's fire()). Written back into the pose, so co-op guests get it with the
+  // rest of the pose. `gunW` eases it in and out.
   aimGun(shot = false) {
-    if (shot && this.gunOut()) this.gunW = 1; // a shot snaps the gun onto the line, as a recoil key would
+    if (shot && this.gunOut()) this.gunW = 1; // a shot snaps the gun onto the line
     if (!(this.gunW > 0.001)) return;
     const rig = this.rig, hand = rig.nodes.hand, arm = rig.nodes.uArmR;
     if (!hand || !arm) return;
+    const ti = P.torso * 3 + 1;
+    const tw = clamp(wrapAngle(this.aimYaw - this.heading), -AIM_REACH, AIM_REACH) * AIM_TWIST * this.gunW;
+    this.pose[ti] += tw - this.twist;
+    this.twist = tw;
+    rig.nodes.torso.rotation.y = this.pose[ti];
     rig.root.updateMatrixWorld(true);
     const barrel = _av.set(0, 0, 1).applyQuaternion(hand.getWorldQuaternion(_aq)).normalize();
-    const want = this.gunAim ? _aw.copy(this.gunAim).normalize() : _aw.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+    const want = this.gunAim ? _aw.copy(this.gunAim).normalize() : _aw.set(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw));
     const turn = _aq2.setFromUnitVectors(barrel, want);
     turn.slerpQuaternions(_aq.identity(), _aq3.copy(turn), this.gunW);
     const armW = arm.getWorldQuaternion(_aq).premultiply(turn);
@@ -271,16 +313,26 @@ export class Hero {
     this.snapshotPose();
     this.blendDur = m.rush || m.loop ? 0.05 : 0.08;
     // aim: input direction, then soft lock to the nearest enemy in that cone (or the locked-on commander).
-    // Shots and SP attacks turn to find a target anywhere around the suit unless the stick points somewhere;
-    // the aerial SP tracks its own targets while it hovers.
-    let want = dir ? Math.atan2(dir.x, dir.z) : this.heading;
+    // Shots and SP attacks look for a target anywhere around the suit unless the stick points somewhere (a string of
+    // shots keeps to what the gun was on); the aerial SP tracks its own targets while it hovers.
+    const shooter = m.shots && !m.hits && !m.sp;
+    const chain = shooter && this.aiming && (this.state === 'attack' || this.state === 'musou');
+    let want = dir ? Math.atan2(dir.x, dir.z) : chain ? this.aimYaw : this.heading;
+    let tgt = null;
     if (!(m.sp && m.isAir)) {
       const wide = m.sp || m.rifle || m.shots;
       const range = m.sp ? 22 : m.rifle || m.shots ? 34 : 9;
-      const tgt = this.aimAt(want, range, wide ? (dir ? 1.3 : Math.PI) : dir ? 1.0 : 1.4);
+      tgt = this.aimAt(want, range, wide ? (dir ? 1.3 : Math.PI) : dir ? 1.0 : 1.4);
       if (tgt) want = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
     }
-    this.heading = want;
+    // a move with blows snaps onto its target; one that only shoots leaves the body be and aims the gun (trackAim)
+    this.aiming = !!(shooter && (tgt || chain));
+    this.aimTgt = this.aiming ? tgt : null;
+    this.aimTurn = false;
+    if (!this.aiming) this.heading = want;
+    this.aimYaw = want;
+    const guns = this.suit.guns || GUNS;
+    this.aimReach = m.rifle || m.wpn?.some(([, w]) => guns.includes(w)) ? AIM_REACH : 0;
     this.state = 'attack';
     this.move = m;
     this.moveName = name;
@@ -453,6 +505,7 @@ export class Hero {
     this.blendT = Math.min(1, this.blendT + dt / this.blendDur);
     if (this.blendT < 1) lerpPose(this.pose, this.prevPose, this.target, this.blendT * this.blendT * (3 - 2 * this.blendT));
     else this.pose.set(this.target);
+    this.twist = 0;
   }
 
   jump(dir, boosted = false) {
@@ -632,6 +685,7 @@ export class Hero {
     const prevT = this.moveT;
     this.moveT += dt * (m.rate ?? ATK_RATE);
     let t = this.moveT;
+    this.trackAim(dt);
 
     // plunge: fall fast until landing, then play the impact part of the clip
     if (m.plunge && !this.landed) {

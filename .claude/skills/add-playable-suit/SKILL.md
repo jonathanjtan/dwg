@@ -182,19 +182,31 @@ which runs on every pose each frame, just before blending. The Ball adds its hov
 Also `locomotion` (override for non-walkers), `suitEvent`, `muzzle` / `fire`, `preVisuals` / `postVisuals`, `reset`,
 and `netExtras` / `applyNetExtras`.
 
-**Guns and shots.** Rounds must leave down the barrel. Shooting poses twist the torso into a bladed stance and snap
-keys kick the arm up, so a keyframed gun points 20-35 degrees right of and 10-20 up from the heading (every suit did,
-until the aim layer went in). `Hero.aimGun` fixes it for you: while a weapon named in the suit's `guns` (default
-`rifle`, `bazooka`, `launcher`) is out in a move, it swings the right arm at the shoulder so the barrel lies along the
-line of fire, and writes that back into the pose (so guests see it). What it needs from a suit:
+**Guns and shots.** Rounds must leave down the barrel, and a shot aims the gun, not the whole suit. Shooting poses
+twist the torso into a bladed stance and snap keys kick the arm up, so a keyframed gun points 20-35 degrees right of
+and 10-20 up from the heading. `Hero.aimGun` fixes it for you: while a weapon named in the suit's `guns` (default
+`rifle`, `bazooka`, `launcher`) is out in a move, it twists the waist part of the way toward `aimYaw` and swings the
+right arm at the shoulder so the barrel lies along the line of fire, and writes both into the pose (so guests see
+them). That reaches `AIM_REACH` (about 70 degrees) either side of the heading; past that the body turns, smoothly, just
+far enough. What it needs from a suit:
 - Hang every hand-held gun off `hand` with no rotation of its own, barrel along +Z: the layer takes the hand's +Z as
   the barrel, and `muzzle()` should be a point on that line (`gun.localToWorld(out.set(0, y, z))`).
-- Straight shots: `faceShot(aim)` before reading `muzzle()` (turns the suit and snaps the gun onto the line), then
-  fire level along `aim`. Fan volleys (`shot.ang` offsets) keep the facing and skip `faceShot`.
+- Straight shots: look for the target around `this.aimYaw` (where the gun already points; it follows the heading
+  when nothing is tracked), call `this.aimShot(aim, tgt)` before reading `muzzle()`, then fire level along `aim`.
+  Fan volleys (`shot.ang` offsets) centre on `aimYaw` and skip `aimShot`. Never set `heading` or
+  `rig.root.rotation.y` onto a shot yourself: snapping the whole suit round on every shot is what this replaced.
+- A move that only shoots (`shots`, no `hits`, not SP) doesn't turn the suit when it starts: `startMove` gives its
+  target to `trackAim`, which keeps the aim on it through a mashed string and turns the body only when the target
+  leaves the reach. Moves with blows still snap onto their target.
 - Shots that aren't level (down from a hover, up at a launched target): `const from = this.aimGunTo(x, y, z, out)`
   points the gun at the world point and returns the muzzle after the arm has moved; fire along `point - from`.
 - Other gun names (a buster, a launcher) go in `guns` on the config. Guns that aren't in the hand (the Guncannon's
-  shoulder cannons, the Ball's turret) aim their own node; don't add them to `guns`.
+  shoulder cannons, the Ball's turret, the Delta Plus's shield launcher) stay out of `guns`: they pitch on their own
+  node, `aimShot` turns the body for them, and `trackAim` swings it round smoothly beforehand, so little is left to
+  snap at the shot.
+- No recoil on the suit. Don't push `this.vel` back, give a shot a backward `lunge`, or key the torso rocking back or
+  `y` bobbing at the shot. The punch comes from the muzzle flash, smoke, sound and camera shake/kick, plus at most a
+  small barrel or arm kick (the arm snap keys, the Ball's head kick, the Guncannon's `canKick`).
 - Remote weapons (funnels, bits, a squadron) are world-space meshes owned through `this.own()`. Keep their state as a
   mode, an anchor and a clock, compute positions from those in one function, and send just those in `netExtras` so
   the guest runs the same function (the Sazabi's `funnelSlot`). Fire their beams from the mesh's position.
@@ -209,8 +221,8 @@ The host simulates everything. Guests get `netState()` (position, pose, state, `
 `netExtras()` returns, and replay it in `applyNetExtras()`: trail bits, flags, and state for extra rigs (the Ball's
 squadron sends `[t, out, anchor x/z/heading, yaws]`, and the guest places the wingmen from that). `g.fx.*`, audio and
 projectiles replicate on their own. `thruster` and `aura` fx stay local (`LOCAL_FX` in net.js), so call them on each
-machine. Anything written into `this.pose` (like the gun-aim layer's arm swing) replicates for free; prefer that to
-touching rig nodes directly after the pose is applied.
+machine. Anything written into `this.pose` (like the gun-aim layer's arm swing and waist twist) replicates for free;
+prefer that to touching rig nodes directly after the pose is applied.
 
 ## 6. Sounds
 
@@ -265,7 +277,7 @@ recipe's `REV` send and a `FALLBACK` in audio.js. Keep takes short, and put weig
   second one if the image didn't change.
 - **Guns:** `(await import('/tools/aimtest.js')).run(['<id>'])` plays every movetest chain with an enemy 30 degrees
   off and reports, per move and gun, the worst angle between barrel and round and how far the round starts off the
-  barrel's line. Expect 0-2 degrees; 20+ means a shot skips `faceShot`/`aimGunTo` or the gun isn't mounted along +Z.
+  barrel's line. Expect 0-2 degrees; 20+ means a shot skips `aimShot`/`aimGunTo` or the gun isn't mounted along +Z.
 - **Hit areas:** `tools/poses.html?suit=<id>&move=C2&t=0,0.1,0.2&view=front&gap=3` (small suits need a small `gap`).
 - **Numbers:** `(await import('/tools/aistats.js')).run(5400)` reports connect rate and hits per swing for each move.
   Compare against the other suits in the same scene (for example, SP flurries run about 2 hits per swing).

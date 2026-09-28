@@ -147,12 +147,12 @@ export class DeltaPlus extends Hero {
 
   fire(shot) {
     const g = this.game;
-    const ang = this.heading + (shot.ang || 0);
     if (shot.kind === 'grenade') {
-      let aim = ang;
-      const tgt = shot.dn ? null : this.aimAt(ang, 26, shot.ang !== undefined ? 0.25 : 0.6);
+      // the launcher rides on the shield arm: a single round turns the body onto its target, a fan keeps its facing
+      let aim = this.heading + (shot.ang || 0);
+      const tgt = shot.dn ? null : this.aimAt(aim, 26, shot.ang !== undefined ? 0.25 : 0.6);
       if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
-      if (tgt && shot.ang === undefined) this.faceShot(aim);
+      if (tgt && shot.ang === undefined) this.aimShot(aim, tgt);
       else this.rig.root.updateMatrixWorld(true);
       const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
       const from = this.grenadeMuzzle(new THREE.Vector3());
@@ -165,14 +165,13 @@ export class DeltaPlus extends Hero {
       g.projectiles.shell(this, from, dir, spec);
       g.fx.muzzle(from, dir, 0xffc860, 1.1);
       g.audio.play('bazooka', { vol: 0.7, pitch: 1.3 });
-      if (!shot.dn) { this.vel.x -= dir.x * 4; this.vel.z -= dir.z * 4; }
       return;
     }
     // beam rifle / charge shot
-    let aim = ang;
-    const tgt = this.aimAt(ang, 34, 0.6);
-    if (tgt) this.faceShot(aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
-    else this.rig.root.updateMatrixWorld(true);
+    let aim = this.aimYaw;
+    const tgt = this.aimAt(aim, 34, 0.6);
+    if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
+    this.aimShot(aim, tgt);
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     const from = this.muzzle(new THREE.Vector3());
     if (shot.kind === 'cshot') {
@@ -183,16 +182,12 @@ export class DeltaPlus extends Hero {
       g.camera.shake(0.45);
       g.camera.kick(5);
       g.aberr(0.6);
-      this.vel.x -= dir.x * 7;
-      this.vel.z -= dir.z * 7;
     } else {
       g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
       g.fx.muzzle(from, dir, 0x8fe0ff, 1);
       g.audio.play('rifle');
       g.camera.shake(0.1);
       g.camera.kick(2);
-      this.vel.x -= dir.x * 3;
-      this.vel.z -= dir.z * 3;
     }
   }
 

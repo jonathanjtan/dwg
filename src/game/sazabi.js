@@ -249,8 +249,6 @@ export class Sazabi extends Hero {
         g.fx.muzzle(c, dir, 0xff8ab0, 2.4);
         for (let i = 0; i < 3; i++) g.projectiles.heroBeam(this, c, dir, { dmg: 6, kb: 3, up: 2, w: 2, r: 1.4, max: 0.12 });
         g.projectiles.heroBlast(this, this._v.set(P0.x + fx * 3.6, 1.8, P0.z + fz * 3.6), 4.2, 62, 12, 8, { sound: 'cshot' });
-        this.vel.x -= fx * 6;
-        this.vel.z -= fz * 6;
         if (g.local === this) { g.camera.shake(0.6); g.aberr(0.8); }
         break;
       }
@@ -347,11 +345,10 @@ export class Sazabi extends Hero {
       return;
     }
     // the beam shot rifle
-    let aim = this.heading;
+    let aim = this.aimYaw;
     const tgt = this.aimAt(aim, 32, 0.6);
     if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
-    if (tgt) this.faceShot(aim);
-    else this.rig.root.updateMatrixWorld(true);
+    this.aimShot(aim, tgt);
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     const from = this.muzzle(new THREE.Vector3());
     g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
@@ -359,8 +356,6 @@ export class Sazabi extends Hero {
     g.audio.play('srifle');
     g.camera.shake(0.15);
     g.camera.kick(3);
-    this.vel.x -= dir.x * 4;
-    this.vel.z -= dir.z * 4;
   }
 
   fireFunnel(shot) {

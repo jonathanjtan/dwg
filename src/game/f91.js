@@ -142,12 +142,12 @@ export class F91 extends Hero {
 
   fire(shot) {
     const g = this.game;
-    const ang = this.heading + (shot.ang || 0);
+    const ang = this.aimYaw + (shot.ang || 0);
     const heavy = shot.kind === 'blast';
     let aim = ang;
     const tgt = this.aimAt(ang, heavy ? 20 : 34, shot.ang !== undefined ? 0.2 : 0.6);
     if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
-    if (tgt && shot.ang === undefined) this.faceShot(aim);
+    if (shot.ang === undefined) this.aimShot(aim, tgt);
     else this.rig.root.updateMatrixWorld(true);
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     const from = this.muzzle(new THREE.Vector3());
@@ -156,8 +156,6 @@ export class F91 extends Hero {
       g.fx.muzzle(from, dir, VSBR_BEAM, 1.7);
       g.projectiles.heroBlast(this, this._w.set(this.pos.x + dir.x * 3, this.pos.y + 1.8, this.pos.z + dir.z * 3), 3.8, 60, 12, 8);
       g.audio.play('cshot');
-      this.vel.x -= dir.x * 6;
-      this.vel.z -= dir.z * 6;
       return;
     }
     if (shot.dn) {
@@ -175,16 +173,12 @@ export class F91 extends Hero {
       g.camera.shake(0.4);
       g.camera.kick(5);
       g.aberr(0.5);
-      this.vel.x -= dir.x * 7;
-      this.vel.z -= dir.z * 7;
     } else {
       g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
       g.fx.muzzle(from, dir, VSBR_BEAM, 1);
       g.audio.play('rifle');
       g.camera.shake(0.1);
       g.camera.kick(2);
-      this.vel.x -= dir.x * 3;
-      this.vel.z -= dir.z * 3;
     }
   }
 

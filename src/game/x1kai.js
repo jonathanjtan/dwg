@@ -199,11 +199,11 @@ export class X1Kai extends Hero {
 
   fire(shot) {
     const g = this.game;
-    const ang = this.heading + (shot.ang || 0);
+    const ang = this.aimYaw + (shot.ang || 0);
     let aim = ang;
     const tgt = this.aimAt(ang, 30, shot.ang !== undefined ? 0.2 : 0.6);
     if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
-    if (tgt && shot.ang === undefined) this.faceShot(aim);
+    if (shot.ang === undefined) this.aimShot(aim, tgt);
     else this.rig.root.updateMatrixWorld(true);
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     const from = this.muzzle(new THREE.Vector3());
@@ -211,8 +211,6 @@ export class X1Kai extends Hero {
       g.fx.muzzle(from, dir, 0xff8ad8, 1.5);
       g.projectiles.heroBlast(this, this._w.set(this.pos.x + dir.x * 2.6, this.pos.y + 1.6, this.pos.z + dir.z * 2.6), 3.4, 58, 11, 7);
       g.audio.play('cshot');
-      this.vel.x -= dir.x * 6;
-      this.vel.z -= dir.z * 6;
       return;
     }
     if (shot.kind === 'spread') {
@@ -232,8 +230,6 @@ export class X1Kai extends Hero {
     g.audio.play('rifle', { pitch: 1.1 });
     g.camera.shake(0.1);
     g.camera.kick(2);
-    this.vel.x -= dir.x * 3;
-    this.vel.z -= dir.z * 3;
   }
 
   heldWeapon(inMove) {

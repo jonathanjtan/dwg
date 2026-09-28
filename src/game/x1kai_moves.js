@@ -141,7 +141,7 @@ export const MOVES = {
     clip: clip([
       k(0, { ...PISTOL }),
       k(0.08, { ...PISTOL }, 'snap'),
-      k(0.14, { torso: [-0.08, -0.42, 0.05], uArmR: [-1.55, 0, -0.15], hand: [1.65, 0, 0], y: -0.04 }, 'snap'),
+      k(0.14, { uArmR: [-1.55, 0, -0.15], hand: [1.65, 0, 0] }, 'snap'),
       k(0.36, { ...PISTOL }),
     ]),
     shots: [{ t: 0.1, kind: 'buster' }],
@@ -150,7 +150,7 @@ export const MOVES = {
     dur: 0.22, chain: 0.08, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 14,
     clip: clip([
       k(0, { ...PISTOL }),
-      k(0.04, { torso: [-0.06, -0.42, 0.05], uArmR: [-1.5, 0, -0.15], hand: [1.6, 0, 0], y: -0.04 }, 'snap'),
+      k(0.04, { uArmR: [-1.5, 0, -0.15], hand: [1.6, 0, 0] }, 'snap'),
       k(0.22, { ...PISTOL }),
     ]),
     shots: [{ t: 0.02, kind: 'buster' }],
@@ -161,7 +161,7 @@ export const MOVES = {
     clip: clip([
       k(0, { ...PISTOL, torso: [0.05, -0.15, 0], y: -0.18, ...LEGS_WIDE }),
       k(0.4, { ...PISTOL, torso: [0.05, -0.25, 0.1], y: -0.26 }),
-      k(0.55, { torso: [-0.1, -0.3, 0.1], uArmR: [-1.65, 0, -0.1], hand: [1.7, 0, 0], y: -0.28 }, 'snap'),
+      k(0.55, { torso: [0.05, -0.3, 0.1], uArmR: [-1.65, 0, -0.1], hand: [1.7, 0, 0] }, 'snap'),
       k(1.1, { ...PISTOL, torso: [0, -0.15, 0] }),
     ]),
     ev: [[0.02, 'flash', 'violet'], [0.22, 'flash', 'violet']],
@@ -325,14 +325,12 @@ export const MOVES = {
   DC: { // dash charge: the beam shield snaps up for a bash, then the buster gun fires point-blank
     dur: 1.2, chain: 1.0, rate: 1, next: null, charge: null, armor: true,
     wpn: [[0, 'shield'], [0.55, 'rifle']],
-    lunge: [[0.5, 0], [0.7, -1.6]],
-    jets: [0.5, 0.7, false],
     clip: clip([
       k(0, { ...GUARD, y: -0.3, yaw: 0, ...LEGS_WIDE }),
       k(0.18, { yaw: PI * 2, ...GUARD }, 'linear'),
       k(0.38, { yaw: PI * 2, ...GUARD, y: -0.35, ...LEGS_LUNGE_R }),
       k(0.5, { yaw: PI * 2, ...GUARD, y: -0.35 }),
-      k(0.56, { yaw: PI * 2, ...PISTOL, torso: [-0.3, -0.3, 0.05], y: -0.25 }, 'snap'),
+      k(0.56, { yaw: PI * 2, ...PISTOL, torso: [0.05, -0.3, 0.05] }, 'snap'),
       k(1.2, { yaw: PI * 2, torso: [0.1, -0.2, 0], uArmR: [-0.4, 0, -0.3], fArmR: [-0.9, 0, 0], hand: [0.9, 0, 0], y: -0.12 }),
     ]),
     hits: [{ t: 0.03, t1: 0.18, shape: 'arc', range: 4.6, arc: 360, dmg: 13, kb: 1, up: 1.5 }],

@@ -11,6 +11,7 @@ import { Trail } from '../fx/fx.js';
 
 const RIFLE_SHOT = { dmg: 22, kb: 4, up: 1 };
 const CANNON_TILT = 1.45; // radians the cannons swing through from upright to level
+const CANNON_KICK = 0.08; // share of that swing a shot kicks the barrels up by (the suit itself doesn't budge)
 // 240mm shells: flight speed, fuse, blast radius / damage / throw.
 const SHELL = { speed: 70, fuse: 0.5, r: 3.2, dmg: 44, kb: 8, up: 6, big: true, sound: 'cboom' };
 const HEAVY_SHELL = { speed: 80, fuse: 0.6, r: 3.9, dmg: 62, kb: 12, up: 9, big: true, smoke: 0.7, sound: 'cboom' };
@@ -41,6 +42,7 @@ export class Guncannon extends Hero {
     this.rig.nodes.hand.add(this.rifle);
     this.cannonAim = 0;
     this.cannonWant = 0;
+    this.canKick = 0;
     this.side = 0; // barrel that fires next
     this.held = null; // grabbed soldier
     this.aaTarget = null; // whatever was thrown or launched, for the cannons to follow up on
@@ -234,7 +236,7 @@ export class Guncannon extends Hero {
     return out.set(0, 1, 0).applyQuaternion(this.rig.nodes.cannons.getWorldQuaternion(this._qq)).normalize();
   }
 
-  // One cannon's report: muzzle flash along the barrel, smoke, the sound, a kick through the suit.
+  // One cannon's report: muzzle flash along the barrel, smoke, the sound, the barrels kicking up.
   report(side, big = false) {
     const g = this.game;
     const from = this.muzzle(this._a, side);
@@ -243,6 +245,7 @@ export class Guncannon extends Hero {
     g.fx.puff(from, big ? 6 : 3, 0.85, big ? 1 : 0.7, 0.8, 2);
     g.audio.play('cannon', { vol: big ? 1 : 0.85 });
     if (g.local === this) { g.camera.shake(big ? 0.35 : 0.18); g.camera.kick(big ? 4 : 2.5); }
+    this.canKick = big ? 1 : 0.7;
     return from;
   }
 
@@ -256,9 +259,10 @@ export class Guncannon extends Hero {
     const g = this.game;
     this.rig.root.updateMatrixWorld(true);
     if (shot.kind === 'rifle') {
-      let aim = this.heading;
+      let aim = this.aimYaw;
       const tgt = this.aimAt(aim, 34, 0.6);
-      if (tgt) this.faceShot(aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
+      if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
+      this.aimShot(aim, tgt);
       const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
       const from = this.muzzle(new THREE.Vector3(), 'rifle');
       g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
@@ -266,8 +270,6 @@ export class Guncannon extends Hero {
       g.audio.play('rifle');
       g.camera.shake(0.1);
       g.camera.kick(2);
-      this.vel.x -= dir.x * 3;
-      this.vel.z -= dir.z * 3;
       return;
     }
     const side = this.nextSide(shot);
@@ -278,12 +280,10 @@ export class Guncannon extends Hero {
       const tgt = this.aimAt(this.heading, 6, 0.6);
       const d = tgt ? Math.min(4, Math.max(2.4, Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z))) : 3.2;
       g.projectiles.heroBlast(this, this._w.set(this.pos.x + fx * d, this.pos.y + 2, this.pos.z + fz * d), shot.last ? 3.8 : 3.2, shot.last ? 56 : 34, shot.last ? 14 : 5, shot.last ? 8 : 2, { big: !!shot.last, sound: 'cboom' });
-      this.vel.x -= fx * (shot.last ? 7 : 4);
-      this.vel.z -= fz * (shot.last ? 7 : 4);
       return;
     }
     if (shot.kind === 'juggle') {
-      // quick shells that meet the target and lift it a little higher each time; the recoil kicks up the ground
+      // quick shells that meet the target and lift it a little higher each time; the back-blast kicks up the ground
       this.report(side);
       const tgt = this.aimAt(this.heading, 9, 0.5);
       const tx = tgt ? tgt.x : this.pos.x + fx * 4, tz = tgt ? tgt.z : this.pos.z + fz * 4;
@@ -307,7 +307,7 @@ export class Guncannon extends Hero {
     const o = shot.kind === 'heavy' ? HEAVY_SHELL : SHELL;
     let aim = this.heading;
     const tgt = this.aimAt(aim, shot.dn ? 22 : 36, 0.6);
-    if (tgt) this.faceShot(aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
+    if (tgt) this.aimShot(aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z), tgt);
     const from = this.report(side, shot.kind === 'heavy').clone();
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     if (shot.dn) {
@@ -320,10 +320,6 @@ export class Guncannon extends Hero {
       dir.normalize();
     }
     g.projectiles.shell(this, from, dir, o);
-    if (!shot.dn) {
-      this.vel.x -= Math.sin(aim) * (o === HEAVY_SHELL ? 6 : 4);
-      this.vel.z -= Math.cos(aim) * (o === HEAVY_SHELL ? 6 : 4);
-    }
   }
 
   // Charge SP: a pair of shells out along the next arms of an eight-pointed star.
@@ -346,7 +342,8 @@ export class Guncannon extends Hero {
   preVisuals(dt, inMove) {
     if (!inMove) { this.cannonWant = 0; this.trailOn = {}; }
     this.cannonAim = damp(this.cannonAim, this.cannonWant, 12, dt);
-    this.rig.nodes.cannons.rotation.x = this.cannonAim * CANNON_TILT;
+    this.canKick = damp(this.canKick, 0, 16, dt);
+    this.rig.nodes.cannons.rotation.x = (this.cannonAim - this.canKick * CANNON_KICK) * CANNON_TILT;
   }
 
   postVisuals(dt, inMove) {
@@ -384,7 +381,7 @@ export class Guncannon extends Hero {
     let tr = 0;
     ['L', 'R', 'FL', 'FR'].forEach((key, i) => { if (this.trailOn[key]) tr |= 1 << i; });
     const inMove = this.state === 'attack' || this.state === 'musou';
-    return { ca: this.cannonAim, tr, bl: inMove && !!this.move?.blur };
+    return { ca: this.cannonAim - this.canKick * CANNON_KICK, tr, bl: inMove && !!this.move?.blur };
   }
 
   applyNetExtras(s, dt) {

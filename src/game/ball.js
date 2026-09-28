@@ -211,13 +211,11 @@ export class Ball extends Hero {
     if (shot.kind === 'pb') {
       // point-blank: the shell bursts on the target a stride in front
       const tgt = this.aimAt(this.heading, 6, 0.7);
-      if (tgt) this.faceShot(Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
+      if (tgt) this.aimShot(Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z), tgt);
       const ax = Math.sin(this.heading), az = Math.cos(this.heading);
       this.report(true);
       const d = tgt ? clamp(Math.hypot(tgt.x - this.pos.x, tgt.z - this.pos.z), 2.4, 4) : 3.2;
       g.projectiles.heroBlast(this, this._w.set(this.pos.x + ax * d, this.pos.y + 1.8, this.pos.z + az * d), 3.8, 58, 14, 8, { big: true, sound: 'cboom' });
-      this.vel.x -= ax * 6;
-      this.vel.z -= az * 6;
       return;
     }
     if (shot.kind === 'aa') {
@@ -234,7 +232,7 @@ export class Ball extends Hero {
     const o = heavy ? HEAVY_SHELL : shot.sp ? SP_SHELL : SHELL;
     let aim = this.heading;
     const tgt = this.aimAt(aim, shot.kind === 'dn' ? 22 : 36, 0.6);
-    if (tgt) this.faceShot(aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z));
+    if (tgt) this.aimShot(aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z), tgt);
     const from = this.report(heavy).clone();
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     if (shot.kind === 'dn') {
@@ -246,8 +244,6 @@ export class Ball extends Hero {
       const d = tgt ? Math.max(3, Math.hypot(tgt.x - from.x, tgt.z - from.z)) : 20;
       dir.y = (ty - from.y) / d;
       dir.normalize();
-      this.vel.x -= Math.sin(aim) * (heavy ? 5 : 2.5);
-      this.vel.z -= Math.cos(aim) * (heavy ? 5 : 2.5);
     }
     g.projectiles.shell(this, from, dir, o);
   }

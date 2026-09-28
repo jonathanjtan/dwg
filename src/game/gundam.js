@@ -164,14 +164,14 @@ export class Gundam extends Hero {
 
   fire(shot) {
     const g = this.game;
-    const ang = this.heading + (shot.ang || 0);
+    const ang = this.aimYaw + (shot.ang || 0);
     const heavy = shot.kind === 'bazooka' || shot.kind === 'blast';
     // aim each shot at the nearest enemy in its lane if any
     let aim = ang;
     const tgt = this.aimAt(ang, heavy ? 24 : 34, shot.ang !== undefined ? 0.2 : 0.6);
     if (tgt) aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
-    // a straight shot turns the suit onto its target; spread shots keep the volley's facing
-    if (tgt && shot.ang === undefined) this.faceShot(aim);
+    // a straight shot swings the gun onto its target; spread shots keep the volley's aim
+    if (shot.ang === undefined) this.aimShot(aim, tgt);
     else this.rig.root.updateMatrixWorld(true);
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     const from = this.muzzle(new THREE.Vector3());
@@ -180,8 +180,6 @@ export class Gundam extends Hero {
       g.fx.muzzle(from, dir, 0xffb060, 1.6);
       g.projectiles.heroBlast(this, this._w.set(this.pos.x + dir.x * 3, this.pos.y + 1.8, this.pos.z + dir.z * 3), 3.8, 64, 12, 8);
       g.audio.play('bazooka');
-      this.vel.x -= dir.x * 6;
-      this.vel.z -= dir.z * 6;
       return;
     }
     if (shot.dn) {
@@ -198,10 +196,6 @@ export class Gundam extends Hero {
       g.audio.play('bazooka');
       g.camera.shake(0.2);
       g.camera.kick(3);
-      if (!shot.dn) {
-        this.vel.x -= dir.x * 5;
-        this.vel.z -= dir.z * 5;
-      }
     } else if (shot.kind === 'cshot') {
       g.projectiles.heroBeam(this, from, dir, CHARGE_SHOT);
       g.fx.muzzle(from, dir, 0xff8ad8, 2);
@@ -210,16 +204,12 @@ export class Gundam extends Hero {
       g.camera.shake(0.45);
       g.camera.kick(5);
       g.aberr(0.6);
-      this.vel.x -= dir.x * 7;
-      this.vel.z -= dir.z * 7;
     } else {
       g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
       g.fx.muzzle(from, dir, 0xff8ad8, 1);
       g.audio.play('rifle');
       g.camera.shake(0.1);
       g.camera.kick(2);
-      this.vel.x -= dir.x * 3;
-      this.vel.z -= dir.z * 3;
     }
   }
 

@@ -132,7 +132,7 @@ export const MOVES = {
     clip: clip([
       k(0, { ...RIFLE, torso: [0, -0.5, 0], uArmR: [-1.3, 0, 0.1], fArmR: [-0.3, 0, 0], hand: [1.6, 0, 0] }),
       k(0.1, { ...RIFLE }, 'snap'),
-      k(0.16, { torso: [-0.1, -0.55, 0], uArmR: [-1.8, 0, 0.1], hand: [1.4, 0, 0], y: -0.05 }, 'snap'),
+      k(0.16, { uArmR: [-1.8, 0, 0.1], hand: [1.4, 0, 0] }, 'snap'),
       k(0.4, { uArmR: [-1.55, 0, 0.1], hand: [1.55, 0, 0] }),
     ]),
     shots: [{ t: 0.12, kind: 'rifle' }],
@@ -141,7 +141,7 @@ export const MOVES = {
     dur: 0.26, chain: 0.1, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 12,
     clip: clip([
       k(0, { ...RIFLE }),
-      k(0.05, { torso: [-0.08, -0.55, 0], uArmR: [-1.75, 0, 0.1], hand: [1.42, 0, 0], y: -0.05 }, 'snap'),
+      k(0.05, { uArmR: [-1.75, 0, 0.1], hand: [1.42, 0, 0] }, 'snap'),
       k(0.26, { ...RIFLE }),
     ]),
     shots: [{ t: 0.03, kind: 'rifle' }],
@@ -152,7 +152,7 @@ export const MOVES = {
       k(0, { ...RIFLE, torso: [0.05, -0.2, 0], uArmL: [-1.0, 0, 0.35], y: -0.18, ...LEGS_WIDE }),
       k(0.4, { ...RIFLE, torso: [0.05, -0.35, 0], uArmL: [-0.3, 0.5, 0.9], fArmL: [-0.5, 0, 0], y: -0.28 }),
       k(0.52, { ...RIFLE, torso: [0, -0.55, 0], uArmL: [-0.15, 0, 1.1], y: -0.3 }),
-      k(0.58, { torso: [-0.18, -0.5, 0], uArmR: [-1.9, 0, 0.1], hand: [1.7, 0, 0], y: -0.26 }, 'snap'),
+      k(0.58, { uArmR: [-1.9, 0, 0.1], hand: [1.7, 0, 0] }, 'snap'),
       k(1.1, { ...RIFLE, torso: [0, -0.35, 0] }),
     ]),
     ev: [[0.02, 'flash', 'mepe'], [0.24, 'flash', 'mepe']],
@@ -198,7 +198,7 @@ export const MOVES = {
       k(0.42, { ...RIFLE, torso: [0.5, -0.3, 0], y: 0.1, ...LEGS_AIR }),
       ...[0.62, 0.9, 1.18, 1.46].flatMap((t) => [
         k(t, { ...RIFLE, torso: [0.45, -0.3, 0], y: 0.1 }),
-        k(t + 0.06, { torso: [0.2, -0.3, 0], uArmR: [-1.15, 0, 0.15] }, 'snap'),
+        k(t + 0.06, { uArmR: [-1.15, 0, 0.15] }, 'snap'),
         k(t + 0.28, { ...RIFLE, torso: [0.45, -0.3, 0], y: 0.1 }),
       ]),
       k(1.7, { ...RIFLE, torso: [0.3, -0.2, 0], y: -0.1 }),
@@ -308,14 +308,12 @@ export const MOVES = {
   DC: { // dash charge: a spinning cut, then the beam launcher fired point-blank
     dur: 1.2, chain: 1.0, rate: 1, next: null, charge: null, armor: true,
     wpn: [[0, 'saber'], [0.2, 'launcher']],
-    lunge: [[0.5, 0], [0.72, -1.6]],
-    jets: [0.5, 0.72, false],
     clip: clip([
       k(0, { torso: [0.1, -0.6, 0], ...SWEEP_R, uArmL: [0, 0, 1.25], y: -0.28, yaw: 0, ...LEGS_WIDE }),
       k(0.2, { yaw: PI * 2, torso: [0.1, 0.3, 0] }, 'linear'),
       k(0.38, { yaw: PI * 2, ...LAUNCH, y: -0.32, ...LEGS_LUNGE_R }),
       k(0.5, { yaw: PI * 2, ...LAUNCH, y: -0.32 }),
-      k(0.56, { yaw: PI * 2, torso: [-0.28, -0.3, 0], uArmR: [-0.75, 0, -0.25], y: -0.22, head: [-0.14, -0.3, 0] }, 'snap'),
+      k(0.56, { yaw: PI * 2, uArmR: [-0.75, 0, -0.25] }, 'snap'),
       k(1.2, { yaw: PI * 2, torso: [0.1, -0.2, 0], uArmR: [-0.4, 0, -0.3], fArmR: [-0.9, 0, 0], hand: [0.9, 0, 0], y: -0.1 }),
     ]),
     hits: [{ t: 0.03, t1: 0.2, shape: 'arc', range: 4.4, arc: 360, dmg: 14, kb: 1, up: 1.4 }],

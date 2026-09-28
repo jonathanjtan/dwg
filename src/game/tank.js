@@ -124,7 +124,7 @@ export class Tank {
     this.comboT -= dt;
     if (this.comboT <= 0) this.combo = 0;
     this.recoil = damp(this.recoil, 0, 10, dt);
-    this.pitchKick = damp(this.pitchKick, 0, 6, dt);
+    this.pitchKick = damp(this.pitchKick, 0, 14, dt);
 
     switch (this.state) {
       case 'dead':
@@ -418,8 +418,8 @@ export class Tank {
     t.set(TSTANCE);
     const moving = Math.hypot(this.vel.x, this.vel.z);
     t[P.torso * 3 + 1] = this.aim;
-    t[P.torso * 3] = 0.05 - this.pitchKick * 0.3 + (this.state === 'hurt' ? -0.35 : 0);
-    t[P.head * 3] = this.pitchKick * 0.15;
+    // a cannon shot kicks the barrels up a touch; the hull doesn't rock back
+    t[P.torso * 3] = 0.05 - this.pitchKick * 0.08 + (this.state === 'hurt' ? -0.35 : 0);
     // arms raise toward the aim and kick on each missile
     const firing = this.queue.length > 0 || this.state === 'musou';
     const armUp = firing ? -0.9 : -0.35;
@@ -429,7 +429,7 @@ export class Tank {
     t[P.fArmL * 3] = -1.25 + (firing ? 0.35 : 0) + this.recoil * 0.2;
     // suspension bob + rock when stunned
     t[RY] = Math.sin(this.treadPhase * 3) * 0.03 * Math.min(1, moving / 4);
-    t[RPITCH] = this.state === 'down' ? -0.25 + Math.sin(this.stateT * 20) * 0.05 : -this.pitchKick * 0.06;
+    t[RPITCH] = this.state === 'down' ? -0.25 + Math.sin(this.stateT * 20) * 0.05 : 0;
     lerpPose(this.pose, this.pose, t, 1 - Math.exp(-18 * dt));
   }
 
