@@ -364,10 +364,10 @@ export const BALL_MOVES = {
     shots: [{ t: 0.2, kind: 'dn' }],
   },
 
-  // ---- SP attacks ----
-  // Ground: a starburst, then both arms flail in a blur while the pod pushes forward, and a point-blank shell ends it.
-  // Hold SP through the starburst for the charge SP: the Ball squadron flies in and fires volley after volley.
-  // In the air: ram the target and blast it point-blank.
+  // ---- SP attacks (each takes one of the three SP stocks; see hero.js SP_STOCK) ----
+  // Ground: a starburst, then both arms flail in a blur for ~1.7 s while the pod pushes forward (as in Reborn), and a
+  // point-blank shell ends it. Hold SP through the starburst for the charge SP (not in the footage): the Ball squadron
+  // flies in and fires six volleys for each stock committed. In the air: ram the target and blast it point-blank.
   SP_IN: {
     dur: 0.55, rate: 1, armor: true, invuln: true, sp: true, spNext: 'SP_FL', spHold: 'SPC_CH',
     clip: clip([
@@ -378,7 +378,7 @@ export const BALL_MOVES = {
     ev: [[0.04, 'burst']],
   },
   SP_FL: {
-    dur: 3.0, rate: 1, armor: true, invuln: true, sp: true, loop: 0.24, steer: 3, blur: true, spNext: 'SP_FIN',
+    dur: 1.68, rate: 1, armor: true, invuln: true, sp: true, loop: 0.24, steer: 3, blur: true, spNext: 'SP_FIN',
     clip: clip([
       k(0, { torso: [0.35, 0.3, -0.2], ...R_OUT, ...L_IN }),
       k(0.06, { torso: [0.4, -0.3, 0.2], ...R_IN, ...L_OUT }, 'snap'),
@@ -387,11 +387,12 @@ export const BALL_MOVES = {
       k(0.24, { torso: [0.35, 0.3, -0.2], ...R_OUT, ...L_IN }, 'snap'),
     ]),
     hits: [
-      ...every(0.04, 2.9, 0.06, { shape: 'arc', range: 4.8, arc: 150, dmg: 7, kb: 0.4, up: 0.2, pull: 1.2, sp: true }),
-      ...every(0.3, 2.9, 0.6, { shape: 'arc', range: 5.4, arc: 220, dmg: 10, kb: 1.5, up: 0.5, sp: true }),
+      // heavier blows than the old 3 s flail's, so the whole flurry lands about as hard
+      ...every(0.04, 1.62, 0.06, { shape: 'arc', range: 4.8, arc: 150, dmg: 12, kb: 0.4, up: 0.2, pull: 1.2, sp: true }),
+      ...every(0.3, 1.62, 0.6, { shape: 'arc', range: 5.4, arc: 220, dmg: 16, kb: 1.5, up: 0.5, sp: true }),
     ],
-    tr: [[0, 3.0, 'R'], [0, 3.0, 'L']],
-    sfxs: times(0, 2.9, 0.09).map((t) => [t + 0.02, 'bflail']),
+    tr: [[0, 1.68, 'R'], [0, 1.68, 'L']],
+    sfxs: times(0, 1.62, 0.09).map((t) => [t + 0.02, 'bflail']),
   },
   SP_FIN: { // the blast tips the pod right back and throws it back a couple of widths, as in the footage
     dur: 1.1, rate: 1, armor: true, invuln: true, sp: true,
@@ -461,8 +462,9 @@ export const BALL_MOVES = {
     ]),
     ev: [[0.02, 'wing']],
   },
-  SPC_FIRE: {
-    dur: 0.55, rate: 1, armor: true, invuln: true, sp: true, spRepeat: 6, spNext: 'SPC_END',
+  SPC_FIRE: { // one volley a pass: six for each stock committed
+    dur: 0.55, rate: 1, armor: true, invuln: true, sp: true, spNext: 'SPC_END',
+    stockDur: [3.3, 6.6, 9.9],
     clip: clip([
       k(0, { torso: [0.1, 0, 0], ...CAN_LEVEL }),
       k(0.06, { head: [1.2, 0, 0] }, 'snap'),

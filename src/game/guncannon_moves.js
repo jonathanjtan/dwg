@@ -386,10 +386,11 @@ export const GC_MOVES = {
     shots: [{ t: 0.2, kind: 'cannon', dn: true, side: 0 }, { t: 0.28, kind: 'cannon', dn: true, side: 1 }],
   },
 
-  // ---- SP attacks ----
-  // Ground: a starburst, then a storm of punches that walks forward, and a last blow that blasts the target away.
-  // Hold SP through the starburst for the charge SP (shells fired out in every direction); in the air: hover and
-  // shell the target point-blank.
+  // ---- SP attacks (each takes one of the three SP stocks; see hero.js SP_STOCK) ----
+  // Ground: a starburst, then a storm of punches that walks forward for ~5.5 s (as in Reborn), and a last blow that
+  // blasts the target away. Hold SP through the starburst for the charge SP: charging in a blue aura commits another
+  // stock every 0.8 s held (as in the footage), then shells fired out in every direction, ~2.6 s a stock. In the air:
+  // hover and shell the target point-blank.
   SP_IN: {
     dur: 0.55, rate: 1, armor: true, invuln: true, sp: true, spNext: 'SP_FL', spHold: 'SPC_CH',
     clip: clip([
@@ -400,7 +401,7 @@ export const GC_MOVES = {
     ev: [[0.04, 'burst']],
   },
   SP_FL: {
-    dur: 3.4, rate: 1, armor: true, invuln: true, sp: true, loop: 0.2, rushFx: true, steer: 3, blur: true, spNext: 'SP_FIN',
+    dur: 5.6, rate: 1, armor: true, invuln: true, sp: true, loop: 0.2, rushFx: true, steer: 3, blur: true, spNext: 'SP_FIN',
     clip: clip([
       k(0, { torso: [0.3, 0.5, 0], ...CHAMBER, uArmR: [-0.9, 0, -0.3], fArmR: [-1.2, 0, 0], hand: [1.3, 0, 0], y: -0.35, ...LEGS_LUNGE_L }),
       k(0.05, { torso: [0.35, -0.4, 0], ...JAB }, 'snap'),
@@ -409,11 +410,12 @@ export const GC_MOVES = {
       k(0.2, { torso: [0.3, 0.5, 0], ...CHAMBER }),
     ]),
     hits: [
-      ...every(0.04, 3.3, 0.06, { shape: 'arc', range: 5.3, arc: 160, dmg: 7, kb: 0.4, up: 0.2, pull: 1.3, sp: true }),
-      ...every(0.3, 3.3, 0.6, { shape: 'arc', range: 5.9, arc: 220, dmg: 10, kb: 1.5, up: 0.5, sp: true }),
+      // lighter blows than the old 3.4 s storm's, so the whole flurry lands about as hard
+      ...every(0.04, 5.5, 0.06, { shape: 'arc', range: 5.3, arc: 160, dmg: 4, kb: 0.4, up: 0.2, pull: 1.3, sp: true }),
+      ...every(0.3, 5.5, 0.6, { shape: 'arc', range: 5.9, arc: 220, dmg: 8, kb: 1.5, up: 0.5, sp: true }),
     ],
-    tr: [[0, 3.4, 'L']],
-    sfxs: times(0, 3.3, 0.1).map((t) => [t + 0.02, 'punch_fast']),
+    tr: [[0, 5.6, 'L']],
+    sfxs: times(0, 5.5, 0.1).map((t) => [t + 0.02, 'punch_fast']),
   },
   SP_FIN: {
     dur: 0.95, rate: 1, armor: true, invuln: true, sp: true,
@@ -452,7 +454,7 @@ export const GC_MOVES = {
     shots: [{ t: 0.06, kind: 'cannon', dn: true, alt: true }],
   },
   SPC_CH: {
-    dur: 1.1, rate: 1, armor: true, invuln: true, sp: true, chargeAura: true, spNext: 'SPC_BAR',
+    dur: 1.1, rate: 1, armor: true, invuln: true, sp: true, chargeAura: true, spcStep: 0.8, spNext: 'SPC_BAR',
     can: [[0.3, 0], [0.9, 0.8]],
     clip: clip([
       k(0, { torso: [0.35, 0.2, 0], uArmL: [-0.2, 0.2, 0.5], fArmL: [-2.2, 0, 0], ...RIFLE_BACK, y: -0.35, ...LEGS_WIDE }),
@@ -461,13 +463,15 @@ export const GC_MOVES = {
     ]),
     ev: [[0.02, 'charge'], [1.05, 'burst']],
   },
-  SPC_BAR: { // shells fired out in every direction from both cannons while the suit turns on the spot
-    dur: 4.6, rate: 1, armor: true, invuln: true, sp: true, rushFx: true, spNext: 'SPC_END',
-    can: [[0, 0.8], [4.4, 0.8], [4.6, 0.3]],
-    barrage: [0.1, 4.5, 0.14],
+  SPC_BAR: { // shells fired out in every direction from both cannons while the suit turns on the spot: one turn a pass,
+    // a pass for each stock committed (2.6 s a stock; the footage's two-stock barrage runs ~5 s)
+    dur: 2.6, rate: 1, armor: true, invuln: true, sp: true, rushFx: true, spNext: 'SPC_END',
+    stockDur: [2.6, 5.2, 7.8],
+    can: [[0, 0.8]],
+    barrage: [0.05, 2.55, 0.14],
     clip: clip([
       k(0, { torso: [0.2, 0, 0], ...RIFLE_BACK, uArmL: [-0.3, 0, 0.8], fArmL: [-0.9, 0, 0], y: -0.45, yaw: 0, ...LEGS_BRACE }),
-      k(4.6, { yaw: -PI * 4 }, 'linear'),
+      k(2.6, { yaw: -PI * 2 }, 'linear'),
     ]),
   },
   SPC_END: {
