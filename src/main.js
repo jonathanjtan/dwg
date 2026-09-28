@@ -251,8 +251,9 @@ class Game {
     document.getElementById('fs-btn-pause').textContent = label;
   }
 
-  // Sound starts off. On a desktop M toggles it; a phone has no M, so the title screen carries its own
-  // button beside FULLSCREEN and both stay in step with the one in the pause menu.
+  // Sound starts on in the deployed game and off locally (audio.js). On a desktop M toggles it; a phone has
+  // no M, so the title screen carries its own button beside FULLSCREEN and both stay in step with the one in
+  // the pause menu. syncSoundUI runs at boot, so the buttons read right from the first frame either way.
   toggleSound() {
     this.audio.resume(); // the tap that turns sound on is also the gesture that unlocks the context
     this.audio.toggleMute();

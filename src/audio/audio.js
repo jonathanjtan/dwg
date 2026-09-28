@@ -29,11 +29,13 @@ const FALLBACK = {
   whip: 'clang',
   srifle: 'rifle', funnel: 'rifle',
 };
+// the deployed game (GitHub Pages); localhost, file:// and the dev tools start muted
+const LIVE = location.hostname.endsWith('github.io');
 
 export class Audio {
   constructor() {
     this.ctx = null;
-    this.muted = true; // sound starts off; M or the pause menu turns it on
+    this.muted = !LIVE; // on for players, off while developing; M or the pause menu toggles it
     this.musicOn = true;
     this.listener = null; // {x,z}
     this.listenerYaw = 0; // camera yaw: sounds pan against the camera's right vector
@@ -42,6 +44,7 @@ export class Audio {
     this.bank = null;
     // render the sample bank in the background (needs no user gesture); live synthesis covers the gap
     if (typeof OfflineAudioContext !== 'undefined') renderBank(48000).then((b) => { this.bank = b; }).catch(() => {});
+    this.wakeOnGesture();
   }
 
   init() {
@@ -212,8 +215,9 @@ export class Audio {
     if (!this.ctx) return;
     if (this.ctx.state === 'suspended') this.ctx.resume();
     // Some iOS versions leave the output dead until a source has actually run inside a user gesture,
-    // even once the context reports "running". One silent frame is enough to wake it.
-    if (!this.unlocked) {
+    // even once the context reports "running". One silent frame is enough to wake it. (A touch only
+    // counts once it lifts, so hold the frame for a call the browser says is inside one.)
+    if (!this.unlocked && navigator.userActivation?.isActive !== false) {
       this.unlocked = true;
       try {
         const src = this.ctx.createBufferSource();
@@ -222,6 +226,18 @@ export class Audio {
         src.start(0);
       } catch (e) { /* nothing to wake */ }
     }
+  }
+
+  // Browsers hold a context suspended until a user gesture. Start it on the first one anywhere (any key,
+  // click or tap, whatever it lands on), so sound that starts on is heard without hunting for a button.
+  wakeOnGesture() {
+    const evs = ['keydown', 'pointerdown', 'pointerup', 'touchend', 'click'];
+    const wake = () => {
+      this.resume();
+      // stays pending (or rejects) until the browser lets it run; only then stop listening
+      this.ctx?.resume().then(() => { for (const e of evs) removeEventListener(e, wake, true); }, () => {});
+    };
+    for (const e of evs) addEventListener(e, wake, true);
   }
 
   toggleMute() {
