@@ -131,9 +131,13 @@ export class HUD {
       row.className = 'gd-row';
       const k = document.createElement('div');
       k.className = 'gd-k';
-      for (const t of keys.split(' ')) {
+      const toks = keys.split(' ');
+      // the input a move ends on colours it: K finishers gold, SP pink (style.css)
+      row.dataset.end = toks[toks.length - 1];
+      for (const t of toks) {
         const b = document.createElement('b');
         b.textContent = names[t] || t;
+        b.dataset.t = t;
         k.appendChild(b);
       }
       const v = document.createElement('div');
@@ -148,7 +152,9 @@ export class HUD {
     this.guideState = '';
   }
 
-  // Light the move in progress and, mid-combo, the charge attack K would start next; the saber string counts its hits.
+  // Light the move in progress and, mid-combo, the charge attack K would start next. A row's chips fill as their
+  // inputs go in (the saber string counts its hits, a press buffered for the next step fills early), the newest one
+  // pops, and the K that would branch off pulses until it is pressed.
   updateGuide(h) {
     const info = h.moves && h.suit ? suitInfo(h.suit.id) : null;
     const show = this.guideOn && !!info?.guide;
@@ -160,17 +166,28 @@ export class HUD {
     const busy = h.state === 'attack' || h.state === 'musou';
     const on = busy && h.moveName ? guideRow(h.moveName) : '';
     // only mid-combo: at rest nothing is lit, so the guide never looks like a key is being held
-    const next = h.state === 'attack' && h.move?.charge ? guideRow(h.move.charge) : '';
-    const hits = on === 'N' ? +h.moveName.slice(1) : 0;
-    const state = `${on}|${next}|${hits}`;
+    let next = h.state === 'attack' && h.move?.charge ? guideRow(h.move.charge) : '';
+    if (next === on) next = ''; // the rifle's own repeats
+    const buf = h.state === 'attack' ? h.buffer : null;
+    const hits = on === 'N' ? +h.moveName.slice(1) + (buf === 'attack' && h.move?.next ? 1 : 0) : 0;
+    const queued = !!next && buf === 'charge';
+    const state = `${on}|${next}|${hits}|${queued}`;
     if (state === this.guideState) return;
     this.guideState = state;
+    this.el.guide.classList.toggle('busy', !!on);
     for (const [id, row] of this.guideRows) {
       row.classList.toggle('on', id === on);
-      row.classList.toggle('next', id === next && id !== on);
+      row.classList.toggle('next', id === next);
+      const chips = row.firstChild.children, n = chips.length;
+      // how many of this row's inputs are in: the next row has everything but its K
+      const done = id === on ? (id === 'N' ? hits : n) : id === next ? n - (queued ? 0 : 1) : 0;
+      const cur = id === on || queued ? done - 1 : -1;
+      for (let i = 0; i < n; i++) {
+        chips[i].classList.toggle('done', i < done);
+        chips[i].classList.toggle('cur', i === cur);
+        chips[i].classList.toggle('nx', id === next && i === n - 1 && !queued);
+      }
     }
-    const chips = this.guideRows.get('N')?.firstChild.children || [];
-    for (let i = 0; i < chips.length; i++) chips[i].classList.toggle('done', i < hits);
   }
 
   setObjective(text) {
