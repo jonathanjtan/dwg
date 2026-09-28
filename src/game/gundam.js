@@ -204,6 +204,9 @@ export class Gundam extends Hero {
       g.camera.shake(0.45);
       g.camera.kick(5);
       g.aberr(0.6);
+      // Reborn's charge shot slides the Gundam back about half its height down the line of fire; the rifle doesn't
+      this.vel.x -= dir.x * 20;
+      this.vel.z -= dir.z * 20;
     } else {
       g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
       g.fx.muzzle(from, dir, 0xff8ad8, 1);
