@@ -155,16 +155,18 @@ export const MOVES = {
     ]),
     shots: [{ t: 0.02, kind: 'buster' }],
   },
-  CS: { // charge shot: the mantle flares wide, five beams fan out from it at once
+  CS: { // charge shot: the mantle flares wide, the X-thrusters hop the suit back (~0.4 H) to land braced, five beams fan out
     dur: 1.1, chain: 0.9, rate: 1, next: null, charge: null, armor: true, mantleFlare: true,
     wpn: [[0, 'rifle']],
+    jets: [0.28, 0.9, false],
+    air: [[0.28, 0], [0.4, 0.7], [0.54, 0]],
     clip: clip([
       k(0, { ...PISTOL, torso: [0.05, -0.15, 0], y: -0.18, ...LEGS_WIDE }),
       k(0.4, { ...PISTOL, torso: [0.05, -0.25, 0.1], y: -0.26 }),
       k(0.55, { torso: [0.05, -0.3, 0.1], uArmR: [-1.65, 0, -0.1], hand: [1.7, 0, 0] }, 'snap'),
       k(1.1, { ...PISTOL, torso: [0, -0.15, 0] }),
     ]),
-    ev: [[0.02, 'flash', 'violet'], [0.22, 'flash', 'violet']],
+    ev: [[0.02, 'flash', 'violet'], [0.22, 'flash', 'violet'], [0.28, 'hopback']],
     shots: [-0.16, -0.08, 0, 0.08, 0.16].map((ang) => ({ t: 0.56, kind: 'spread', ang })),
     chargeFx: [0.0, 0.5],
   },

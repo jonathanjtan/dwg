@@ -144,6 +144,10 @@ export class X1Kai extends Hero {
     const P0 = this.pos;
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
     switch (name) {
+      case 'hopback': // CS: as in Reborn, the X-thrusters hop the suit back ~0.4 of its height, away from the shot
+        this.vel.x -= Math.sin(this.aimYaw) * 13;
+        this.vel.z -= Math.cos(this.aimYaw) * 13;
+        break;
       case 'shock': { // C2: the heat-dagger slam opens a shockwave under the suit
         const c = this._w.set(P0.x, 0.2, P0.z);
         g.fx.shock(c, 8.6, 0xff5fd0, 0.7);

@@ -173,6 +173,10 @@ export class F91 extends Hero {
       g.camera.shake(0.4);
       g.camera.kick(5);
       g.aberr(0.5);
+      // as in Reborn, the heavy beam skids the F91 back about a third of its height along the line of fire (the rifle
+      // doesn't)
+      this.vel.x -= dir.x * 11;
+      this.vel.z -= dir.z * 11;
     } else {
       g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
       g.fx.muzzle(from, dir, VSBR_BEAM, 1);
