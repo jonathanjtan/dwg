@@ -25,7 +25,7 @@ window.step = (n, keys = [], press = [], render = true) => {
 };
 
 // Autoplay: chase the nearest target (or head for the nearest landing zone when the area is clear),
-// boost over long distances, mash attacks, fire SP when full.
+// boost over long distances, mash attacks, fire SP whenever a stock is banked.
 window.bot = (frames, { render = false, stop = null, charge = 49 } = {}) => {
   const cr = game.post.render;
   if (!render) game.post.render = () => {};
@@ -73,7 +73,7 @@ window.bot = (frames, { render = false, stop = null, charge = 49 } = {}) => {
       } else if (best && i % 7 === 0) {
         game.input.pressed.add(i % charge === charge - 7 ? 'KeyK' : 'KeyJ');
       }
-      if (h.sp >= h.maxSp && i % 30 === 0) game.input.pressed.add('KeyI');
+      if (h.sp >= h.maxSp / 3 && i % 30 === 0) game.input.pressed.add('KeyI');
       tick();
       if (stop && stop()) break;
     }

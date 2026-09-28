@@ -1,6 +1,6 @@
-// Char Aznable's MSN-04 Sazabi: the Neo Zeon flagship from Char's Counterattack. A beam tomahawk (whose beam stretches
-// out into a giant axe for the charge SP), a beam shot rifle, six funnels that fly off the backpack to surround a
-// target, ring the suit or rain beams over the field, a mega particle cannon in the abdomen, and missiles. Reborn's
+// Char Aznable's MSN-04 Sazabi: the Neo Zeon flagship from Char's Counterattack. A beam tomahawk, a beam shot rifle,
+// six funnels that fly off the backpack to surround a target, ring the suit, rain beams over the field or line up in
+// front of it, a mega particle cannon in the abdomen, and missiles. Reborn's
 // sheet gives it the Gundam's melee and shot with less defense (368 vs 485) and far less mobility (559 vs 800), so it
 // runs as a big, slow, hard-hitting suit that soaks a little more than the X1 and a little less than the Gundam.
 import * as THREE from 'three';
@@ -8,20 +8,21 @@ import { voxelMesh } from '../core/voxel.js';
 import { P } from '../core/rig.js';
 import { sazabiDef, sazabiWeapons, SAZABI_R, SAZABI_VOXEL } from '../models/sazabi.js';
 import { MOVES, STANCE, BLADE } from './sazabi_moves.js';
-import { Hero, curve } from './hero.js';
+import { Hero } from './hero.js';
 import { damp, lerp } from '../core/util.js';
 import { Trail } from '../fx/fx.js';
 
 const WEAPON_ID = { saber: 1, rifle: 2 };
 const WEAPON_OF = [null, 'saber', 'rifle'];
 const RIFLE_SHOT = { dmg: 30, kb: 5, up: 1.5, w: 1.6, r: 1 };
+const UP_SHOT = { dmg: 60, kb: 6, up: 8, big: true, w: 2.6, r: 1.4, speed: 110 }; // DC: the heavy beam up at the catch
 const FUNNEL_SHOT = { dmg: 12, kb: 2, up: 1, r: 0.9, sp: true }; // sp: a funnel's hit doesn't hit-stop the suit
 const MISSILE = { speed: 34, fuse: 1.0, r: 3, dmg: 22, kb: 5, up: 4, big: false, lite: true, smoke: 0.6 };
 const BLADE_COLOR = new THREE.Color(3.2, 2.5, 0.5); // the footage's tomahawk beam burns yellow-gold
 const BLADE_TRAIL = 0xffd040;
 const N_FUNNELS = 6;
-const FUNNEL_MODE = { tgt: 1, ring: 2, field: 3 };
-const FUNNEL_MODE_OF = [null, 'tgt', 'ring', 'field'];
+const FUNNEL_MODE = { tgt: 1, ring: 2, field: 3, line: 4 };
+const FUNNEL_MODE_OF = [null, 'tgt', 'ring', 'field', 'line'];
 
 export const SAZABI = {
   id: 'sazabi', pilot: 'charcca', def: sazabiDef, moves: MOVES, stance: STANCE,
@@ -43,7 +44,6 @@ export class Sazabi extends Hero {
     const w = sazabiWeapons();
     const hand = this.rig.nodes.hand;
     this.saberLit = 0; this.rifleVis = 0;
-    this.bladeLen = 1; // `bl` multiplier: the charge SP's giant axe
 
     this.hilt = voxelMesh(w.hawk, { scale: SAZABI_VOXEL });
     hand.add(this.hilt);
@@ -113,21 +113,15 @@ export class Sazabi extends Hero {
     if (w === 'saber') this.saberLit = 0.12;
     else if (w) this.saberLit = 0;
     if (w === 'rifle') this.rifleVis = 0.6;
-    this.bladeLen = m.bl ? curve(m.bl, t) : 1;
-  }
-
-  onMoveEnd() {
-    this.bladeLen = 1;
+    if (m.lift && t >= m.lift[0] && t <= m.lift[1]) this.thrust(1.5, true); // hovering on the thrusters
   }
 
   onEndMusou() {
-    this.bladeLen = 1;
     this.recallFunnels();
   }
 
   onInterrupt() {
     this.saberLit = 0;
-    this.bladeLen = 1;
     this.recallFunnels();
   }
 
@@ -171,6 +165,10 @@ export class Sazabi extends Hero {
     const A = this.funnelAnchor;
     if (this.funnelMode === 'tgt') return out.set(A.x + Math.sin(a) * 4, A.y + 2.2 + Math.sin(a * 2 + this.funnelT * 3) * 1.2, A.z + Math.cos(a) * 4);
     const P0 = this.pos;
+    if (this.funnelMode === 'line') { // a row out in front of the suit, nose to tail down the heading
+      const d = 3.2 + i * 1.5, h = this.heading;
+      return out.set(P0.x + Math.sin(h) * d, P0.y + 3.4 + Math.sin(this.funnelT * 4 + i) * 0.15, P0.z + Math.cos(h) * d);
+    }
     if (this.funnelMode === 'field') {
       const r = 6 + (i % 3) * 2.6;
       return out.set(P0.x + Math.sin(a) * r, 7.5 + (i % 2), P0.z + Math.cos(a) * r);
@@ -206,6 +204,7 @@ export class Sazabi extends Hero {
       // nose toward what it shoots at: the target, the ground below, or straight out from the suit
       if (this.funnelMode === 'tgt') f.lookAt(this.funnelAnchor.x, this.funnelAnchor.y + 1.6, this.funnelAnchor.z);
       else if (this.funnelMode === 'field') f.lookAt(f.position.x + 0.01, 0, f.position.z);
+      else if (this.funnelMode === 'line') f.lookAt(f.position.x + Math.sin(this.heading), f.position.y - 0.15, f.position.z + Math.cos(this.heading));
       else if (this.funnelMode === 'ring') f.lookAt(f.position.x * 2 - this.pos.x, f.position.y - 1, f.position.z * 2 - this.pos.z);
     }
   }
@@ -252,6 +251,18 @@ export class Sazabi extends Hero {
         if (g.local === this) { g.camera.shake(0.6); g.aberr(0.8); }
         break;
       }
+      case 'linefire': { // ground SP finish: the funnels in their row fire down it together
+        if (!this.funnelMode || this.funnelOut < 0.5) break;
+        const dir = this._f.set(fx, -0.12, fz).normalize();
+        for (const f of this.funnels) {
+          g.projectiles.heroBeam(this, f.position, dir, { ...FUNNEL_SHOT, dmg: 16, w: 1.6, max: 0.3 });
+          g.fx.muzzle(f.position, dir, 0xffd060, 1.2);
+        }
+        g.fx.light(this._w.set(P0.x + fx * 7, 3, P0.z + fz * 7), 0xffd070, 160, 22, 0.4);
+        g.audio.play('cshot', { vol: 0.9 });
+        if (g.local === this) { g.camera.shake(0.5); g.aberr(0.6); }
+        break;
+      }
       case 'starburst': { // C3: all six funnels fire at once, a star of light on the catch
         const c = this._w.set(this.funnelAnchor.x, this.funnelAnchor.y + 1.8, this.funnelAnchor.z);
         g.fx.star(c, 0xffffff, 3);
@@ -261,22 +272,6 @@ export class Sazabi extends Hero {
         g.combat.aoe(this, c.x, c.y - 1.6, c.z, 3.4, 30, 6, 6, ++this.hitSerial, true, false);
         g.audio.play('cshot', { vol: 0.8 });
         if (g.local === this) g.aberr(0.6);
-        break;
-      }
-      case 'megabeam': { // SP finisher: the mega particle cannon's full-length beam, a thick column of pink light
-        const c = this.rig.nodes.torso.localToWorld(this._w.set(0, 0.15, 0.4));
-        const dir = this._f.set(fx, 0, fz);
-        g.fx.muzzle(c, dir, 0xff8ab0, 3.2);
-        g.fx.star(c, 0xffffff, 3);
-        g.fx.light(c, 0xff7aa8, 220, 30, 0.9);
-        for (let i = 0; i < 16; i++) {
-          const o = this._v.set(c.x + (Math.random() - 0.5) * 1.6, c.y + (Math.random() - 0.5) * 1.6, c.z + (Math.random() - 0.5) * 1.6);
-          g.projectiles.heroBeam(this, o, dir, { dmg: 3, kb: 1, up: 1, w: 2, r: 1.2, speed: 60 + i * 5, max: 0.35, sp: true });
-        }
-        g.audio.play('cshot');
-        g.audio.play('lightning', { vol: 0.8 });
-        g.slowmo(0.25, 0.4);
-        if (g.local === this) { g.camera.shake(1.0); g.aberr(1.2); }
         break;
       }
       case 'burstgreen': { // air SP finisher: one heavy shot, a green-white burst on the ground below
@@ -294,17 +289,6 @@ export class Sazabi extends Hero {
         g.projectiles.heroBlast(this, this._v.set(x, 1.5, z), 8, 130, 14, 10, { sp: true, sound: 'bigboom' });
         g.slowmo(0.3, 0.35);
         if (g.local === this) { g.camera.shake(1.0); g.aberr(1.2); }
-        break;
-      }
-      case 'bigaxe': { // charge SP finisher: the giant axe's sweep lands in a ring of fire
-        const c = this._w.set(P0.x, 0.2, P0.z);
-        g.fx.shock(c, 13, 0xff4a3a, 0.8);
-        g.fx.ring(c, 1, 13.5, 0xffc060, 0.7);
-        g.fx.dust(c, 40, 2.6);
-        g.fx.light(this._v.set(P0.x, 2, P0.z), 0xff6a40, 220, 32, 0.7);
-        g.audio.play('bigboom');
-        g.slowmo(0.3, 0.4);
-        if (g.local === this) { g.camera.shake(1.1); g.aberr(1.3); }
         break;
       }
     }
@@ -342,6 +326,21 @@ export class Sazabi extends Hero {
       g.fx.muzzle(from, dir, 0xffd060, 1.2);
       g.projectiles.heroBlast(this, this._v.set(x, 0.8, z), 3.6, 34, 8, 6, { sp: true, big: false, sound: 'srifle' });
       g.camera.shake(0.2);
+      return;
+    }
+    if (shot.kind === 'up') {
+      // DC: one heavy beam from the hover, straight up into whatever the uppercut launched
+      const t = this.airborneAhead(), P0 = this.pos, fx = Math.sin(this.heading), fz = Math.cos(this.heading);
+      const x = t ? t.x ?? t.pos.x : P0.x + fx * 2, z = t ? t.z ?? t.pos.z : P0.z + fz * 2;
+      const y = t ? (t.y ?? t.pos?.y ?? 0) + 1.6 : P0.y + 30;
+      const from = this.aimGunTo(x, y, z, new THREE.Vector3());
+      const dir = new THREE.Vector3(x - from.x, y - from.y, z - from.z).normalize();
+      g.projectiles.heroBeam(this, from, dir, UP_SHOT);
+      g.fx.muzzle(from, dir, 0xffd060, 2.4);
+      g.fx.star(from, 0xfff0c0, 2.2);
+      g.audio.play('srifle');
+      g.audio.play('cshot', { vol: 0.6 });
+      if (g.local === this) { g.camera.shake(0.35); g.camera.kick(3); }
       return;
     }
     // the beam shot rifle
@@ -396,9 +395,9 @@ export class Sazabi extends Hero {
 
   setBlade() {
     this.blade.visible = this.saberScale > 0.02;
-    const len = Math.max(0.001, BLADE * this.saberScale * this.bladeLen);
+    const len = Math.max(0.001, BLADE * this.saberScale);
     for (const m of this.blade.userData.stretch) m.scale.z = len;
-    this.blade.children[2].scale.setScalar(Math.max(0.001, this.saberScale) * (0.8 + this.bladeLen * 0.4));
+    this.blade.children[2].scale.setScalar(Math.max(0.001, this.saberScale) * 1.2);
   }
 
   preVisuals(dt, inMove) {
@@ -408,7 +407,7 @@ export class Sazabi extends Hero {
     this.saberScale = damp(this.saberScale, lit ? 1 : 0, lit ? 22 : 24, dt);
     this.setBlade();
     const flick = 0.92 + Math.random() * 0.08;
-    this.blade.userData.outer.material.color.copy(BLADE_COLOR).multiplyScalar(flick * (this.bladeLen > 1.2 ? 1.3 : 1));
+    this.blade.userData.outer.material.color.copy(BLADE_COLOR).multiplyScalar(flick);
   }
 
   postVisuals(dt, inMove) {
@@ -432,7 +431,7 @@ export class Sazabi extends Hero {
     const wpn = this.heldWeapon(inMove);
     const A = this.funnelAnchor;
     return {
-      sab: this.saberScale, bl: this.bladeLen, wp: WEAPON_ID[wpn] || 0, sw: inMove && wpn === 'saber',
+      sab: this.saberScale, wp: WEAPON_ID[wpn] || 0, sw: inMove && wpn === 'saber',
       fm: FUNNEL_MODE[this.funnelMode] || 0, fo: this.funnelOut, ft: this.funnelT, fa: [A.x, A.y, A.z],
     };
   }
@@ -441,7 +440,6 @@ export class Sazabi extends Hero {
     const wpn = WEAPON_OF[s.wp || 0];
     this.showWeapon(wpn);
     this.saberScale = s.sab || 0;
-    this.bladeLen = s.bl || 1;
     this.setBlade();
     this.rig.root.updateMatrixWorld(true);
     this.funnelMode = FUNNEL_MODE_OF[s.fm || 0];

@@ -97,7 +97,8 @@ button { font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer;
 .pilot-jp { font-family: 'Noto Sans JP', sans-serif; font-weight: 900; font-size: 22px; }
 .pilot-en { font-weight: 700; font-size: 12px; letter-spacing: 3px; color: var(--accent); }
 .bar { position: relative; height: 16px; background: rgba(4, 8, 14, 0.8); border: 1px solid var(--line); overflow: hidden; clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
-.bar.sp { height: 11px; width: 78%; }
+.sp-row { display: flex; align-items: center; gap: 6px; width: 86%; }
+.bar.sp { height: 11px; flex: 1; }
 #hp-fill, #hp-lag, #sp-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; }
 #hp-lag { background: #ff6a4a; transition: width 0.6s ease-out 0.25s; }
 #hp-red { background: repeating-linear-gradient(135deg, #b0303a 0 6px, #7a1c26 6px 12px); width: 100%; }
@@ -112,6 +113,13 @@ button { font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer;
 #hp-fill.low { background: linear-gradient(180deg, #ffb0a0, #ff4a4a 45%, #a41d1d); }
 #hp-text { position: absolute; right: 16px; top: -2px; font-weight: 700; font-size: 14px; text-shadow: 0 1px 3px #000; }
 #sp-fill { background: linear-gradient(180deg, #ffc1ee, var(--sp) 50%, #b02a8f); width: 0; }
+/* three SP stocks (Reborn): dividers at the thirds, stocks being charged turn orange, and the count beside the bar */
+#sp-charge { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(180deg, #ffe6b8, #ffa640 50%, #b8601a); }
+.sp-tick { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(4, 8, 14, 0.9); left: 33.33%; }
+.sp-tick + .sp-tick { left: 66.67%; }
+#sp-stocks { flex: none; min-width: 26px; font-weight: 700; font-size: 13px; letter-spacing: 1px; color: var(--sp); text-shadow: 0 1px 3px #000; opacity: 0.4; }
+#sp-stocks.on { opacity: 1; text-shadow: 0 0 8px var(--sp), 0 1px 3px #000; }
+#sp-stocks.charging { color: #ffb050; text-shadow: 0 0 8px #ff9a3a, 0 1px 3px #000; opacity: 1; }
 .bar.sp.ready { border-color: var(--sp); box-shadow: 0 0 12px var(--sp); animation: sp 0.6s infinite alternate; }
 @keyframes sp { to { box-shadow: 0 0 22px var(--sp); } }
 #sp-ready { position: absolute; right: 16px; top: -3px; font-size: 11px; font-weight: 700; letter-spacing: 2px; opacity: 0; }

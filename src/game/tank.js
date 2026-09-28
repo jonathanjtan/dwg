@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { RigObject, makePose, lerpPose, poseFrom, P, RPITCH, RY } from '../core/rig.js';
 import { guntankDef } from '../models/guntank.js';
 import { clamp, damp, angleDamp, wrapAngle, rand } from '../core/util.js';
+import { SP_STOCK, SP_STOCKS } from './hero.js';
 
 const SPEED = 8.8;
 const GRAV = 30;
@@ -26,7 +27,7 @@ export class Tank {
     this.radius = 1.1;
     this.maxHp = 1500;
     this.hp = this.maxHp;
-    this.maxSp = 100;
+    this.maxSp = SP_STOCK * SP_STOCKS; // three stocks, one per SP
     this.sp = 30;
     this.spRate = 1.1;
     this.state = 'off';
@@ -150,7 +151,7 @@ export class Tank {
       }
       case 'move':
       case 'air': {
-        if (act.musou && this.sp >= this.maxSp) { this.startMusou(); break; }
+        if (act.musou && this.sp >= SP_STOCK) { this.startMusou(); break; }
         if (act.jump && this.state === 'move') {
           this.state = 'air';
           this.vel.y = 10.5;
@@ -323,7 +324,7 @@ export class Tank {
 
   startMusou() {
     const g = this.game;
-    this.sp = 0;
+    this.sp -= SP_STOCK;
     this.state = 'musou';
     this.stateT = 0;
     this.invuln = 99;

@@ -10,15 +10,17 @@ const $ = (id) => document.getElementById(id);
 // Combo guide inputs (see roster.js) as keyboard keys, or the on-screen button names on a touch screen.
 const GUIDE_KEYS = { J: 'J', K: 'K', B: 'Shift', U: 'Space', S: 'I' };
 const GUIDE_TOUCH = { J: 'ATK', K: 'CHG', B: 'BOOST', U: 'JUMP', S: 'SP' };
-// Which guide row a running move belongs to.
-const guideRow = (name) => (/^N\d/.test(name) ? 'N' : name === 'C1R' || name === 'CS' ? 'C1' : name === 'DAF' ? 'DA'
+// Which guide row a running move belongs to (a charge attack's K follow-ups, C2F or C6X, stay on its charge attack's
+// row; a dash string's later hits, DA2 or DAF, on the dash row).
+const guideRow = (name) => (/^N\d/.test(name) ? 'N' : name === 'C1R' || name === 'CS' ? 'C1' : /^DA[2-9F]$/.test(name) ? 'DA'
+  : /^C\d[FX]$/.test(name) ? name.slice(0, 2)
   : name.startsWith('SPA_') ? 'SPA' : name.startsWith('SP') ? 'SP' : name);
 
 export class HUD {
   constructor(game) {
     this.game = game;
     this.el = {
-      hud: $('hud'), hpFill: $('hp-fill'), hpLag: $('hp-lag'), hpText: $('hp-text'), spFill: $('sp-fill'),
+      hud: $('hud'), hpFill: $('hp-fill'), hpLag: $('hp-lag'), hpText: $('hp-text'), spFill: $('sp-fill'), spCharge: $('sp-charge'), spStocks: $('sp-stocks'),
       spBar: document.querySelector('.bar.sp'), ko: $('ko-count'), timer: $('timer'), combo: $('combo'),
       comboCount: $('combo-count'), map: $('minimap'), announce: $('announce'), dialogue: $('dialogue'),
       dlgPortrait: $('dlg-portrait'), dlgName: $('dlg-name'), dlgText: $('dlg-text'), bossBars: $('boss-bars'),
@@ -286,8 +288,19 @@ export class HUD {
     this.el.letterbox.classList.toggle('on', this.cineT > 0);
     this.el.hpFill.className = hpPct < 0.25 ? 'low' : hpPct < 0.5 ? 'mid' : '';
     this.el.hpText.textContent = Math.ceil(h.hp);
-    this.el.spFill.style.width = (h.sp / h.maxSp) * 100 + '%';
-    this.el.spBar.classList.toggle('ready', h.sp >= h.maxSp);
+    // SP: three stocks; while the charge SP winds up, the stocks it has taken show orange ahead of what's left
+    const stock = h.maxSp / 3, spc = h.spc || 0, stocks = Math.floor(h.sp / stock + 1e-6);
+    this.el.spFill.style.width = ((h.sp + spc * stock) / h.maxSp) * 100 + '%';
+    this.el.spCharge.style.width = (spc / 3) * 100 + '%';
+    this.el.spBar.classList.toggle('ready', stocks > 0);
+    const shown = spc || stocks;
+    if (shown !== this.spShown || !!spc !== this.spCharging) {
+      this.spShown = shown;
+      this.spCharging = !!spc;
+      this.el.spStocks.textContent = `×${shown}`;
+      this.el.spStocks.classList.toggle('on', stocks > 0 && !spc);
+      this.el.spStocks.classList.toggle('charging', !!spc);
+    }
     // KO
     if (g.stats.kos !== this.lastKo) {
       this.el.ko.textContent = g.stats.kos;

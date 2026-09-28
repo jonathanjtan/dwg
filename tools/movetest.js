@@ -46,6 +46,7 @@ const taps = (key, n, every = 20, from = 0) => Array.from({ length: n }, (_, i) 
 export const CHAINS = {
   combo: [taps(J, 6, 22), 260],
   c2: [[[0, 'tap', [J]], [22, 'tap', [K]]], 200],
+  c2f: [[[0, 'tap', [J]], [22, 'tap', [K]], [70, 'tap', [K]]], 260],
   c3: [[...taps(J, 2, 22), [44, 'tap', [K]]], 260],
   c4: [[...taps(J, 3, 22), [66, 'tap', [K]]], 280],
   c5: [[...taps(J, 4, 22), [88, 'tap', [K]]], 300],
@@ -59,7 +60,7 @@ export const CHAINS = {
 };
 export const SPS = {
   sp: [[[0, 'tap', [I]]], 900, { sp: true }],
-  spHold: [[[0, 'hold', [I], 60]], 1100, { sp: true }],
+  spHold: [[[0, 'hold', [I], 120]], 1100, { sp: true }], // held long enough to commit all three stocks
   spAir: [[[0, 'hold', ['Space'], 8], [22, 'tap', [I]]], 1100, { sp: true }],
 };
 

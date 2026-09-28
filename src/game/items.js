@@ -21,7 +21,7 @@ const BOLT = [[0, 3], [-1, 2], [0, 2], [-1, 1], [0, 1], [-1, 0]];
 const TYPES = {
   hp: { model: () => crate(0x5dff7a, PLUS), scale: 0.16, heal: 0.25, label: 'REPAIR KIT', color: '#5dff7a', beam: 0x5dff7a },
   hpL: { model: () => crate(0x5dff7a, PLUS), scale: 0.26, heal: 0.6, label: 'LARGE REPAIR KIT', color: '#8dffa4', beam: 0x9dffb0 },
-  sp: { model: () => crate(0xff5fd0, BOLT), scale: 0.16, label: 'E-CAP', color: '#ff7ad8', beam: 0xff5fd0 },
+  sp: { model: () => crate(0xff5fd0, BOLT), scale: 0.16, label: 'E-CAP · SP +1', color: '#ff7ad8', beam: 0xff5fd0 },
 };
 const NET_TYPES = ['hp', 'sp', 'hpL'];
 const MAGNET = 6.5;
@@ -125,7 +125,7 @@ export class Items {
         if (T.heal) {
           hero.hp = Math.min(hero.maxHp, hero.hp + hero.maxHp * T.heal);
           if (hero.hpRed) hero.hpRed = Math.min(hero.hpRed, hero.maxHp - hero.hp);
-        } else hero.sp = hero.maxSp;
+        } else hero.sp = Math.min(hero.maxSp, hero.sp + hero.maxSp / 3); // an E-CAP is one SP stock
         g.fx.aura(hero.pos, it.type === 'sp' ? 0xff5fd0 : 0x5dff7a, it.type === 'hpL' ? 50 : 30, 1.6);
         g.fx.ring(hero.pos, 0.5, it.type === 'hpL' ? 4.5 : 3, it.type === 'sp' ? 0xff7ad8 : 0x7dff96, 0.4);
         g.audio.play('pickup');

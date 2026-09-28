@@ -38,7 +38,7 @@ const DRILLS = [
   { id: 'shot', jp: 'チャージショット', name: 'CHARGE SHOT', keys: ['chg+'], text: 'Hold it down on its own for a charge shot.' },
   { id: 'dash', jp: 'ダッシュ攻撃', name: 'DASH ATTACK', keys: ['boost', 'atk*'], text: 'Boost in, then attack out of the dash.', tip: 'Keep pressing to rush through the whole squad.' },
   { id: 'air', jp: '空中攻撃', name: 'AIR ATTACK', keys: ['jump', 'atk'], text: 'Attack in mid-air.' },
-  { id: 'sp', jp: '必殺技', name: 'SP ATTACK', keys: ['sp'], text: 'The SP gauge is full. Unleash it!', tip: 'Hold it through the burst for a charge SP. In the air, it becomes an aerial SP.' },
+  { id: 'sp', jp: '必殺技', name: 'SP ATTACK', keys: ['sp'], text: 'All three SP stocks are full. Each SP spends one. Unleash it!', tip: 'Hold it through the burst for a charge SP: every stock you hold on for makes it last longer. In the air, it becomes an aerial SP.' },
   { id: 'lock', jp: 'ロックオン', name: 'LOCK ON', keys: ['lock'], text: 'A squad leader! Lock on to keep him in your sights.', tip: 'Press again to let go.' },
   { id: 'boss', jp: '撃破', name: 'TAKE HIM DOWN', keys: ['atk*', 'chg'], text: 'Defeat the squad leader with everything you have learned.' },
 ];
@@ -291,7 +291,7 @@ export class Tutorial {
         break;
       case 'sp':
         if (!s.filled) {
-          // pour the gauge full so the SP READY light comes on in front of them
+          // pour all three stocks in so the SP READY light comes on in front of them (and a charge SP can use them)
           h.sp = Math.min(h.maxSp, h.sp + h.maxSp * dt * 1.6);
           if (h.sp >= h.maxSp) { s.filled = true; g.audio.play('pickup'); }
         }

@@ -1,7 +1,9 @@
-// Gundam moveset after Dynasty Warriors: Gundam Reborn's RX-78-2: keyframed poses + hit timing.
-// Normal string N1..N6 on attack; charge attack C(n+1) on charge after n normals. Tapping charge alone fires the beam
-// rifle (mash for a shot combo), holding it fires a charge shot. Weapons: beam saber, beam rifle, beam javelin, hyper
-// bazooka and the Gundam hammer. Reach was measured off gameplay footage in Gundam heights (H ~ 3.4 units): the
+// Gundam moveset after Dynasty Warriors: Gundam Reborn's RX-78-2 ("ALL MOVES" video, checked beat by beat against it
+// and the Koei wiki): keyframed poses + hit timing. Normal string N1..N6 on attack; charge attack C(n+1) on charge
+// after n normals. Tapping charge alone fires the beam rifle (mash for a shot combo), holding it fires a charge shot.
+// J K is a launcher and the beam javelin thrust up (K again: a shield swing), J J J K cuts with both beam sabers, and
+// J x5 K is the "Last Shooting", the rifle fired straight up. Weapons: beam saber (two for C4), beam rifle, beam
+// javelin, hyper bazooka, the shield and the Gundam hammer. Reach was measured off gameplay footage in Gundam heights (H ~ 3.4 units): the
 // saber blade is ~1.3 H, spin rings ~1.4 H, the C6 shockwave ~2.8 H, a bazooka blast ~1 H, the hammer orbit ~1.5 H.
 import { Clip, poseFrom } from '../core/rig.js';
 
@@ -44,10 +46,12 @@ const RIFLE = { torso: [0, -0.55, 0], uArmR: [-1.57, 0, 0.12], fArmR: [0, 0, 0],
 const SHOULDER = { torso: [0.05, -0.35, 0], uArmR: [-0.55, 0, -0.25], fArmR: [-1.3, 0, 0], hand: [1.85, 0, 0], uArmL: [-1.2, 0, -0.15], fArmL: [-0.7, 0, 0], head: [0, -0.3, 0] };
 
 // hit: { t, t1, shape, range, arc, len, width, off, hy, dmg, kb, up, big, pull, sp, stop (hit-stop frames) }
-// ev: [t, name, arg] timed effects; shots: { t, kind, ang, dn }; wpn: [t, weapon] (saber | rifle | javelin | bazooka |
-// hammer); jets: [t0, t1, lift]; slide: [t0, t1, speed]; ham: hammer orbit radius curve; rate: playback speed.
+// ev: [t, name, arg] timed effects; shots: { t, kind, ang, dn }; wpn: [t, weapon] (saber | sabers (one in each hand) |
+// rifle | javelin | bazooka | hammer); jets: [t0, t1, lift]; slide: [t0, t1, speed]; ham: hammer orbit radius curve;
+// rate: playback speed; sky: the rifle is held pointing straight up (C6).
 // SP phases: spNext (the phase that follows), spHold (taken instead while SP is still held), spRepeat (plays n times),
-// steer (move speed while steering), chargeAura.
+// steer (move speed while steering), chargeAura, spcStep (seconds of hold per extra SP stock on the charge SP's
+// wind-up), stockDur (a frenzy phase's length by stocks spent; hero.js runs it in passes).
 export const MOVES = {
   // ---- normal string: six beam saber cuts, the sixth a thruster hop into a launching spin ----
   N1: { // rising diagonal, low left to high right
@@ -139,7 +143,7 @@ export const MOVES = {
     shots: [{ t: 0.12, kind: 'rifle' }],
   },
   C1R: {
-    dur: 0.26, chain: 0.1, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 12,
+    dur: 0.26, chain: 0.1, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 6, // 4-6 in the footage
     clip: clip([
       k(0, { ...RIFLE }),
       k(0.05, { uArmR: [-1.75, 0, 0.1], hand: [1.42, 0, 0] }, 'snap'),
@@ -161,76 +165,92 @@ export const MOVES = {
     chargeFx: [0.0, 0.58],
   },
 
-  // J K: rising launcher cut, a full spin under the falling target, then the beam javelin thrust up into it.
+  // J K: as in Reborn, a flat cut through the charge flash into a rising launcher, the saber held high, then the beam
+  // javelin comes out and thrusts straight up into the airborne target (held, not thrown). K again: C2F.
   C2: {
-    dur: 1.8, chain: 1.5, saber: true, rate: 1, next: null, charge: null, armor: true,
-    wpn: [[0, 'saber'], [0.52, 'javelin']],
-    lunge: [[0.02, 0], [0.16, 1.2]],
+    dur: 1.5, chain: 0.95, saber: true, rate: 1, next: null, charge: 'C2F', armor: true,
+    wpn: [[0, 'saber'], [0.64, 'javelin']],
+    lunge: [[0.02, 0], [0.2, 1.2]],
     clip: clip([
-      k(0, { torso: [0.35, -0.3, 0], uArmR: [0.7, 0, -0.35], fArmR: [-0.2, 0, 0], hand: [0.2, 0, 0], y: -0.5, ...LEGS_LUNGE_R }),
-      k(0.05, { torso: [0.4, -0.35, 0], uArmR: [0.8, 0, -0.35] }),
-      k(0.17, { torso: [-0.35, 0.2, 0], uArmR: [-2.9, 0, -0.3], fArmR: [-0.1, 0, 0], hand: [0.4, 0, 0], uArmL: [-0.2, 0, 0.8], y: -0.05, ...LEGS_WIDE }, 'snap'),
-      k(0.24, { torso: [0.1, -0.6, 0], ...SWEEP_R, uArmL: [0, 0, 1.3], y: -0.25, yaw: 0 }),
-      k(0.46, { yaw: PI * 2, torso: [0.1, 0.4, 0] }, 'linear'),
-      k(0.6, { yaw: PI * 2, torso: [0.1, -0.3, 0], uArmR: [-0.3, 0, -0.5], fArmR: [-1.4, 0, 0], hand: [1.4, 0, 0], uArmL: [-0.8, 0, 0.4], y: -0.3, ...LEGS_WIDE }),
-      k(0.95, { yaw: PI * 2, torso: [-0.25, -0.5, 0], uArmR: [-0.9, 0, 0.05], fArmR: [-0.5, 0, 0], hand: [0.9, 0, 0], y: -0.4, ...LEGS_LUNGE_R }),
-      k(1.1, { yaw: PI * 2, torso: [-0.35, -0.2, 0], uArmR: [-2.3, 0, 0.05], fArmR: [0, 0, 0], hand: [1.75, 0, 0], y: -0.1, ...LEGS_LUNGE_R }, 'snap'),
-      k(1.5, { yaw: PI * 2, torso: [-0.25, -0.2, 0], uArmR: [-2.2, 0, 0.05], hand: [1.65, 0, 0], y: -0.15 }),
-      k(1.8, { yaw: PI * 2, torso: [0.1, -0.2, 0], uArmR: [-0.6, 0, -0.3], fArmR: [-0.7, 0, 0], hand: [0.6, 0, 0], y: -0.1 }),
+      k(0, { torso: [0.1, -0.9, 0], ...SWEEP_R, uArmL: [-0.9, 0, 0.5], y: -0.2, ...LEGS_WIDE }),
+      k(0.12, { torso: [0.15, 0.85, 0], ...SWEEP_L, uArmL: [-0.3, 0, 0.9], y: -0.3, ...LEGS_LUNGE_R }, 'snap'),
+      k(0.21, { torso: [0.35, -0.3, 0], uArmR: [0.7, 0, -0.35], fArmR: [-0.2, 0, 0], hand: [0.2, 0, 0], y: -0.5, ...LEGS_LUNGE_R }),
+      k(0.33, { torso: [-0.35, 0.2, 0], uArmR: [-2.9, 0, -0.3], fArmR: [-0.1, 0, 0], hand: [0.4, 0, 0], uArmL: [-0.2, 0, 0.8], y: -0.05, ...LEGS_WIDE }, 'snap'),
+      k(0.6, { torso: [-0.25, 0.3, 0], uArmR: [-2.5, 0.3, -0.6], hand: [0.5, 0, 0], y: -0.1 }),
+      k(0.72, { torso: [0.1, -0.3, 0], uArmR: [-0.4, 0, -0.3], fArmR: [-1.5, 0, 0], hand: [0.35, 0, 0], uArmL: [-0.8, 0, 0.4], y: -0.35, head: [0.1, 0, 0], ...LEGS_WIDE }),
+      k(0.84, { torso: [-0.2, -0.1, 0], uArmR: [-2.75, 0, -0.05], fArmR: [0, 0, 0], hand: [1.85, 0, 0], uArmL: [-0.5, 0, 0.7], head: [0.4, 0, 0], y: 0, ...LEGS_LUNGE_R }, 'snap'),
+      k(1.12, { torso: [-0.15, -0.1, 0], uArmR: [-2.7, 0, -0.05], hand: [1.8, 0, 0], head: [0.35, 0, 0], y: -0.05 }),
+      k(1.5, { torso: [0.1, -0.2, 0], uArmR: [-0.6, 0, -0.3], fArmR: [-0.7, 0, 0], hand: [0.6, 0, 0], uArmL: [-0.55, 0, 0.3], head: [0, 0, 0], y: -0.1 }),
     ]),
     hits: [
-      { t: 0.06, t1: 0.18, shape: 'arc', range: 5.2, arc: 140, dmg: 34, kb: 2, up: 13, big: true },
-      { t: 0.27, t1: 0.46, shape: 'arc', range: 5, arc: 360, hy: 7, dmg: 16, kb: 1, up: 3.5 },
-      { t: 1.02, t1: 1.16, shape: 'line', len: 7.4, width: 2.8, hy: 10, dmg: 50, kb: 5, up: 7, big: true },
+      { t: 0.03, t1: 0.14, shape: 'arc', range: 5.4, arc: 200, dmg: 16, kb: 1, up: 0, pull: 1.2, stop: 1 },
+      { t: 0.23, t1: 0.35, shape: 'arc', range: 5.2, arc: 160, dmg: 34, kb: 1.5, up: 15, big: true },
+      { t: 0.8, t1: 0.96, shape: 'circle', range: 4.4, off: 1.8, hy: 11, dmg: 50, kb: 3, up: 6, big: true },
     ],
-    ev: [[0.21, 'flash', 'gold'], [1.08, 'javtip']],
-    sfxs: [[0.04, 'slash_rise'], [0.27, 'slash_spin'], [0.98, 'javelin']],
+    ev: [[0.0, 'flash', 'gold'], [0.88, 'javtip']],
+    sfxs: [[0.03, 'slash_a'], [0.23, 'slash_rise'], [0.78, 'javelin']],
+  },
+  C2F: { // K again after J K: the shield swung flat across the front, as in Reborn, knocking everything there away
+    dur: 0.85, chain: 0.6, rate: 1, next: null, charge: null, armor: true,
+    wpn: [[0, null]],
+    lunge: [[0.02, 0], [0.16, 1.1]],
+    clip: clip([
+      k(0, { torso: [0.1, -0.8, 0], uArmL: [-1.3, -1.0, 0.3], fArmL: [-0.4, 0, 0], uArmR: [-0.4, 0, -0.5], fArmR: [-0.6, 0, 0], hand: [0.4, 0, 0], y: -0.25, ...LEGS_LUNGE_L }),
+      k(0.17, { torso: [0.15, 0.75, 0], uArmL: [-1.45, 0.9, 1.0], fArmL: [-0.2, 0, 0], y: -0.32, ...LEGS_LUNGE_R }, 'snap'),
+      k(0.45, { torso: [0.1, 0.6, 0], uArmL: [-1.2, 0.7, 0.9] }),
+      k(0.85, { torso: [0.1, -0.2, 0], uArmL: [-0.55, 0, 0.3], fArmL: [-1.1, 0, 0], y: -0.1, ...LEGS_WIDE }),
+    ]),
+    hits: [{ t: 0.05, t1: 0.2, shape: 'arc', range: 4.9, arc: 210, dmg: 30, kb: 9, up: 3, big: true }],
+    sfxs: [[0.02, 'qb'], [0.12, 'slam']],
   },
 
-  // J J K: the hyper bazooka comes off the back and empties four rounds point-blank.
+  // J J K: the hyper bazooka comes off the back and empties five rounds point-blank, as in Reborn.
   C3: {
     dur: 2.4, chain: 2.15, rate: 1, next: null, charge: null, armor: true,
     wpn: [[0, null], [0.14, 'bazooka']],
     clip: clip([
       k(0, { torso: [0.1, 0.4, 0], uArmR: [-2.8, 0.3, -0.3], fArmR: [-1.2, 0, 0], hand: [0.4, 0, 0], y: -0.2, ...LEGS_WIDE }),
       k(0.3, { ...SHOULDER, y: -0.3, ...LEGS_WIDE }),
-      ...[0.5, 0.92, 1.34, 1.76].flatMap((t) => [
+      ...[0.5, 0.82, 1.14, 1.46, 1.78].flatMap((t) => [
         k(t, { ...SHOULDER, y: -0.3 }),
         k(t + 0.05, { uArmR: [-0.75, 0, -0.25] }, 'snap'),
-        k(t + 0.3, { ...SHOULDER, y: -0.3 }),
+        k(t + 0.26, { ...SHOULDER, y: -0.3 }),
       ]),
       k(2.4, { torso: [0.1, -0.2, 0], uArmR: [-0.4, 0, -0.3], fArmR: [-0.9, 0, 0], hand: [0.9, 0, 0], y: -0.12 }),
     ]),
     ev: [[0.0, 'flash', 'violet']],
-    shots: [0.5, 0.92, 1.34, 1.76].map((t) => ({ t, kind: 'bazooka' })),
+    shots: [0.5, 0.82, 1.14, 1.46, 1.78].map((t) => ({ t, kind: 'bazooka' })),
     sfxs: [[0.05, 'draw']],
   },
 
-  // J J J K: a flurry of cuts, a crescent sweep, then a thruster dash straight through the target.
+  // J J J K: as in Reborn, the second beam saber comes out: an overhead chop, a cut from each blade crossing in an X,
+  // then a thruster rush straight through the target, both blades out ahead, that knocks it clear.
   C4: {
-    dur: 2.0, chain: 1.78, saber: true, rate: 1, next: null, charge: null, armor: true,
-    lunge: [[1.16, 0], [1.56, 9]],
-    jets: [1.12, 1.56, false],
+    dur: 2.1, chain: 1.85, rate: 1, next: null, charge: null, armor: true,
+    wpn: [[0, 'saber'], [0.28, 'sabers']],
+    lunge: [[0.02, 0], [0.16, 0.8], [1.18, 0.8], [1.55, 9.8]],
+    jets: [1.14, 1.55, false],
     clip: clip([
-      k(0, { torso: [0.1, -0.4, 0], uArmR: [-1.3, 0, -0.4], fArmR: [-0.4, 0, 0], hand: [1.1, 0, 0], y: -0.2, ...LEGS_WIDE }),
-      ...[0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75].map((t, i) => k(t, i % 2
-        ? { torso: [0.15, 0.7, 0], uArmR: [-0.9, 1.5, -1.2], fArmR: [-0.2, 0, 0], hand: [1.2, 0, 0], y: -0.25, ...LEGS_LUNGE_R }
-        : { torso: [0.15, -0.8, 0], uArmR: [-0.6, -0.2, -1.3], fArmR: [-0.2, 0, 0], hand: [1.2, 0, 0], y: -0.3, ...LEGS_LUNGE_L }, 'snap')),
-      k(0.88, { torso: [0.1, -1.1, 0], ...SWEEP_R, y: -0.25, ...LEGS_WIDE }),
-      k(1.02, { torso: [0.2, 1.0, 0], ...SWEEP_L, uArmL: [-0.3, 0, 0.9], y: -0.35, ...LEGS_LUNGE_R }, 'snap'),
-      k(1.14, { torso: [0.5, -0.2, 0], uArmR: [0.2, -0.6, -1.2], fArmR: [0, 0, 0], hand: [1.3, 0, 0], uArmL: [0.2, 0, 0.4], y: -0.4, ...LEGS_LUNGE_R }),
-      k(1.56, { torso: [0.6, -0.3, 0], uArmR: [0.4, -0.8, -1.2], y: -0.45 }),
-      k(1.72, { torso: [0.2, -0.2, 0], uArmR: [0.1, -0.5, -1.0], y: -0.35, ...LEGS_WIDE }),
-      k(2.0, { torso: [0.1, -0.2, 0], uArmR: [-0.4, 0, -0.35], y: -0.15 }),
+      k(0, { torso: [-0.25, -0.2, 0], uArmR: [-2.9, 0, -0.25], fArmR: [-0.3, 0, 0], hand: [0.3, 0, 0], uArmL: [-0.3, 0, 0.5], y: -0.05, head: [0.1, 0, 0] }),
+      k(0.13, { torso: [0.5, 0.1, 0], uArmR: [-0.9, 0, -0.1], fArmR: [-0.1, 0, 0], hand: [0.75, 0, 0], y: -0.4, head: [-0.2, 0, 0], ...LEGS_LUNGE_R }, 'snap'),
+      k(0.36, { torso: [0.05, -0.45, 0], uArmR: [-2.4, 0.2, -0.9], fArmR: [-0.1, 0, 0], hand: [0.5, 0, 0], uArmL: [-2.4, -0.2, 0.9], fArmL: [-0.2, 0, 0], head: [0, 0, 0], y: -0.15, ...LEGS_WIDE }),
+      k(0.5, { torso: [0.3, 0.6, 0], uArmR: [-0.6, 1.2, -0.6], hand: [1.2, 0, 0], y: -0.32, ...LEGS_LUNGE_R }, 'snap'),
+      k(0.72, { torso: [0.3, -0.6, 0], uArmL: [-0.6, -1.2, 0.6], fArmL: [-0.2, 0, 0], y: -0.32, ...LEGS_LUNGE_L }, 'snap'),
+      k(1.0, { torso: [0.45, 0, 0], uArmR: [-1.2, 0.5, -0.4], uArmL: [-1.2, -0.5, 0.4], y: -0.4, ...LEGS_LUNGE_R }),
+      k(1.16, { torso: [0.6, 0, 0], uArmR: [-0.95, 0.25, -0.3], fArmR: [0, 0, 0], hand: [1.0, 0, 0], uArmL: [-0.95, -0.25, 0.3], fArmL: [-0.1, 0, 0], y: -0.45 }),
+      k(1.55, { torso: [0.6, -0.1, 0], y: -0.45 }),
+      k(1.75, { torso: [0.1, -0.3, 0], uArmR: [-2.6, 0, -0.6], hand: [0.4, 0, 0], uArmL: [-0.5, 0, 1.2], y: -0.2, ...LEGS_WIDE }),
+      k(2.1, { torso: [0.1, -0.2, 0], uArmR: [-0.4, 0, -0.35], fArmR: [-0.7, 0, 0], hand: [0.6, 0, 0], uArmL: [-0.55, 0, 0.3], fArmL: [-1.1, 0, 0], y: -0.15 }),
     ]),
     hits: [
-      ...[0.16, 0.26, 0.36, 0.46, 0.56, 0.66, 0.76].map((t) => ({ t, t1: t + 0.08, shape: 'arc', range: 5.2, arc: 150, dmg: 11, kb: 0.6, up: 0, pull: 1.4, stop: 1 })),
-      { t: 0.92, t1: 1.06, shape: 'arc', range: 5.8, arc: 230, dmg: 30, kb: 4, up: 0 },
+      { t: 0.05, t1: 0.16, shape: 'arc', range: 5.8, arc: 110, dmg: 22, kb: 1, up: 0 },
+      { t: 0.4, t1: 0.52, shape: 'arc', range: 5.6, arc: 170, dmg: 24, kb: 0.8, up: 0, pull: 1 },
+      { t: 0.62, t1: 0.74, shape: 'arc', range: 5.6, arc: 170, dmg: 24, kb: 1.5, up: 0, pull: 0.8 },
       ...[1.2, 1.3, 1.4].map((t) => ({ t, t1: t + 0.09, shape: 'circle', range: 3.4, dmg: 20, kb: 3, up: 2 })),
-      { t: 1.5, t1: 1.58, shape: 'circle', range: 3.8, off: -1, dmg: 34, kb: 12, up: 6, big: true },
+      { t: 1.5, t1: 1.58, shape: 'circle', range: 3.8, off: -1, dmg: 38, kb: 12, up: 6, big: true },
     ],
     ev: [[0.0, 'flash', 'gold']],
-    sfxs: [...[0.15, 0.35, 0.55, 0.75].map((t) => [t, 'slash_fast']), [0.9, 'slash_a'], [1.14, 'slash_dash']],
+    sfxs: [[0.04, 'slash_h'], [0.4, 'slash_b'], [0.62, 'slash_a'], [1.14, 'slash_dash']],
   },
 
   // J J J J K: spin, then a huge rising crescent that carries the Gundam up with its target.
@@ -256,25 +276,27 @@ export const MOVES = {
     sfxs: [[0.08, 'slash_spin'], [0.48, 'slash_rise']],
   },
 
-  // J J J J J K: spin, hop, and a stab into the ground that sends out a shockwave ~2.8 Gundam heights across.
+  // J J J J J K: "Last Shooting", as in Reborn (and the anime's last duel): a flat cut through the flash, then the beam
+  // rifle held straight up and fired into the sky, and a disc of energy races out ~2.8 Gundam heights around.
   C6: {
-    dur: 1.5, chain: 1.3, saber: true, rate: 1, next: null, charge: null, armor: true,
-    air: [[0.4, 0], [0.54, 2.4], [0.66, 0]],
-    jets: [0.4, 0.55, true],
+    dur: 1.55, chain: 1.3, rate: 1, next: null, charge: null, armor: true, sky: true,
+    wpn: [[0, 'saber'], [0.32, 'rifle']],
     clip: clip([
-      k(0, { torso: [0.1, -0.6, 0], ...SWEEP_R, uArmL: [0, 0, 1.3], y: -0.3, yaw: 0, ...LEGS_WIDE }),
-      k(0.36, { yaw: PI * 2, torso: [0.1, 0.4, 0] }, 'linear'),
-      k(0.54, { yaw: PI * 2, torso: [-0.3, 0, 0], uArmR: [-2.9, 0, -0.15], fArmR: [-0.2, 0, 0], hand: [-1.6, 0, 0], uArmL: [-2.6, 0, 0.2], fArmL: [-0.3, 0, 0], y: 0, ...LEGS_AIR }),
-      k(0.66, { yaw: PI * 2, torso: [0.8, 0, 0], uArmR: [-0.7, 0, -0.05], fArmR: [-0.3, 0, 0], hand: [1.1, 0, 0], uArmL: [-0.7, 0, 0.1], fArmL: [-0.4, 0, 0], y: -0.95, head: [-0.4, 0, 0], ...LEGS_KNEEL }, 'in'),
-      k(1.1, { yaw: PI * 2, torso: [0.75, 0, 0], y: -0.95 }),
-      k(1.5, { yaw: PI * 2, torso: [0.15, -0.2, 0], uArmR: [-0.5, 0, -0.3], fArmR: [-0.7, 0, 0], hand: [0.5, 0, 0], y: -0.15, ...LEGS_WIDE }),
+      k(0, { torso: [0.1, -0.9, 0], ...SWEEP_R, uArmL: [-0.9, 0, 0.5], y: -0.25, ...LEGS_WIDE }),
+      k(0.16, { torso: [0.15, 0.8, 0], ...SWEEP_L, uArmL: [-0.3, 0, 0.9], y: -0.3 }, 'snap'),
+      k(0.4, { torso: [0, -0.3, 0], uArmR: [-2.2, 0, -0.2], fArmR: [0, 0, 0], hand: [1.0, 0, 0], uArmL: [-0.6, 0, 0.35], fArmL: [-1.1, 0, 0], head: [-0.3, 0, 0], y: -0.15, ...LEGS_WIDE }),
+      k(0.56, { torso: [-0.1, -0.2, 0], uArmR: [-3.0, 0, -0.1], hand: [1.45, 0, 0], head: [-0.45, 0, 0], y: -0.1 }),
+      k(0.66, { torso: [-0.15, -0.2, 0], uArmR: [-3.05, 0, -0.1], hand: [1.3, 0, 0], y: -0.22 }, 'snap'),
+      k(1.1, { torso: [-0.1, -0.2, 0], uArmR: [-3.0, 0, -0.1], hand: [1.45, 0, 0], y: -0.15 }),
+      k(1.55, { torso: [0.1, -0.2, 0], uArmR: [-0.6, 0, -0.3], fArmR: [-0.7, 0, 0], hand: [0.6, 0, 0], head: [0, 0, 0], y: -0.1 }),
     ]),
     hits: [
-      { t: 0.1, t1: 0.36, shape: 'arc', range: 5, arc: 360, dmg: 16, kb: 1, up: 2.5 },
-      { t: 0.66, t1: 0.74, shape: 'circle', range: 9.5, dmg: 55, kb: 5, up: 12, big: true },
+      { t: 0.03, t1: 0.18, shape: 'arc', range: 5.4, arc: 200, dmg: 18, kb: 1, up: 1 },
+      { t: 0.62, t1: 0.7, shape: 'circle', range: 9.5, dmg: 55, kb: 5, up: 12, big: true },
     ],
-    ev: [[0.0, 'flash', 'gold'], [0.66, 'shock']],
-    sfxs: [[0.08, 'slash_spin'], [0.5, 'slash_down']],
+    ev: [[0.0, 'flash', 'gold'], [0.62, 'lastshot']],
+    shots: [{ t: 0.6, kind: 'sky' }],
+    sfxs: [[0.03, 'slash_a']],
   },
 
   // ---- boost dash: a thruster rush of paired cuts (keep pressing J), ending in a launcher or the bazooka ----
@@ -307,21 +329,34 @@ export const MOVES = {
     hits: [{ t: 0.06, t1: 0.18, shape: 'arc', range: 5.6, arc: 200, dmg: 34, kb: 4, up: 12, big: true }],
     sfx: 'slash_rise', swing: 0.04,
   },
-  DC: { // dash charge: red shock rings, then the hyper bazooka fired point-blank
-    dur: 1.3, chain: 1.1, rate: 1, next: null, charge: null, armor: true,
-    wpn: [[0, 'saber'], [0.2, 'bazooka']],
+  DC: { // dash charge: as in Reborn, saber cuts on the move behind the thrusters, a spinning cut, then the hyper bazooka
+    // fired point-blank
+    dur: 2.3, chain: 2.05, rate: 1, next: null, charge: null, armor: true,
+    wpn: [[0, 'saber'], [1.42, 'bazooka']],
+    slide: [0, 1.1, 4.2],
+    jets: [0, 1.1, false],
     clip: clip([
-      k(0, { torso: [0.1, -0.6, 0], ...SWEEP_R, uArmL: [0, 0, 1.3], y: -0.3, yaw: 0, ...LEGS_WIDE }),
-      k(0.2, { yaw: PI * 2, torso: [0.1, 0.3, 0] }, 'linear'),
-      k(0.4, { yaw: PI * 2, ...SHOULDER, y: -0.35, ...LEGS_LUNGE_R }),
-      k(0.55, { yaw: PI * 2, ...SHOULDER, y: -0.35 }),
-      k(0.61, { yaw: PI * 2, uArmR: [-0.8, 0, -0.25] }, 'snap'),
-      k(1.3, { yaw: PI * 2, torso: [0.1, -0.2, 0], uArmR: [-0.4, 0, -0.3], fArmR: [-0.9, 0, 0], hand: [0.9, 0, 0], y: -0.12 }),
+      k(0, { torso: [0.35, -0.9, 0], ...SWEEP_R, uArmL: [-1.0, 0, 0.5], y: -0.35, yaw: 0, ...LEGS_LUNGE_L }),
+      k(0.1, { torso: [0.4, 0.9, 0], ...SWEEP_L, uArmL: [-0.2, 0, 0.9], y: -0.4, ...LEGS_LUNGE_R }, 'snap'),
+      k(0.3, { torso: [0.35, -0.95, 0], uArmR: [-0.4, -0.4, -1.3], fArmR: [-0.2, 0, 0], hand: [1.2, 0, 0], y: -0.35, ...LEGS_LUNGE_L }, 'snap'),
+      k(0.48, { torso: [-0.2, -0.2, 0], uArmR: [-2.8, 0, -0.3], fArmR: [-0.2, 0, 0], hand: [0.3, 0, 0], y: -0.15 }),
+      k(0.58, { torso: [0.5, 0.1, 0], uArmR: [-0.9, 0, -0.1], fArmR: [-0.1, 0, 0], hand: [0.75, 0, 0], y: -0.42, ...LEGS_LUNGE_R }, 'snap'),
+      k(0.8, { torso: [0.4, 0.9, 0], ...SWEEP_L, y: -0.4 }, 'snap'),
+      k(1.0, { torso: [0.35, -0.95, 0], uArmR: [-0.4, -0.4, -1.3], fArmR: [-0.2, 0, 0], hand: [1.2, 0, 0], y: -0.35, ...LEGS_LUNGE_L }, 'snap'),
+      k(1.12, { torso: [0.1, -0.6, 0], ...SWEEP_R, uArmL: [0, 0, 1.3], y: -0.3, yaw: 0, ...LEGS_WIDE }),
+      k(1.36, { yaw: PI * 2, torso: [0.1, 0.3, 0] }, 'linear'),
+      k(1.56, { yaw: PI * 2, ...SHOULDER, y: -0.35, ...LEGS_LUNGE_R }),
+      k(1.7, { yaw: PI * 2, ...SHOULDER, y: -0.35 }),
+      k(1.76, { yaw: PI * 2, uArmR: [-0.8, 0, -0.25] }, 'snap'),
+      k(2.3, { yaw: PI * 2, torso: [0.1, -0.2, 0], uArmR: [-0.4, 0, -0.3], fArmR: [-0.9, 0, 0], hand: [0.9, 0, 0], y: -0.12 }),
     ]),
-    hits: [{ t: 0.03, t1: 0.2, shape: 'arc', range: 5, arc: 360, dmg: 14, kb: 1, up: 1.5 }],
-    ev: [[0.02, 'flash', 'red'], [0.22, 'flash', 'red']],
-    shots: [{ t: 0.56, kind: 'blast' }],
-    sfxs: [[0.03, 'slash_spin']],
+    hits: [
+      ...[0.03, 0.23, 0.52, 0.73, 0.93].map((t) => ({ t, t1: t + 0.09, shape: 'arc', range: 5.4, arc: 190, dmg: 12, kb: 1, up: 0, pull: 1.2, stop: 1 })),
+      { t: 1.14, t1: 1.34, shape: 'arc', range: 5, arc: 360, dmg: 14, kb: 1, up: 1.5 },
+    ],
+    ev: [[1.12, 'flash', 'pink'], [1.4, 'flash', 'red']],
+    shots: [{ t: 1.72, kind: 'blast' }],
+    sfxs: [[0.02, 'slash_fast'], [0.22, 'slash_fast'], [0.5, 'slash_h'], [0.72, 'slash_fast'], [0.92, 'slash_fast'], [1.14, 'slash_spin']],
   },
 
   // ---- aerial ----
@@ -347,31 +382,35 @@ export const MOVES = {
   },
 
   // ---- SP attacks ----
-  // Ground: a starburst, a long standing flurry, then the beam javelin skewers, lifts and slams, and the ground erupts
-  // in purple lightning. Hold SP through the starburst for the charge SP (Gundam hammer); in the air: bazooka barrage.
+  // Ground, as in Reborn: a starburst, a storm of beam javelin thrusts, then the javelin skewers, hoists and slams its
+  // target, and the ground erupts in purple lightning. Hold SP through the starburst for the charge SP: the Gundam
+  // hammer, swung round for longer the more stocks it takes. In the air: a bazooka barrage.
   SP_IN: {
-    dur: 0.55, rate: 1, saber: true, armor: true, invuln: true, sp: true, spNext: 'SP_FL', spHold: 'SPC_CH',
+    dur: 0.55, rate: 1, armor: true, invuln: true, sp: true, spNext: 'SP_FL', spHold: 'SPC_CH',
+    wpn: [[0, 'javelin']],
     clip: clip([
       k(0, { torso: [0, 0, 0], uArmR: [-0.2, 0, -0.3], hand: [0.2, 0, 0] }),
-      k(0.22, { torso: [-0.2, 0.3, 0], uArmR: [-3.0, 0, -0.35], fArmR: [0, 0, 0], hand: [0, 0, 0], uArmL: [-0.2, 0, 0.9], head: [-0.2, 0, 0], y: -0.2, ...LEGS_WIDE }, 'snap'),
+      k(0.22, { torso: [-0.2, 0.3, 0], uArmR: [-3.0, 0, -0.35], fArmR: [0, 0, 0], hand: [1.5, 0, 0], uArmL: [-0.2, 0, 0.9], head: [-0.2, 0, 0], y: -0.2, ...LEGS_WIDE }, 'snap'),
       k(0.55, { torso: [-0.25, 0.35, 0] }),
     ]),
     ev: [[0.04, 'burst']],
   },
-  SP_FL: {
-    dur: 3.0, rate: 1, saber: true, armor: true, invuln: true, sp: true, loop: 0.3, rushFx: true, steer: 2, spNext: 'SP_JV',
+  SP_FL: { // a storm of javelin thrusts, pink bursts all over whatever is in front
+    dur: 3.0, rate: 1, armor: true, invuln: true, sp: true, loop: 0.2, rushFx: true, steer: 2, spNext: 'SP_JV',
+    wpn: [[0, 'javelin']],
     clip: clip([
-      k(0, { torso: [0.15, -0.9, 0], ...SWEEP_R, uArmL: [-0.9, 0, 0.5], y: -0.3, ...LEGS_WIDE }),
-      k(0.08, { torso: [0.15, 0.9, 0], ...SWEEP_L, uArmL: [-0.3, 0, 0.9], y: -0.35 }, 'snap'),
-      k(0.15, { torso: [-0.2, 0.5, 0], uArmR: [-2.6, 0.5, -0.4], fArmR: [-0.1, 0, 0], hand: [0.4, 0, 0], y: -0.2 }, 'snap'),
-      k(0.23, { torso: [0.4, -0.4, 0], uArmR: [-0.8, -0.2, -0.3], fArmR: [-0.1, 0, 0], hand: [0.9, 0, 0], y: -0.4 }, 'snap'),
-      k(0.3, { torso: [0.15, -0.9, 0], ...SWEEP_R, y: -0.3 }),
+      k(0, { torso: [0.05, -0.5, 0], uArmR: [-0.5, 0, -0.25], fArmR: [-1.3, 0, 0], hand: [1.8, 0, 0], uArmL: [-0.9, 0.3, 0.35], fArmL: [-0.9, 0, 0], y: -0.3, ...LEGS_LUNGE_R }),
+      k(0.05, { torso: [0.3, -0.3, 0], uArmR: [-1.45, 0.15, 0], fArmR: [0, 0, 0], hand: [1.45, 0, 0], y: -0.38 }, 'snap'),
+      k(0.1, { torso: [0.05, -0.55, 0], uArmR: [-0.5, 0, -0.25], fArmR: [-1.3, 0, 0], hand: [1.8, 0, 0], y: -0.3 }),
+      k(0.15, { torso: [0.3, -0.35, 0], uArmR: [-1.6, -0.15, 0], fArmR: [0, 0, 0], hand: [1.6, 0, 0], y: -0.38 }, 'snap'),
+      k(0.2, { torso: [0.05, -0.5, 0], uArmR: [-0.5, 0, -0.25], fArmR: [-1.3, 0, 0], hand: [1.8, 0, 0], y: -0.3 }),
     ]),
     hits: [
-      ...every(0.05, 2.9, 0.075, { shape: 'arc', range: 5.4, arc: 240, dmg: 9, kb: 0.5, up: 0.4, pull: 1.2, sp: true }),
-      { t: 2.9, t1: 2.98, shape: 'arc', range: 5.6, arc: 260, dmg: 16, kb: 3, up: 2, sp: true },
+      ...every(0.05, 2.9, 0.075, { shape: 'arc', range: 6.6, arc: 150, dmg: 9, kb: 0.5, up: 0.4, pull: 1.2, sp: true }),
+      { t: 2.9, t1: 2.98, shape: 'arc', range: 6.8, arc: 170, dmg: 16, kb: 3, up: 2, sp: true },
     ],
-    sfxs: [0.02, 0.1, 0.17, 0.25].flatMap((o) => times(0, 2.9, 0.3).map((t) => [t + o, 'slash_fast'])),
+    ev: times(0.05, 2.95, 0.1).map((t) => [t, 'jab']),
+    sfxs: times(0.02, 2.9, 0.2).map((t) => [t, 'javelin']),
   },
   SP_JV: {
     dur: 1.25, rate: 1, armor: true, invuln: true, sp: true, spNext: 'SP_OUT',
@@ -423,8 +462,8 @@ export const MOVES = {
     ]),
     shots: [{ t: 0.1, kind: 'bazooka', dn: true }],
   },
-  SPC_CH: {
-    dur: 1.1, rate: 1, armor: true, invuln: true, sp: true, chargeAura: true, spNext: 'SPC_HAM',
+  SPC_CH: { // held SP: every 0.6 s held commits another stock to the hammer (hero.js chargeStocks)
+    dur: 1.1, rate: 1, armor: true, invuln: true, sp: true, chargeAura: true, spcStep: 0.6, spNext: 'SPC_SWING',
     wpn: [[0, null]],
     clip: clip([
       k(0, { torso: [-0.2, 0.3, 0], uArmR: [-3.0, 0, -0.35], hand: [0, 0, 0], y: -0.2, ...LEGS_WIDE }),
@@ -433,17 +472,29 @@ export const MOVES = {
     ]),
     ev: [[0.02, 'charge'], [1.05, 'burst']],
   },
-  SPC_HAM: {
-    dur: 4.5, rate: 1, armor: true, invuln: true, sp: true, rushFx: true, steer: 3.5, spNext: 'SPC_END',
+  SPC_SWING: { // the hammer flung out on its chain as the suit winds up into the turn
+    dur: 1.2, rate: 1, armor: true, invuln: true, sp: true, rushFx: true, steer: 3.5, spNext: 'SPC_HAM',
     wpn: [[0, 'hammer']],
-    ham: [[0, 0.6], [0.3, HAMMER_R]],
+    ham: [[0, 0.6], [0.6, HAMMER_R]],
     clip: clip([
       k(0, { torso: [0.1, 0, 0], uArmR: [-0.3, 0, -1.5], fArmR: [-0.1, 0, 0], hand: [1.2, 0, 0], uArmL: [-0.8, 0, 0.6], y: -0.3, yaw: 0, ...LEGS_WIDE }),
-      k(0.3, { yaw: -PI * 0.5 }, 'in'),
-      k(4.5, { yaw: -PI * 14.5 }, 'linear'),
+      k(1.2, { yaw: -PI * 2 }, 'in'),
     ]),
-    hits: every(0.2, 4.45, 0.17, { shape: 'circle', range: 6.2, dmg: 14, kb: 5, up: 3, sp: true }),
-    sfxs: times(0.2, 4.45, 0.316).map((t) => [t, 'hammer']),
+    hits: every(0.5, 1.2, 0.15, { shape: 'circle', range: 6.2, dmg: 14, kb: 5, up: 3, sp: true }),
+    sfxs: [[0.4, 'hammer'], [0.85, 'hammer']],
+  },
+  SPC_HAM: { // round and round, the suit walking the hammer through the crowd: a pass of four turns, run for as long
+    // as the stocks spent buy (about 3.5 s per stock with the wind-up, as in Reborn)
+    dur: 2.4, rate: 1, armor: true, invuln: true, sp: true, loop: 0.6, rushFx: true, steer: 3.5, spNext: 'SPC_END',
+    stockDur: [2.4, 4.8, 7.2],
+    wpn: [[0, 'hammer']],
+    ham: [[0, HAMMER_R]],
+    clip: clip([
+      k(0, { torso: [0.1, 0, 0], uArmR: [-0.3, 0, -1.5], fArmR: [-0.1, 0, 0], hand: [1.2, 0, 0], uArmL: [-0.8, 0, 0.6], y: -0.3, yaw: 0, ...LEGS_WIDE }),
+      k(0.6, { yaw: -PI * 2 }, 'linear'),
+    ]),
+    hits: every(0.05, 2.35, 0.15, { shape: 'circle', range: 6.2, dmg: 14, kb: 5, up: 3, sp: true }),
+    sfxs: times(0.1, 2.35, 0.3).map((t) => [t, 'hammer']),
   },
   SPC_END: {
     dur: 1.0, rate: 1, armor: true, invuln: true, sp: true,

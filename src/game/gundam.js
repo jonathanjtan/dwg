@@ -1,4 +1,4 @@
-// Amuro's RX-78-2: beam saber, beam rifle, beam javelin, hyper bazooka and the Gundam hammer.
+// Amuro's RX-78-2: beam sabers, beam rifle, beam javelin, hyper bazooka, shield and the Gundam hammer.
 import * as THREE from 'three';
 import { voxelMesh } from '../core/voxel.js';
 import { P } from '../core/rig.js';
@@ -8,8 +8,8 @@ import { Hero, FLASH, curve } from './hero.js';
 import { damp, lerp } from '../core/util.js';
 import { Trail } from '../fx/fx.js';
 
-const WEAPON_ID = { saber: 1, rifle: 2, javelin: 3, bazooka: 4, hammer: 5 };
-const WEAPON_OF = [null, 'saber', 'rifle', 'javelin', 'bazooka', 'hammer'];
+const WEAPON_ID = { saber: 1, rifle: 2, javelin: 3, bazooka: 4, hammer: 5, sabers: 6 };
+const WEAPON_OF = [null, 'saber', 'rifle', 'javelin', 'bazooka', 'hammer', 'sabers'];
 // Beam presets: the rapid rifle shot and the heavy charge shot that throws its target.
 const RIFLE_SHOT = { dmg: 22, kb: 4, up: 1 };
 const CHARGE_SHOT = { dmg: 72, kb: 10, up: 10, big: true, w: 2.4, r: 1.5, speed: 110 };
@@ -46,6 +46,18 @@ export class Gundam extends Hero {
     this.bladeCore = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.6, 3), toneMapped: false }));
     this.blade.add(this.bladeOuter, this.bladeCore);
     hand.add(this.blade);
+    // the second beam saber (C4), in the left fist: a grip at the end of the left forearm, mirroring the right hand
+    this.gripL = new THREE.Group();
+    this.gripL.position.copy(hand.position).x *= -1;
+    this.gripL.rotation.x = 1.2;
+    this.rig.nodes.fArmL.add(this.gripL);
+    this.hiltL = voxelMesh(w.hilt, { scale: GUNDAM_VOXEL });
+    this.bladeL = new THREE.Group();
+    this.bladeL.position.z = 0.3;
+    this.bladeL.add(new THREE.Mesh(outerGeo, this.bladeOuter.material), new THREE.Mesh(coreGeo, this.bladeCore.material));
+    this.gripL.add(this.hiltL, this.bladeL);
+    this.hiltL.visible = this.bladeL.visible = false;
+    this.saberScaleL = 0;
     this.rifle = voxelMesh(w.rifle, { scale: GUNDAM_VOXEL });
     this.rifle.position.set(0, -0.05, 0);
     hand.add(this.rifle);
@@ -68,6 +80,12 @@ export class Gundam extends Hero {
     this.trail = new Trail(this.scene, SABER_TRAIL, 16);
     this.scene.remove(this.trail.mesh);
     this.own(this.trail.mesh);
+    this.trailL = new Trail(this.scene, SABER_TRAIL, 16);
+    this.scene.remove(this.trailL.mesh);
+    this.own(this.trailL.mesh);
+    this._baseL = new THREE.Vector3();
+    this._tipL = new THREE.Vector3();
+    this._up = new THREE.Vector3();
     this._base = new THREE.Vector3();
     this._tip = new THREE.Vector3();
     this._prevTip = new THREE.Vector3();
@@ -85,16 +103,19 @@ export class Gundam extends Hero {
   onWeapon(w) {
     const g = this.game;
     if (w === 'saber' && this.saberScale < 0.3) g.audio.play('ignite');
+    else if (w === 'sabers') g.audio.play('ignite', { pitch: 1.12 });
     else if (w === 'javelin' || w === 'bazooka' || w === 'hammer') g.audio.play('draw', { vol: 0.7 });
   }
 
   onMoveTick(m, t) {
     const w = this.wpn;
     // as in Reborn the blade goes out as soon as the attack ends; the short hold only bridges one move into the next
-    if (w === 'saber') this.saberLit = 0.12;
+    if (w === 'saber' || w === 'sabers') this.saberLit = 0.12;
     else if (w) this.saberLit = 0;
     if (w === 'rifle') this.rifleVis = 0.6;
     if (m.ham) this.hamR = curve(m.ham, t);
+    // C6, "Last Shooting": the aim layer holds the rifle straight up (a little forward) instead of level
+    if (m.sky && w === 'rifle') this.gunAim = this._up.set(Math.sin(this.heading) * 0.12, 1, Math.cos(this.heading) * 0.12).normalize();
   }
 
   onEndMusou() {
@@ -127,8 +148,15 @@ export class Gundam extends Hero {
         g.fx.light(tip, 0xff6fd0, 90, 14, 0.25);
         break;
       }
-      case 'shock': { // C6: the blade goes into the ground and a disc of energy races out
-        const c = this._w.set(P0.x + fx * 1.2, 0.2, P0.z + fz * 1.2);
+      case 'jab': { // SP flurry: a javelin thrust lands somewhere in front in a pink burst
+        const d = 3 + Math.random() * 3, s = (Math.random() - 0.5) * 3.2;
+        const c = this._w.set(P0.x + fx * d + fz * s, P0.y + 1.2 + Math.random() * 2.4, P0.z + fz * d - fx * s);
+        g.fx.star(c, 0xff8ad8, 1 + Math.random() * 0.8);
+        if (Math.random() < 0.35) g.fx.sparks(c, 4, 0xffb0e0, 10);
+        break;
+      }
+      case 'lastshot': { // C6: the skyward shot, and a disc of energy racing out along the ground around the suit
+        const c = this._w.set(P0.x, 0.2, P0.z);
         g.fx.shock(c, 9.5, 0xff6fd0, 0.75);
         g.fx.ring(c, 0.5, 10, 0xffb0e0, 0.6);
         g.fx.dust(c, 30, 2.2);
@@ -164,6 +192,18 @@ export class Gundam extends Hero {
 
   fire(shot) {
     const g = this.game;
+    if (shot.kind === 'sky') {
+      // C6, "Last Shooting": one heavy beam straight up into the sky (the shockwave on the ground is the move's hit)
+      const P0 = this.pos, fx = Math.sin(this.heading), fz = Math.cos(this.heading);
+      const from = this.aimGunTo(P0.x + fx * 6, P0.y + 60, P0.z + fz * 6, new THREE.Vector3());
+      const dir = new THREE.Vector3(P0.x + fx * 6 - from.x, P0.y + 60 - from.y, P0.z + fz * 6 - from.z).normalize();
+      g.projectiles.heroBeam(this, from, dir, { ...CHARGE_SHOT, w: 3, r: 1.5, max: 0.6 });
+      g.fx.muzzle(from, dir, 0xff8ad8, 2.4);
+      g.fx.star(from, 0xffc0f0, 2.6);
+      g.audio.play('cshot');
+      g.camera.kick(4);
+      return;
+    }
     const ang = this.aimYaw + (shot.ang || 0);
     const heavy = shot.kind === 'bazooka' || shot.kind === 'blast';
     // aim each shot at the nearest enemy in its lane if any
@@ -226,10 +266,12 @@ export class Gundam extends Hero {
   preVisuals(dt, inMove) {
     const wpn = this.heldWeapon(inMove);
     this.showWeapon(wpn);
-    const lit = wpn === 'saber' || (!wpn && this.saberLit > 0);
+    const lit = wpn === 'saber' || wpn === 'sabers' || (!wpn && this.saberLit > 0);
     this.saberScale = damp(this.saberScale, lit ? 1 : 0, lit ? 22 : 24, dt);
     this.blade.visible = this.saberScale > 0.02;
     this.blade.scale.set(1, 1, Math.max(0.001, BLADE * this.saberScale));
+    this.saberScaleL = damp(this.saberScaleL, wpn === 'sabers' ? 1 : 0, 22, dt);
+    this.setBladeL(this.saberScaleL);
     const flick = 0.92 + Math.random() * 0.08;
     this.bladeOuter.material.color.copy(SABER_COLOR).multiplyScalar(flick);
   }
@@ -237,13 +279,14 @@ export class Gundam extends Hero {
   postVisuals(dt, inMove) {
     const wpn = this.heldWeapon(inMove);
     this.placeHammer(wpn === 'hammer' && this.hamR > 0.3);
-    const swinging = inMove && wpn === 'saber';
+    const swinging = inMove && (wpn === 'saber' || wpn === 'sabers');
     this.blade.localToWorld(this._base.set(0, 0, 0.18));
     this.blade.localToWorld(this._tip.set(0, 0, 1));
     // blade tip speed drives the saber hum's swoosh
     if (dt > 1e-4) this.tipSpeed = damp(this.tipSpeed, this._tip.distanceTo(this._prevTip) / dt, 20, dt);
     this._prevTip.copy(this._tip);
     this.trail.push(this._base, this._tip, swinging && this.blade.visible);
+    this.pushTrailL(inMove && wpn === 'sabers');
   }
 
   showWeapon(wpn) {
@@ -251,7 +294,19 @@ export class Gundam extends Hero {
     this.javelin.visible = wpn === 'javelin';
     this.bazooka.visible = wpn === 'bazooka';
     this.grip.visible = wpn === 'hammer';
-    this.hilt.visible = !wpn || wpn === 'saber';
+    this.hilt.visible = !wpn || wpn === 'saber' || wpn === 'sabers';
+    this.hiltL.visible = wpn === 'sabers';
+  }
+
+  setBladeL(s) {
+    this.bladeL.visible = s > 0.02;
+    this.bladeL.scale.set(1, 1, Math.max(0.001, BLADE * s));
+  }
+
+  pushTrailL(on) {
+    this.bladeL.localToWorld(this._baseL.set(0, 0, 0.18));
+    this.bladeL.localToWorld(this._tipL.set(0, 0, 1));
+    this.trailL.push(this._baseL, this._tipL, on && this.bladeL.visible);
   }
 
   // Hammer ball on its chain, flung out from the fist along the arm's bearing to the current chain length.
@@ -280,7 +335,7 @@ export class Gundam extends Hero {
   netExtras() {
     const inMove = this.state === 'attack' || this.state === 'musou';
     const wpn = this.heldWeapon(inMove);
-    return { sab: this.saberScale, wp: WEAPON_ID[wpn] || 0, hm: this.hamR, sw: inMove && wpn === 'saber' };
+    return { sab: this.saberScale, wp: WEAPON_ID[wpn] || 0, hm: this.hamR, sw: inMove && (wpn === 'saber' || wpn === 'sabers') };
   }
 
   applyNetExtras(s) {
@@ -294,5 +349,7 @@ export class Gundam extends Hero {
     this.blade.localToWorld(this._base.set(0, 0, 0.18));
     this.blade.localToWorld(this._tip.set(0, 0, 1));
     this.trail.push(this._base, this._tip, s.sw && this.blade.visible);
+    this.setBladeL(wpn === 'sabers' ? s.sab : 0);
+    this.pushTrailL(s.sw && wpn === 'sabers');
   }
 }

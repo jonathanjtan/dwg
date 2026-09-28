@@ -1,22 +1,23 @@
 // Sazabi moveset, after Dynasty Warriors: Gundam Reborn's "ALL MOVES" video. Ported from the footage: Basic Combo ->
 // N1-N6 (beam tomahawk cuts ending in a rising launcher), Shot Combo -> C1/C1R (the beam shot rifle, heavy and
 // slow), Charge Shot -> CS (a boosting stab that launches, then the funnels converge on the catch), Charge 2 -> C2 (a
-// tomahawk spin, then the abdominal mega particle cannon point-blank), Charge 3 -> C3 (cuts into a launcher, funnels
+// tomahawk spin, then the abdominal mega particle cannon point-blank; K again -> C2F, a thruster dash driving the
+// tomahawk up through the target), Charge 3 -> C3 (cuts into a launcher, funnels
 // surround the target and fire in a starburst), Charge 4 -> C4 (a thruster spin sweep), Charge 5 -> C5 (a rising
 // thruster flurry), Charge 6 -> C6 (cuts and a spin, then the funnels ring the suit and fire in every direction),
 // Dash Combo -> DA/DAF (the dash string ends in a full-body slam that skids along the ground, as in the video), Dash
-// Charge -> DC (spin cuts into a rising uppercut and a funnel volley at the catch), Musou -> SP_* (the funnels spread
-// out wide and rain beams on the field, then the mega particle cannon), Air Musou -> SPA_* (hovering, the shot rifle
-// hammers the ground, then one green-white burst on the target), Charge Musou -> SPC_* (a tomahawk-and-funnel frenzy
-// finished by the tomahawk's beam stretched out into a giant axe for one sweeping cut). The video skips jump attacks:
+// Charge -> DC (cuts on the move, a spin, a rising uppercut, then one heavy shot rifle beam straight up at the
+// catch), Musou -> SP_* (the funnels spread out wide and rain beams on the field, then come home and fire down a line
+// in front), Air Musou -> SPA_* (hovering, the shot rifle hammers the ground, then one green-white burst on the
+// target), Charge Musou -> SPC_* (a tomahawk-and-funnel frenzy that lasts longer for each SP stock spent, a last
+// rising cut and the funnels firing round the catch). The video skips jump attacks:
 // JA is a tomahawk chop and JC a missile volley at the ground, the Sazabi's missiles being on its spec sheet.
 // Reach measured off the footage in Sazabi heights (H ~ 3.9 units, a 25m suit): tomahawk cuts land ~1.4H out, the
-// spin sweeps ~1.5H, the funnels ring a target at ~1H and the suit at ~1.2H, the SP rain covers ~2.6H around, and the
-// charge SP's giant axe reaches ~3.3H.
+// spin sweeps ~1.5H, the funnels ring a target at ~1H and the suit at ~1.2H, and the SP rain covers ~2.6H around.
 import { Clip, poseFrom } from '../core/rig.js';
 
 const PI = Math.PI;
-export const BLADE = 4.8; // beam tomahawk blade length (units); `bl` scales it
+export const BLADE = 4.8; // beam tomahawk blade length (units)
 
 // Ready stance: tomahawk low in the right hand, shield arm across the body, a heavy wide footing.
 export const STANCE = poseFrom({
@@ -55,10 +56,11 @@ const funnels = (t0, step, mode, n = 6, i0 = 0) => Array.from({ length: n }, (_,
 
 // hit: { t, t1, shape, range, arc, len, width, off, hy, dmg, kb, up, pull, big, sp, stop }
 // ev: [t, name, arg]: 'funnels' deploys the six funnels ('tgt' around the target, 'ring' round the suit, 'field' wide
-// over the field), 'recall' brings them home, 'mega' fires the abdominal mega particle cannon point-blank, 'megabeam'
-// the SP's full-length beam, 'burstgreen' the air SP's finishing burst, 'bigaxe' the charge SP's giant cut.
-// shots: { t, kind: 'srifle' | 'funnel' | 'down' | 'missile', i (funnel), mode ('tgt' | 'out' | 'rain'), ang }
-// wpn: [t, weapon] (saber: beam tomahawk lit | rifle: beam shot rifle | null); bl: blade length multiplier curve.
+// over the field, 'line' in a row out in front), 'recall' brings them home, 'linefire' fires the 'line' down its length,
+// 'mega' fires the abdominal mega particle cannon point-blank, 'burstgreen' the air SP's finishing burst.
+// shots: { t, kind: 'srifle' | 'funnel' | 'down' | 'up' | 'missile', i (funnel), mode ('tgt' | 'out' | 'rain'), ang }
+// wpn: [t, weapon] (saber: beam tomahawk lit | rifle: beam shot rifle | null); lift: [t0, t1] thrusters firing for lift.
+// SP stocks (hero.js): spcStep on the charge SP's wind-up, stockDur on the frenzy it stretches.
 export const MOVES = {
   // ---- normal string: five tomahawk cuts, then a rising thruster slash that launches ----
   N1: {
@@ -183,9 +185,9 @@ export const MOVES = {
     sfxs: [[0.1, 'qb'], [0.38, 'slash_rise']],
   },
 
-  // J K: a tomahawk spin, then the abdominal mega particle cannon point-blank.
+  // J K: a tomahawk spin, then the abdominal mega particle cannon point-blank. K again: C2F.
   C2: {
-    dur: 1.6, chain: 1.35, saber: true, rate: 1, next: null, charge: null, armor: true,
+    dur: 1.6, chain: 1.15, saber: true, rate: 1, next: null, charge: 'C2F', armor: true,
     lunge: [[0.02, 0], [0.2, 1.3]],
     clip: clip([
       k(0, { torso: [0.1, -0.6, 0], ...SWEEP_R, y: -0.3, yaw: 0, ...LEGS_WIDE }),
@@ -201,6 +203,31 @@ export const MOVES = {
     ],
     ev: [[0.0, 'flash', 'gold'], [0.6, 'megacharge'], [0.88, 'mega']],
     sfxs: [[0.05, 'slash_spin'], [0.25, 'slash_spin']],
+  },
+
+  C2F: { // K again after J K: as in Reborn, a turning tomahawk cut, then a thruster dash that drives the tomahawk up
+    // through the target (it breaks guard) and carries it into the air
+    dur: 1.3, chain: 1.05, saber: true, rate: 1, next: null, charge: null, armor: true,
+    lunge: [[0.2, 0], [0.5, 4.2]],
+    jets: [0.2, 0.62, false],
+    air: [[0.45, 0], [0.7, 1.4], [1.1, 0]],
+    clip: clip([
+      k(0, { torso: [0.1, 0.8, 0], ...SWEEP_L, y: -0.25, ...LEGS_WIDE }),
+      k(0.15, { torso: [0.15, -0.85, 0], ...SWEEP_R, y: -0.3, ...LEGS_LUNGE_L }, 'snap'),
+      k(0.3, { torso: [0.55, -0.3, 0], uArmR: [0.5, 0, -0.4], fArmR: [-0.3, 0, 0], hand: [0.4, 0, 0], y: -0.45, ...LEGS_LUNGE_R }),
+      k(0.5, { torso: [0.6, -0.2, 0], uArmR: [0.6, 0, -0.35], y: -0.45 }),
+      k(0.62, { torso: [-0.4, 0.25, 0], ...HIGH, uArmL: [-0.3, 0, 0.9], y: 0, ...LEGS_AIR }, 'snap'),
+      k(0.95, { torso: [-0.3, 0.2, 0] }),
+      k(1.1, { torso: [0.3, 0, 0], uArmR: [-0.8, 0, -0.3], y: -0.4, ...LEGS_WIDE }),
+      k(1.3, { torso: [0.1, -0.2, 0], y: -0.15 }),
+    ]),
+    hits: [
+      { t: 0.06, t1: 0.17, shape: 'arc', range: 5.4, arc: 200, dmg: 18, kb: 1, up: 0, pull: 1 },
+      { t: 0.24, t1: 0.52, shape: 'arc', range: 4.4, arc: 120, dmg: 12, kb: 0.5, up: 0.5, pull: 1.5, stop: 1 },
+      { t: 0.56, t1: 0.68, shape: 'arc', range: 5.4, arc: 160, hy: 6, dmg: 36, kb: 2, up: 13, big: true },
+    ],
+    ev: [[1.1, 'land']],
+    sfxs: [[0.05, 'slash_a'], [0.22, 'qb'], [0.56, 'slash_rise']],
   },
 
   // J J K: two cuts and a launcher, then all six funnels surround the catch and fire at once.
@@ -346,29 +373,38 @@ export const MOVES = {
     ev: [[0.3, 'skid']],
     sfxs: [[0.02, 'qb'], [0.3, 'slam'], [0.32, 'skid']],
   },
-  DC: {
-    dur: 1.55, chain: 1.3, rate: 1, next: null, charge: null, armor: true,
-    wpn: [[0, 'saber'], [0.75, null]],
-    slide: [0, 0.4, 5],
-    jets: [0, 0.65, true],
-    air: [[0.4, 0], [0.62, 1.6], [1.2, 1.6], [1.45, 0]],
+  DC: { // as in Reborn: tomahawk cuts on the move, a spin, a rising uppercut that launches, then from the hover one
+    // heavy beam from the shot rifle straight up into the catch
+    dur: 2.7, chain: 2.4, rate: 1, next: null, charge: null, armor: true,
+    wpn: [[0, 'saber'], [1.4, 'rifle']],
+    slide: [0, 0.62, 5.5],
+    jets: [0, 0.62, false],
+    lift: [0.95, 2.2],
+    air: [[0.95, 0], [1.25, 2.2], [2.2, 2.2], [2.55, 0]],
     clip: clip([
-      k(0, { torso: [0.2, -0.6, 0], ...SWEEP_R, y: -0.3, yaw: 0, ...LEGS_WIDE }),
-      k(0.36, { torso: [0.2, 0.4, 0], ...SWEEP_R, yaw: PI * 2 }, 'linear'),
-      k(0.44, { yaw: PI * 2, torso: [0.4, -0.3, 0], uArmR: [0.7, 0, -0.35], hand: [0.2, 0, 0], y: -0.45, ...LEGS_LUNGE_R }),
-      k(0.58, { yaw: PI * 2, torso: [-0.45, 0.25, 0], ...HIGH, y: 0, ...LEGS_AIR }, 'snap'),
-      k(0.8, { yaw: PI * 2, ...COMMAND, head: [-0.5, 0, 0], ...LEGS_AIR }),
-      k(1.45, { yaw: PI * 2, torso: [0.3, 0, 0], uArmR: [-0.5, 0, -0.35], y: -0.4, ...LEGS_WIDE }),
-      k(1.55, { yaw: PI * 2, torso: [0.1, -0.2, 0], y: -0.15 }),
+      k(0, { torso: [0.35, -0.85, 0], ...SWEEP_R, y: -0.32, yaw: 0, ...LEGS_LUNGE_L }),
+      k(0.1, { torso: [0.4, 0.85, 0], ...SWEEP_L, y: -0.38, ...LEGS_LUNGE_R }, 'snap'),
+      k(0.3, { torso: [0.35, -0.9, 0], uArmR: [-0.4, -0.4, -1.25], fArmR: [-0.2, 0, 0], hand: [1.2, 0, 0], y: -0.32, ...LEGS_LUNGE_L }, 'snap'),
+      k(0.5, { torso: [0.4, 0.85, 0], ...SWEEP_L, y: -0.38, ...LEGS_LUNGE_R }, 'snap'),
+      k(0.62, { torso: [0.2, -0.6, 0], ...SWEEP_R, y: -0.3, yaw: 0, ...LEGS_WIDE }),
+      k(0.88, { torso: [0.2, 0.4, 0], ...SWEEP_R, yaw: PI * 2 }, 'linear'),
+      k(0.96, { yaw: PI * 2, torso: [0.4, -0.3, 0], uArmR: [0.7, 0, -0.35], hand: [0.2, 0, 0], y: -0.45, ...LEGS_LUNGE_R }),
+      k(1.1, { yaw: PI * 2, torso: [-0.45, 0.25, 0], ...HIGH, y: 0, ...LEGS_AIR }, 'snap'),
+      k(1.5, { yaw: PI * 2, torso: [-0.3, -0.3, 0.05], uArmR: [-2.5, 0, -0.15], fArmR: [0, 0, 0], hand: [1.1, 0, 0], uArmL: [-0.7, 0, 0.3], fArmL: [-1.1, 0, 0], head: [-0.55, 0, 0], ...LEGS_AIR }),
+      k(1.72, { yaw: PI * 2, torso: [-0.35, -0.3, 0.05], uArmR: [-2.6, 0, -0.15], hand: [1.2, 0, 0] }),
+      k(1.78, { yaw: PI * 2, torso: [-0.3, -0.3, 0.05], uArmR: [-2.75, 0, -0.15], hand: [1.05, 0, 0] }, 'snap'),
+      k(2.2, { yaw: PI * 2, torso: [-0.3, -0.3, 0.05], uArmR: [-2.6, 0, -0.15], hand: [1.2, 0, 0] }),
+      k(2.55, { yaw: PI * 2, torso: [0.3, 0, 0], uArmR: [-0.5, 0, -0.35], hand: [0.5, 0, 0], head: [0, 0, 0], y: -0.4, ...LEGS_WIDE }),
+      k(2.7, { yaw: PI * 2, torso: [0.1, -0.2, 0], y: -0.15 }),
     ]),
     hits: [
-      { t: 0.04, t1: 0.36, shape: 'arc', range: 5.6, arc: 360, dmg: 14, kb: 1, up: 0.5, pull: 1.2 },
-      { t: 0.18, t1: 0.3, shape: 'arc', range: 5.6, arc: 360, dmg: 14, kb: 1, up: 0.5, pull: 1.2 },
-      { t: 0.46, t1: 0.6, shape: 'arc', range: 5.6, arc: 170, hy: 6, dmg: 32, kb: 2, up: 13, big: true },
+      ...[0.03, 0.2, 0.4].map((t) => ({ t, t1: t + 0.1, shape: 'arc', range: 5.4, arc: 190, dmg: 13, kb: 1, up: 0, pull: 1.2, stop: 1 })),
+      { t: 0.64, t1: 0.88, shape: 'arc', range: 5.6, arc: 360, dmg: 14, kb: 1, up: 0.5, pull: 1.2 },
+      { t: 0.98, t1: 1.12, shape: 'arc', range: 5.6, arc: 170, hy: 6, dmg: 32, kb: 2, up: 13, big: true },
     ],
-    ev: [[0.02, 'flash', 'gold'], [0.72, 'funnels', 'tgt'], [1.4, 'recall']],
-    shots: funnels(0.9, 0.06, 'tgt', 8),
-    sfxs: [[0.03, 'slash_spin'], [0.46, 'slash_rise'], [1.45, 'land']],
+    ev: [[0.6, 'flash', 'violet'], [2.55, 'land']],
+    shots: [{ t: 1.76, kind: 'up' }],
+    sfxs: [[0.02, 'slash_fast'], [0.2, 'slash_fast'], [0.4, 'slash_fast'], [0.64, 'slash_spin'], [0.98, 'slash_rise']],
   },
 
   // ---- aerial ----
@@ -394,8 +430,8 @@ export const MOVES = {
 
   // ---- SP attacks ----
   // Ground: a starburst, then the funnels fan out wide and rain beams on the field while the shot rifle picks off
-  // what's left, and the abdominal mega particle cannon finishes it. Hold SP through the starburst for the charge SP
-  // (a tomahawk-and-funnel frenzy, then a giant beam axe); in the air, the shot rifle hammers the ground.
+  // what's left, and they come home to fire down a line in front. Hold SP through the starburst for the charge SP (a
+  // tomahawk-and-funnel frenzy, longer for each stock); in the air, the shot rifle hammers the ground.
   SP_IN: {
     dur: 0.55, rate: 1, armor: true, invuln: true, sp: true, spNext: 'SP_RAIN', spHold: 'SPC_CH',
     clip: clip([
@@ -406,7 +442,7 @@ export const MOVES = {
     ev: [[0.03, 'burst'], [0.4, 'funnels', 'field']],
   },
   SP_RAIN: {
-    dur: 3.2, rate: 1, armor: true, invuln: true, sp: true, steer: 2.4, spNext: 'SP_MEGA',
+    dur: 3.2, rate: 1, armor: true, invuln: true, sp: true, steer: 2.4, spNext: 'SP_END',
     wpn: [[0, 'rifle']],
     clip: clip([
       k(0, { ...RIFLE, y: -0.15, ...LEGS_WIDE }),
@@ -424,16 +460,16 @@ export const MOVES = {
       ...[0.52, 1.62, 2.42].map((t) => ({ t, kind: 'srifle', sp: true })),
     ],
   },
-  SP_MEGA: { // the funnels come home and the abdominal mega particle cannon fires straight ahead
+  SP_END: { // as in Reborn: the funnels come home, line up in front of the suit and fire down the line together
     dur: 1.5, rate: 1, armor: true, invuln: true, sp: true,
     clip: clip([
-      k(0, { torso: [0.1, 0, 0], uArmR: [-0.3, 0, -0.35], y: -0.15 }),
-      k(0.4, { torso: [-0.35, 0, 0], uArmR: [0.2, 0, -1.0], uArmL: [0.2, 0, 1.0], fArmL: [-0.3, 0, 0], head: [-0.25, 0, 0], y: -0.45, ...LEGS_WIDE }),
-      k(1.2, { torso: [-0.35, 0, 0] }),
-      k(1.5, { torso: [0.1, -0.2, 0], y: -0.15 }),
+      k(0, { ...RIFLE, y: -0.15, ...LEGS_WIDE }),
+      k(0.35, { ...COMMAND, y: -0.15, ...LEGS_WIDE }),
+      k(1.2, { ...COMMAND, torso: [-0.15, -0.1, 0], y: -0.15 }),
+      k(1.5, { torso: [0.1, -0.2, 0], y: -0.12 }),
     ]),
-    hits: [{ t: 0.52, t1: 0.9, shape: 'line', len: 18, width: 4.2, dmg: 40, kb: 6, up: 5, sp: true }, { t: 0.95, t1: 1.02, shape: 'line', len: 18, width: 4.6, dmg: 90, kb: 14, up: 10, big: true, sp: true }],
-    ev: [[0.02, 'recall'], [0.1, 'megacharge'], [0.5, 'megabeam']],
+    hits: [{ t: 0.92, t1: 1.0, shape: 'line', len: 16, width: 3.8, dmg: 70, kb: 10, up: 8, big: true, sp: true }],
+    ev: [[0.02, 'recall'], [0.3, 'funnels', 'line'], [0.9, 'linefire'], [1.35, 'recall']],
   },
   SPA_IN: {
     dur: 0.5, rate: 1, armor: true, invuln: true, sp: true, isAir: true, spNext: 'SPA_FIRE',
@@ -468,8 +504,8 @@ export const MOVES = {
     ]),
     ev: [[0.02, 'charge'], [0.34, 'burstgreen']],
   },
-  SPC_CH: {
-    dur: 1.05, rate: 1, armor: true, invuln: true, sp: true, chargeAura: true, spNext: 'SPC_FL',
+  SPC_CH: { // held SP: every 0.6 s held commits another stock to the frenzy (hero.js chargeStocks)
+    dur: 1.05, rate: 1, armor: true, invuln: true, sp: true, chargeAura: true, spcStep: 0.6, spNext: 'SPC_FL',
     wpn: [[0, 'saber']],
     clip: clip([
       k(0, { torso: [-0.2, 0.3, 0], uArmR: [-0.2, 0, -0.6], fArmR: [-0.7, 0, 0], hand: [1.3, 0, 0], y: -0.2, ...LEGS_WIDE }),
@@ -478,8 +514,10 @@ export const MOVES = {
     ]),
     ev: [[0.02, 'charge'], [0.9, 'funnels', 'ring'], [1.0, 'burst']],
   },
-  SPC_FL: { // a tomahawk frenzy on the thrusters while the funnels fire from all around
-    dur: 3.0, rate: 1, armor: true, invuln: true, sp: true, loop: 0.3, rushFx: true, steer: 2.6, spNext: 'SPC_AXE',
+  SPC_FL: { // a tomahawk frenzy on the thrusters while the funnels fire from all around: one 3 s pass, run for as long
+    // as the stocks spent buy (about 3.3 s a stock, as in Reborn)
+    dur: 3.0, rate: 1, armor: true, invuln: true, sp: true, loop: 0.3, rushFx: true, steer: 2.6, spNext: 'SPC_END',
+    stockDur: [3.3, 6.6, 9.9],
     wpn: [[0, 'saber']],
     jets: [0, 3.0, false],
     clip: clip([
@@ -493,22 +531,22 @@ export const MOVES = {
     shots: times(0.2, 2.9, 0.12).map((t, j) => ({ t, kind: 'funnel', i: j % 6, mode: 'tgt', sp: true })),
     sfxs: [0.02, 0.095, 0.17, 0.245].flatMap((o) => times(0, 2.95, 0.3).map((t) => [t + o, 'slash_fast'])),
   },
-  SPC_AXE: { // the tomahawk's beam stretched out into a giant axe for one sweeping cut
-    dur: 1.6, rate: 1, armor: true, invuln: true, sp: true,
-    wpn: [[0, 'saber']],
-    bl: [[0, 1], [0.35, 3], [1.15, 3], [1.4, 1]],
+  SPC_END: { // as in Reborn: a last rising cut on the thrusters, then the funnels close in round the catch and all fire
+    dur: 1.5, rate: 1, armor: true, invuln: true, sp: true,
+    wpn: [[0, 'saber'], [0.5, null]],
+    lift: [0, 1.1],
+    air: [[0.1, 0], [0.4, 1.4], [1.1, 1.4], [1.4, 0]],
     clip: clip([
-      k(0, { torso: [0.2, -0.9, 0], ...SWEEP_R, uArmL: [-0.2, 0, 1.0], y: -0.35, yaw: 0, ...LEGS_WIDE }),
-      k(0.4, { torso: [0.25, -1.0, 0], uArmR: [0, -0.4, -1.45], y: -0.4, yaw: 0 }),
-      k(0.95, { torso: [0.2, 0.9, 0], ...SWEEP_L, y: -0.45, yaw: PI * 2, ...LEGS_LUNGE_R }, 'linear'),
-      k(1.6, { torso: [0.1, 0.3, 0], uArmR: [-0.4, 0.6, -0.9], y: -0.2, yaw: PI * 2 }),
+      k(0, { torso: [0.4, -0.3, 0], uArmR: [0.7, 0, -0.35], fArmR: [-0.2, 0, 0], hand: [0.2, 0, 0], y: -0.45, ...LEGS_LUNGE_R }),
+      k(0.2, { torso: [-0.4, 0.25, 0], ...HIGH, uArmL: [-0.2, 0, 0.9], y: 0, ...LEGS_AIR }, 'snap'),
+      k(0.55, { ...COMMAND, head: [-0.5, 0, 0], ...LEGS_AIR }),
+      k(1.2, { ...COMMAND, head: [-0.4, 0, 0] }),
+      k(1.5, { torso: [0.1, -0.2, 0], y: -0.15, ...LEGS_WIDE }),
     ]),
-    hits: [
-      { t: 0.45, t1: 0.95, shape: 'arc', range: 13, arc: 360, dmg: 50, kb: 3, up: 3, sp: true },
-      { t: 0.9, t1: 1.0, shape: 'arc', range: 13, arc: 360, dmg: 150, kb: 15, up: 12, big: true, sp: true },
-    ],
-    ev: [[0.02, 'recall'], [0.3, 'flash', 'red'], [0.92, 'bigaxe']],
-    sfxs: [[0.4, 'slash_spin'], [0.7, 'slash_spin'], [0.9, 'slash_down']],
+    hits: [{ t: 0.06, t1: 0.22, shape: 'arc', range: 5.6, arc: 200, hy: 6, dmg: 40, kb: 2, up: 13, big: true, sp: true }],
+    ev: [[0.02, 'recall'], [0.3, 'funnels', 'tgt'], [0.98, 'starburst'], [1.35, 'recall'], [1.4, 'land']],
+    shots: funnels(0.6, 0.05, 'tgt').map((s) => ({ ...s, sp: true })),
+    sfxs: [[0.04, 'slash_rise'], [0.3, 'qb']],
   },
 };
 

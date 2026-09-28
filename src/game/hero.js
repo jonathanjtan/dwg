@@ -20,6 +20,15 @@ const GUNS = ['rifle', 'bazooka', 'launcher'];
 const AIM_REACH = 1.2, AIM_EASY = 0.8, AIM_TWIST = 0.45, AIM_TURN = 16;
 const _aq = new THREE.Quaternion(), _aq2 = new THREE.Quaternion(), _aq3 = new THREE.Quaternion(), _av = new THREE.Vector3(), _aw = new THREE.Vector3();
 const REDEPLOY = 8; // seconds before a fallen co-op guest drops back in
+// SP gauge, as in Reborn: three stocks. The ground and aerial SP each spend one; the charge SP (SP held) commits
+// another banked stock every `spcStep` (SPC_STEP) of hold, and runs longer (or, if nothing in it can, hits harder)
+// for each stock spent. A frenzy phase declares `stockDur` (its length by stocks spent, in seconds) and optionally
+// `stockPower`; without them a looping phase runs STOCK_SCALE times as long and an `spRepeat` phase repeats that
+// many times as often, and a charge SP with neither hits STOCK_POWER times as hard.
+export const SP_STOCK = 100, SP_STOCKS = 3;
+const SPC_STEP = 0.6;
+const STOCK_SCALE = [1, 1.6, 2.2];
+const STOCK_POWER = [1, 1.3, 1.6];
 // Charge-attack swirl colours (gold for most, violet / pink / red on some).
 export const FLASH = { gold: 0xffc860, violet: 0xc27aff, red: 0xff5a30, pink: 0xff7ad8, mepe: 0x7fffbe };
 
@@ -63,8 +72,14 @@ export class Hero {
     this.radius = 0.9;
     this.maxHp = suit.hp;
     this.hp = this.maxHp;
-    this.maxSp = 100;
+    this.maxSp = SP_STOCK * SP_STOCKS;
     this.sp = 30;
+    this.spCharged = 0; // stocks this SP has spent
+    this.spc = 0; // stocks shown charging on the HUD (the charge SP's wind-up)
+    this.spPower = 1; // damage multiplier for the charge SP's stocks (combat.js)
+    this.frenzyLeft = 0; // seconds of the stretched frenzy phase still to run
+    this.passEnd = 0; // where the current SP phase pass ends
+    this.holdT = Infinity; // move time the clip holds at (the charge SP's crouch while stocks commit)
     this.state = 'move';
     this.stateT = 0;
     this.move = null;
@@ -171,6 +186,8 @@ export class Hero {
     this.lie = 0;
     this.wpn = null;
     this.spKind = null;
+    this.spc = 0;
+    this.spPower = 1;
     this.invuln = 0;
     this.stopT = 0;
   }
@@ -343,6 +360,7 @@ export class Hero {
     this.evIdx = 0;
     this.sfxIdx = 0;
     this.lungePrev = 0;
+    this.holdT = Infinity;
     this.gunAim = null;
     if (!m.isAir && this.pos.y < 0.6) this.pos.y = 0; // out of a ground-skimming boost
     this.airBase = this.pos.y;
@@ -437,7 +455,7 @@ export class Hero {
 
   updateMove(dt, act, dir) {
     const g = this.game;
-    if (act.musou && this.sp >= this.maxSp) return this.startMusou();
+    if (act.musou && this.spReady()) return this.startMusou();
     if (act.attack) { this.comboStep = 1; return this.startMove('N1', dir); }
     if (act.charge) { this.comboStep = 0; this.repeat = 1; return this.startMove('C1', dir); }
     if (act.jump) return this.jump(dir);
@@ -529,7 +547,7 @@ export class Hero {
 
   updateAir(dt, act, dir, input) {
     this.hovering = false;
-    if (act.musou && this.sp >= this.maxSp) return this.startMusou();
+    if (act.musou && this.spReady()) return this.startMusou();
     if (act.attack && this.airAttacks < 2) return this.startMove('JA', dir);
     if (act.charge) return this.startMove('JC', dir);
     if (act.dodge) return this.dodge(dir);
@@ -645,7 +663,7 @@ export class Hero {
     const m = this.move;
     if (act.attack) this.buffer = 'attack';
     if (act.charge) this.buffer = 'charge';
-    if (act.musou && this.sp >= this.maxSp) return this.startMusou();
+    if (act.musou && this.spReady()) return this.startMusou();
     // charge held through a rifle shot: the charge shot (once per hold)
     if (m.shot && this.chargeHeldT >= CHARGE_HOLD) {
       this.chargeHeldT = -99;
@@ -683,7 +701,7 @@ export class Hero {
     const g = this.game;
     const m = this.move;
     const prevT = this.moveT;
-    this.moveT += dt * (m.rate ?? ATK_RATE);
+    this.moveT = Math.min(this.moveT + dt * (m.rate ?? ATK_RATE), Math.max(prevT, this.holdT));
     let t = this.moveT;
     this.trackAim(dt);
 
@@ -851,7 +869,7 @@ export class Hero {
     const g = this.game;
     this.boost -= dt / this.suit.boostTime;
     this.boostWait = 0.6;
-    if (act.musou && this.sp >= this.maxSp) return this.startMusou();
+    if (act.musou && this.spReady()) return this.startMusou();
     if (act.attack) { this.comboStep = 1; this.rushN = 1; return this.startMove('DA', dir); }
     if (act.charge) { this.comboStep = 0; return this.startMove('DC', dir); }
     if (act.jump && this.pos.y < 1) return this.jump(dir, true);
@@ -900,7 +918,7 @@ export class Hero {
 
   updateSprint(dt, act, dir, input) {
     const g = this.game;
-    if (act.musou && this.sp >= this.maxSp) return this.startMusou();
+    if (act.musou && this.spReady()) return this.startMusou();
     if (act.attack) { this.comboStep = 1; this.rushN = 1; return this.startMove('DA', dir); }
     if (act.charge) { this.comboStep = 0; return this.startMove('DC', dir); }
     if (act.jump) return this.jump(dir, true);
@@ -1145,12 +1163,21 @@ export class Hero {
   }
 
   // ---------- SP attack ----------
-  // Tap SP: the ground SP. Hold it through the starburst: the charge SP. In the air: the aerial SP.
+  // Tap SP: the ground SP. Hold it through the starburst: the charge SP. In the air: the aerial SP. Each takes one
+  // stock of the gauge; holding on through the charge SP's wind-up commits more (see SP_STOCK above).
   // Each SP phase names what follows it: spNext, spHold (taken instead when SP is still held), spRepeat (play n times).
+  spReady() {
+    return this.sp >= SP_STOCK;
+  }
+
   startMusou() {
     const g = this.game;
     this.onInterrupt();
-    this.sp = 0;
+    this.sp -= SP_STOCK;
+    this.spCharged = 1;
+    this.spPower = 1;
+    this.spSpent = false;
+    this.spStretched = false;
     this.spKind = this.pos.y > 1.2 ? 'air' : 'ground';
     if (this.spKind === 'ground') this.pos.y = 0; // out of a hop: the ground SP plants its feet
     this.spHeld = true;
@@ -1169,10 +1196,52 @@ export class Hero {
     g.audio.play('sp');
   }
 
+  // A phase stretched by the charge SP's stocks runs in passes (each restarting its clip, hits and shots) until
+  // frenzyLeft is used up; the last pass is cut short.
   spPhase(name, dir, again = false) {
-    if (!again) this.spCount = 1;
+    const m = this.moves[name];
+    if (!again) {
+      this.spCount = 1;
+      this.spReps = m.spRepeat || 0;
+      this.frenzyLeft = 0;
+      if (this.spKind === 'charge' && !m.chargeAura) this.spendStocks(m);
+    }
     this.startMove(name, dir);
     this.state = 'musou';
+    this.passEnd = this.frenzyLeft > 0 ? Math.min(m.dur, this.frenzyLeft) : m.dur;
+  }
+
+  // The charge SP's stocks, spent on the phases after its wind-up: a longer frenzy, or failing that, harder hits.
+  spendStocks(m) {
+    const n = this.spCharged - 1, k = STOCK_SCALE[n];
+    if (!this.spSpent) {
+      this.spSpent = true;
+      let stretch = false;
+      for (let p = m, i = 0; p && i < 8; p = this.moves[p.spNext], i++) stretch ||= !!(p.stockDur || p.stockPower || p.loop || p.spRepeat);
+      if (!stretch) this.spPower = STOCK_POWER[n];
+    }
+    if (m.stockPower) this.spPower = m.stockPower[Math.min(n, m.stockPower.length - 1)];
+    if (this.spStretched) return;
+    if (m.stockDur) this.frenzyLeft = m.stockDur[Math.min(n, m.stockDur.length - 1)];
+    else if (m.loop) this.frenzyLeft = m.dur * k;
+    else if (m.spRepeat) this.spReps = Math.max(1, Math.round(m.spRepeat * k));
+    this.spStretched = !!(this.frenzyLeft || m.spRepeat);
+  }
+
+  // The charge SP's wind-up: while SP stays held, every spcStep commits another banked stock, and the clip holds short
+  // of its burst until the button is let go or there is nothing left to commit.
+  chargeStocks(dt, m) {
+    const g = this.game;
+    const more = () => this.spHeld && this.spCharged < SP_STOCKS && this.sp >= SP_STOCK;
+    this.spcT = (this.spcT || 0) + dt;
+    if (more() && this.spcT >= (m.spcStep ?? SPC_STEP)) {
+      this.spcT = 0;
+      this.sp -= SP_STOCK;
+      this.spCharged++;
+      g.fx.ring(this.pos, 0.5, 3 + this.spCharged * 1.5, 0x9ff4ff, 0.35);
+      g.audio.play('charge', { vol: 0.8, pitch: 1 + this.spCharged * 0.15 });
+    }
+    this.holdT = more() ? m.spcHold ?? m.dur - 0.2 : Infinity;
   }
 
   updateMusou(dt, act, dir, input) {
@@ -1184,7 +1253,9 @@ export class Hero {
       // charge SP: a spiky cyan aura builds around the suit
       g.fx.aura(this.pos, 0x9ff4ff, 4, 2);
       g.fx.sparks(this._v.set(this.pos.x, this.pos.y + 2, this.pos.z), 2, 0x9ff4ff, 9);
+      if (this.spKind === 'charge') this.chargeStocks(dt, m);
     }
+    this.spc = m.chargeAura && this.spKind === 'charge' ? this.spCharged : 0;
     // the long phases can be steered
     if (m.steer && dir) {
       this.heading = angleDamp(this.heading, Math.atan2(dir.x, dir.z), 4, dt);
@@ -1208,13 +1279,19 @@ export class Hero {
       }
     }
     const t = this.stepMove(dt, dir);
-    if (t < m.dur) return;
+    if (t < this.passEnd) return;
     this.onMoveEnd(m);
     if (m.spHold && this.spHeld) {
       this.spKind = 'charge';
+      this.spcT = 0;
       return this.spPhase(m.spHold, dir);
     }
-    if (m.spRepeat && this.spCount < m.spRepeat) {
+    if (this.frenzyLeft > 0) {
+      this.frenzyLeft -= this.passEnd;
+      if (this.frenzyLeft > 0.05) return this.spPhase(name, dir, true);
+      this.frenzyLeft = 0;
+    }
+    if (this.spCount < this.spReps) {
       this.spCount++;
       return this.spPhase(name, dir, true);
     }
@@ -1226,6 +1303,9 @@ export class Hero {
     this.invuln = 0.6;
     this.wpn = null;
     this.spKind = null;
+    this.spc = 0;
+    this.spPower = 1;
+    this.frenzyLeft = 0;
     this.onEndMusou();
     if (this.pos.y > 0.3) {
       this.setState('air');
@@ -1279,7 +1359,7 @@ export class Hero {
     return {
       suit: this.suit.id,
       x: this.pos.x, y: this.pos.y + this.lie * 0.45, z: this.pos.z, h: this.heading, st: this.state,
-      hp: this.hp, hr: this.hpRed, mhp: this.maxHp, sp: this.sp, fl: Math.max(this.flash, this.armorFlash), rt: this.respawnT,
+      hp: this.hp, hr: this.hpRed, mhp: this.maxHp, sp: this.sp, sc: this.spc, fl: Math.max(this.flash, this.armorFlash), rt: this.respawnT,
       pose: Array.from(this.pose),
       thr: this.thrustAt && this.game.time - this.thrustAt < 0.06 ? (this.thrustUp ? 2 : 1) : 0,
       bo: this.boost, mv: this.state === 'attack' || this.state === 'musou' ? this.moveName : '',
@@ -1295,6 +1375,7 @@ export class Hero {
     this.hpRed = s.hr || 0;
     this.maxHp = s.mhp;
     this.sp = s.sp;
+    this.spc = s.sc || 0;
     this.respawnT = s.rt || 0;
     this.boost = s.bo ?? this.boost;
     this.moveName = s.mv || '';

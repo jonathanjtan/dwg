@@ -172,7 +172,7 @@ export class TouchControls {
     this.root.classList.toggle('hidden', !on && !menuOpen);
     this.root.classList.toggle('menu-only', !on);
     if (!on || !local) return;
-    this.spEl.classList.toggle('ready', local.sp >= local.maxSp);
+    this.spEl.classList.toggle('ready', local.sp >= local.maxSp / 3); // one of three SP stocks
     this.boostEl.classList.toggle('low', (local.boost ?? 1) < 0.25);
   }
 
