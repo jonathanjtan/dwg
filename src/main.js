@@ -12,6 +12,7 @@ import { Projectiles } from './game/projectiles.js';
 import { Items } from './game/items.js';
 import { LandingZones } from './game/bases.js';
 import { Stage, officerCfg } from './game/stage.js';
+import { War } from './game/war.js';
 import { Tutorial, TRAINING } from './game/tutorial.js';
 import { Net, RemoteInput, GRUNT_STATES, GF, LOCALNET, MAX_PLAYERS } from './net/net.js';
 import { CameraRig } from './camera.js';
@@ -82,6 +83,11 @@ class Game {
     this.lz = new LandingZones(this);
     this.commanders = new Commanders(this);
     this.crowd = new Crowd(this);
+    // the allied GMs, and the war they fight with Zeon's soldiers over the fields (war.js)
+    this.allies = new Crowd(this, 'fed', 96);
+    this.crowd.foes = this.allies;
+    this.allies.foes = this.crowd;
+    this.war = new War(this);
     this.heroes = {};
     this.players = []; // every suit in the fight; the host's own is players[0]
     // Co-op, host side: slots[n] is guest n (the host is slot 0 and flies this.hero). Guest side: puppets[n] mirrors
@@ -279,6 +285,8 @@ class Game {
     this.hero.pos.set(0, 0, 0);
     this.hero.heading = 0.4;
     this.crowd.clear();
+    this.allies.clear();
+    this.war.reset();
     this.commanders.clear();
     // until a pilot has been through training once, its button asks for attention
     let trained = false;
@@ -288,6 +296,11 @@ class Game {
     for (let i = 0; i < 26; i++) {
       const row = Math.floor(i / 7), col = i % 7;
       this.crowd.spawn(-12 + col * 3.6 + (row % 2) * 1.8, 22 + row * 3.8, { gun: (i % 4) === 0, yaw: Math.PI });
+    }
+    // ...and a line of GMs at the Gundam's back
+    for (let i = 0; i < 12; i++) {
+      const row = Math.floor(i / 6), col = i % 6;
+      this.allies.spawn(-9 + col * 3.6 + (row % 2) * 1.8, -12 - row * 3.8, { gun: i % 5 === 2, yaw: 0, captain: i === 2 });
     }
   }
 
@@ -326,6 +339,8 @@ class Game {
     document.getElementById('results').classList.add('hidden');
     document.getElementById('pause').classList.add('hidden');
     this.crowd.clear();
+    this.allies.clear();
+    this.war.reset(); // the mission starts its war in stage.begin(); training has none
     this.commanders.clear();
     this.projectiles.clear();
     this.items.clear();
@@ -486,6 +501,8 @@ class Game {
     this.stage.onKill(g);
   }
   onCommanderDefeated(c) {
+    // a squad leader felled by the allied GMs: their landing zone, not the pilots' KO, kit or slow-mo
+    if (c.byNpc) { this.stage.onCommanderDefeated(c); return; }
     this.stats.officers++;
     this.stats.kos++;
     if (c.kind === 'captain') {
@@ -722,6 +739,7 @@ class Game {
     this.mode = 'lobby';
     this.players = [];
     this.crowd.clear();
+    this.allies.clear();
     $('title').classList.add('hidden');
     $('lobby').classList.remove('hidden');
     $('lobby-suit').classList.add('hidden');
@@ -811,6 +829,8 @@ class Game {
     $('results').classList.add('hidden');
     $('pause').classList.add('hidden');
     this.crowd.clear();
+    this.allies.clear();
+    this.war.reset();
     this.commanders.clear();
     this.projectiles.clear();
     this.items.clear();
@@ -936,6 +956,8 @@ class Game {
     this.commanders.applyNet(d.cmd, (n) => officerCfg(n));
     for (const c of this.commanders.list) if (c.netTarget) stash(c, c.netTarget);
     this.crowd.applyNet(Net.decodeCrowd(d.crowd), GRUNT_STATES, GF);
+    this.allies.applyNet(d.ac ? Net.decodeCrowd(d.ac) : [], GRUNT_STATES, GF);
+    this.war.applyNet(d.wr);
     this.projectiles.applyNet(d.pj);
     this.items.applyNet(d.it);
     this.lz.applyNet(d.bz || []);
@@ -1011,6 +1033,7 @@ class Game {
       if (cs) c.applyNet(cs, rdt);
     }
     this.crowd.netInterp(rdt);
+    this.allies.netInterp(rdt);
     this.projectiles.guestAdvance(rdt);
     this.items.netAnimate(rdt);
     this.lz.guestAnimate(rdt);
@@ -1024,6 +1047,7 @@ class Game {
     this.audio.listenerYaw = this.camera.yaw;
     this.audio.loops(0, 0, 0);
     this.crowd.render(rdt);
+    this.allies.render(rdt);
     this.projectiles.render();
     this.hud.update(rdt);
     this.render();
@@ -1055,6 +1079,7 @@ class Game {
       this.hero.locomotion(rdt, 0);
       this.hero.applyVisuals(rdt);
       this.crowd.render(rdt);
+      this.allies.render(rdt);
       this.fx.update(rdt);
       this.world.follow(this.hero.pos);
       // orbit, keeping the Gundam on the right third of the frame
@@ -1114,12 +1139,14 @@ class Game {
     }
     this.localSpT = Math.max(0, this.localSpT - rdt);
     this.crowd.update(wdt);
+    this.allies.update(wdt);
     this.commanders.update(wdt);
     this.projectiles.update(wdt);
     this.items.update(dt);
     this.lz.update(wdt, (lz) => this.stage.onZoneLanded(lz));
     this.combat.update(dt);
     this.stage.update(dt);
+    this.war.update(wdt);
     this.fx.update(dt);
     this.combo.timer -= dt;
     if (this.combo.timer <= 0) this.combo.count = 0;
@@ -1134,6 +1161,7 @@ class Game {
     this.audio.listenerYaw = this.camera.yaw;
     this.updateSoundscape(rdt, playable);
     this.crowd.render(wdt);
+    this.allies.render(wdt);
     this.projectiles.render();
     this.hud.update(rdt);
     this.render();

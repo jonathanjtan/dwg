@@ -343,6 +343,7 @@ export class HUD {
     this.updateDialogue(dt);
     this.updateBosses();
     this.updateTags();
+    this.updateAllyTags();
     this.updateMarker();
     this.updateLock();
     this.mapT -= dt;
@@ -477,6 +478,35 @@ export class HUD {
     }
   }
 
+  // Allied squad leaders get a cyan name over the head, as Reborn marks allied named units (no bar: the pilots can't
+  // hurt them, and the grunt bars are the enemy's).
+  updateAllyTags() {
+    const g = this.game, cam = g.camera.cam, W = innerWidth, H = innerHeight, L = g.local.pos;
+    const pool = this.allyTags || (this.allyTags = []);
+    let n = 0;
+    if (g.mode !== 'title' && this.cineT <= 0) {
+      for (const e of g.allies.list) {
+        if (!e.captain || !e.alive || e.hp <= 0 || e.state === 'drop' || e.fade < 0.3) continue;
+        if (Math.hypot(e.x - L.x, e.z - L.z) > 70) continue;
+        const p = this._v.set(e.x, e.y + 4.4, e.z).project(cam);
+        if (p.z > 1 || Math.abs(p.x) > 1.1 || Math.abs(p.y) > 1.1) continue;
+        let t = pool[n];
+        if (!t) {
+          t = document.createElement('div');
+          t.className = 'tag ally';
+          t.innerHTML = '<span class="tjp">小隊長</span>GM SQUAD LEADER';
+          this.el.tags.appendChild(t);
+          pool.push(t);
+        }
+        t.style.display = '';
+        t.style.left = ((p.x + 1) / 2) * W + 'px';
+        t.style.top = ((1 - p.y) / 2) * H + 'px';
+        n++;
+      }
+    }
+    for (let i = n; i < pool.length; i++) pool[i].style.display = 'none';
+  }
+
   // Points at the current objective: the nearest landing zone, else an officer who is off screen.
   updateMarker() {
     const g = this.game;
@@ -559,11 +589,12 @@ export class HUD {
       ctx.beginPath(); ctx.moveTo(tx(v), tz(-B)); ctx.lineTo(tx(v), tz(B)); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(tx(-B), tz(v)); ctx.lineTo(tx(B), tz(v)); ctx.stroke();
     }
-    // fields: the open battlefields
-    ctx.fillStyle = 'rgba(95,208,255,0.06)';
-    ctx.strokeStyle = 'rgba(95,208,255,0.3)';
+    // fields: the open battlefields, tinted by the army that holds each (war.js)
     ctx.lineWidth = 1;
     for (const f of g.world.fields) {
+      const own = g.war.fields.find((w) => w.name === f.name)?.owner;
+      ctx.fillStyle = own === 'fed' ? 'rgba(95,208,255,0.16)' : own === 'zeon' ? 'rgba(255,70,80,0.1)' : 'rgba(95,208,255,0.06)';
+      ctx.strokeStyle = own === 'fed' ? 'rgba(95,208,255,0.6)' : own === 'zeon' ? 'rgba(255,90,100,0.5)' : 'rgba(95,208,255,0.3)';
       ctx.fillRect(tx(f.x0), tz(f.z0), (f.x1 - f.x0) * S, (f.z1 - f.z0) * S);
       ctx.strokeRect(tx(f.x0), tz(f.z0), (f.x1 - f.x0) * S, (f.z1 - f.z0) * S);
     }
@@ -598,6 +629,16 @@ export class HUD {
       const x = tx(e.x), z = tz(e.z);
       if (Math.abs(x) > 150 || Math.abs(z) > 150) continue;
       ctx.fillRect(x - 1.25, z - 1.25, 2.5, 2.5);
+    }
+    // allied GMs in blue, their squad leaders as small diamonds
+    for (const e of g.allies.list) {
+      const x = tx(e.x), z = tz(e.z);
+      if (Math.abs(x) > 150 || Math.abs(z) > 150) continue;
+      ctx.fillStyle = e.captain ? '#9fe6ff' : '#4a9dff';
+      if (!e.captain) { ctx.fillRect(x - 1.25, z - 1.25, 2.5, 2.5); continue; }
+      ctx.beginPath();
+      ctx.moveTo(x, z - 4); ctx.lineTo(x + 4, z); ctx.lineTo(x, z + 4); ctx.lineTo(x - 4, z);
+      ctx.fill();
     }
     // items
     ctx.fillStyle = '#5dff7a';

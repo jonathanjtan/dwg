@@ -1,6 +1,7 @@
 // Online co-op over WebRTC (PeerJS). The host runs the whole simulation for up to MAX_PLAYERS pilots; each guest picks
 // a suit, streams its input to the host and renders what the host sends back.
-// Host -> guests: 20 Hz snapshots (players, commanders, crowd packed into an Int16Array, projectiles, items, stats)
+// Host -> guests: 20 Hz snapshots (players, commanders, the Zeon and allied crowds packed into Int16Arrays, who holds
+// each field, projectiles, items, stats)
 // plus replicated one-shot events (effects, sounds, HUD lines). Guest -> host: input at ~30 Hz and the suit it picked.
 // PeerJS's public broker is only used for the handshake; game data flows peer to peer.
 const PEER_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/+esm';
@@ -210,10 +211,10 @@ export class Net {
     this.ev.length = 0;
   }
 
-  snapshot() {
-    const g = this.game;
-    const crowd = new Int16Array(g.crowd.list.length * GF);
-    g.crowd.list.forEach((e, i) => {
+  // A crowd's soldiers, GF int16s each.
+  static packCrowd(list) {
+    const crowd = new Int16Array(list.length * GF);
+    list.forEach((e, i) => {
       const o = i * GF;
       crowd[o] = e.id & 0x7fff;
       crowd[o + 1] = Math.round(e.x * 100);
@@ -226,11 +227,16 @@ export class Net {
       crowd[o + 8] = Math.round(e.vz * 100);
       crowd[o + 9] = Math.round(e.flash * 1000);
       crowd[o + 10] = Math.round(Math.max(-32, Math.min(32, e.pitch)) * 1000);
-      // bits 6-13: health left in 255ths, for the guests' grunt health bars
+      // bits 6-13: health left in 255ths, for the guests' grunt health bars; bit 14: an allied squad leader
       crowd[o + 11] = (e.gun ? 1 : 0) | (e.staggerAlt ? 2 : 0) | (e.hp <= 0 ? 4 : 0) | ((e.hitKind & 3) << 3) | (e.shudder > 0 ? 32 : 0)
-        | (Math.ceil(Math.max(0, Math.min(1, e.hp / e.maxHp)) * 255) << 6);
+        | (Math.ceil(Math.max(0, Math.min(1, e.hp / e.maxHp)) * 255) << 6) | (e.captain ? 16384 : 0);
       crowd[o + 12] = e.i;
     });
+    return crowd.buffer;
+  }
+
+  snapshot() {
+    const g = this.game;
     const pj = g.projectiles;
     const flat = (arr, f) => arr.flatMap(f);
     return {
@@ -241,11 +247,14 @@ export class Net {
       pl: g.players.map((p) => ({ slot: g.slotOf(p), suit: p.suit.id, s: p.netState() })),
       ready: Array.from({ length: MAX_PLAYERS }, (_, i) => (i === 0 ? g.hero.suit.id : g.slots[i] ? g.slots[i].suit : false)),
       cmd: g.commanders.list.map((c) => c.netState()),
-      crowd: crowd.buffer,
+      crowd: Net.packCrowd(g.crowd.list),
+      ac: Net.packCrowd(g.allies.list), // the allied GMs (war.js)
+      wr: g.war.netState(),
       pj: {
         b: flat(pj.beams, (b) => [b.p.x, b.p.y, b.p.z, b.d.x, b.d.y, b.d.z, b.w]),
         rk: flat(pj.rockets, (r) => [r.p.x, r.p.y, r.p.z, r.v.x, r.v.y, r.v.z]),
-        u: flat(pj.bullets, (b) => [b.p.x, b.p.y, b.p.z, b.d.x, b.d.y, b.d.z]),
+        u: flat(pj.bullets.filter((b) => b.team !== 'fed'), (b) => [b.p.x, b.p.y, b.p.z, b.d.x, b.d.y, b.d.z]),
+        ua: flat(pj.bullets.filter((b) => b.team === 'fed'), (b) => [b.p.x, b.p.y, b.p.z, b.d.x, b.d.y, b.d.z]),
         mi: flat(pj.missiles, (m) => [m.p.x, m.p.y, m.p.z, m.v.x, m.v.y, m.v.z]),
         sh: flat(pj.shells, (s) => [s.p.x, s.p.y, s.p.z, s.v.x, s.v.y, s.v.z]),
       },

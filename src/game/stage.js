@@ -122,6 +122,27 @@ const LINES = {
 const TAU = Math.PI * 2;
 const PLAZA_KOS = 50;
 
+// The foot soldiers' war (war.js). The Federation holds the plaza (the base it launches from, which Zeon can't take)
+// and its GMs squat on its south side; Zeon holds the three yards, and from the landing-zone phase their pods. Each
+// side's fields call in troops and send columns at the other's. allyCapture: GMs who fell a landing zone's squad
+// leader take the zone, and it counts for the mission. recapture: Zeon can take back a zone the Federation holds
+// (only while the landing-zone phase lasts, and not within `grace` seconds of it falling). budget: columns only set
+// out while both armies together number fewer soldiers than this (garrisons refill regardless). fed: every (seconds between a field's drops), squad (GMs per drop),
+// garrison (GMs a field keeps), cap (GMs at most), hp (a GM's; a Zaku has 50), captainHp. zeon: every (seconds
+// between a landing zone's columns), squad, cap (Zaku marching at once).
+export const WAR = {
+  fields: { PLAZA: { owner: 'fed', lock: true, post: [0, -36] }, ALPHA: 'zeon', BRAVO: 'zeon', CHARLIE: 'zeon' },
+  allyCapture: true,
+  recapture: true,
+  budget: 140,
+  fed: { every: 12, squad: 4, garrison: 8, cap: 30, hp: 60, captainHp: 300, grace: 60 },
+  zeon: { every: 45, squad: 6, cap: 18 },
+};
+const WAR_LINES = {
+  taken: (z) => `The GM team has taken LZ ${z}! That's one less for you. Keep pushing!`,
+  lost: (z) => `Zeon has retaken LZ ${z}! Their pods are coming down again. Take it back!`,
+};
+
 // Officer loadouts, shared with co-op guests (who rebuild commander puppets by name).
 export function officerCfg(which) {
   const cfgs = {
@@ -190,6 +211,7 @@ export class Stage {
     const g = this.game;
     this.reset();
     this.phase = 'launch';
+    g.war.begin(WAR);
     g.hud.say('bright', 'BRIGHT NOA', this.lines.order, 3.4);
     this.pilotSay('launch', 3.0);
     // the plaza garrison: four squads spread around the fountain ring
@@ -222,7 +244,7 @@ export class Stage {
   tendPosts(hidden = true) {
     const g = this.game, crowd = g.crowd;
     for (const sq of this.squads) {
-      if (sq.engaged || sq.base || sq.n === 0 || this.nearestPilot(sq.x, sq.z) < RECYCLE || this.inView(sq.x, sq.z)) continue;
+      if (sq.engaged || sq.base || sq.target || sq.n === 0 || this.nearestPilot(sq.x, sq.z) < RECYCLE || this.inView(sq.x, sq.z)) continue;
       for (let i = crowd.list.length - 1; i >= 0; i--) if (crowd.list[i].squad === sq) crowd.remove(crowd.list[i]);
       if (sq.post) sq.post.cool = 0;
     }
@@ -370,11 +392,12 @@ export class Stage {
     lz.captain = this.addOfficer('captain', { x: lz.x + 3.5, z: lz.z + 3.5 });
     lz.captain.lz = lz;
     lz.reinforceT = 10;
+    this.game.war.onZoneLanded(lz);
   }
 
   onCommanderDefeated(c) {
     const g = this.game;
-    if (c.kind === 'captain') return this.onZoneTaken(c.lz);
+    if (c.kind === 'captain') return this.onZoneTaken(c.lz, c.byNpc);
     if (c.name === 'denim') {
       g.hud.say('denim', 'DENIM', "Impossible! Its armor shrugged off my heat hawk...", 2.6);
       this.pilotSay('denim', 2.6);
@@ -385,7 +408,13 @@ export class Stage {
     }
   }
 
-  onZoneTaken(lz) {
+  // Zeon may take back a zone the Federation holds while the zones are the objective (war.js asks).
+  canRecapture() {
+    return this.phase === 'bases';
+  }
+
+  // byNpc: the allied GMs felled its squad leader, not a pilot.
+  onZoneTaken(lz, byNpc = false) {
     const g = this.game;
     if (!lz || lz.captured) return;
     g.lz.capture(lz);
@@ -394,9 +423,11 @@ export class Stage {
     for (const sq of this.squads) if (sq.base === lz) sq.base = null;
     const left = LZ_SITES.length - this.zonesTaken;
     g.audio.play('capture');
-    g.hud.announce(`LANDING ZONE ${lz.name} SECURED`, left ? `${left} REMAINING` : 'ALL ZONES CAPTURED');
+    g.hud.announce(`LANDING ZONE ${lz.name} ${byNpc ? 'TAKEN BY ALLIES' : 'SECURED'}`, left ? `${left} REMAINING` : 'ALL ZONES CAPTURED');
     g.hud.setObjective(`Capture the landing zones · ${this.zonesTaken}/${LZ_SITES.length}`);
-    if (this.zonesTaken === 1) g.hud.say('bright', 'BRIGHT NOA', this.lines.zone, 3.0);
+    if (byNpc) g.hud.say('bright', 'BRIGHT NOA', WAR_LINES.taken(lz.name), 3.2);
+    else if (this.zonesTaken === 1) g.hud.say('bright', 'BRIGHT NOA', this.lines.zone, 3.0);
+    g.war.onZoneTaken(lz);
     if (left === 0) {
       this.phase = 'predenim';
       this.t = 0;
@@ -404,6 +435,28 @@ export class Stage {
       g.hud.say('bright', 'BRIGHT NOA', "That's all of them... wait. Two commander-type Zaku inbound!", 3.2);
       setTimeoutGame(g, 5, () => this.startDenim());
     }
+  }
+
+  // Zeon has taken a zone back from the GMs (war.js): its beacon relights, the soldiers who retook it become the pod's
+  // garrison, a new squad leader drops in and the pods start coming again.
+  onZoneLost(lz) {
+    const g = this.game;
+    if (!lz || !lz.captured || this.phase !== 'bases') return;
+    g.lz.release(lz);
+    this.zonesTaken--;
+    for (const sq of this.squads) {
+      if (sq.base || Math.hypot(sq.x - lz.x, sq.z - lz.z) > 40) continue;
+      sq.base = lz;
+      sq.target = sq.march = null;
+    }
+    lz.captain = this.addOfficer('captain', { x: lz.x + 3.5, z: lz.z + 3.5 });
+    lz.captain.lz = lz;
+    lz.reinforceT = 10;
+    g.war.onZoneLanded(lz);
+    g.audio.play('alarm');
+    g.hud.announce(`LANDING ZONE ${lz.name} LOST`, 'ZEON HAS RETAKEN IT', true);
+    g.hud.setObjective(`Capture the landing zones · ${this.zonesTaken}/${LZ_SITES.length}`);
+    g.hud.say('bright', 'BRIGHT NOA', WAR_LINES.lost(lz.name), 3.2);
   }
 
   startDenim() {

@@ -123,6 +123,14 @@ export class Commander {
     if (id) { this.hitIds.push(id); if (this.hitIds.length > 8) this.hitIds.shift(); }
     const dx = this.pos.x - fromX, dz = this.pos.z - fromZ;
     const l = Math.hypot(dx, dz) || 1;
+    if (opts.npc) {
+      // an allied soldier's blow (war.js): a scratch that never staggers, and not the pilots' fight (no boss bar),
+      // but enough of them bring a squad leader down, and then its landing zone falls to the allies
+      this.hp -= dmg;
+      this.flash = Math.max(this.flash, 0.35);
+      if (this.hp <= 0) { this.hp = 0; this.byNpc = true; this.defeat(dx / l, dz / l); }
+      return true;
+    }
     // guarding blocks frontal hits
     if (this.state === 'guard' && !opts.sp) {
       const facing = Math.sin(this.heading) * -dx / l + Math.cos(this.heading) * -dz / l;
@@ -200,6 +208,13 @@ export class Commander {
         if (p !== hero && p.alive && Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z) < dc * 0.65) { this.targetIdx = i; hero = p; }
       });
     }
+    // a squad leader whose pilots are away from its post takes on the allied soldiers attacking it (war.js)
+    if (this.home && g.war?.active && this.state !== 'combo' && this.state !== 'aim') {
+      const away = !hero.alive || Math.hypot(hero.pos.x - this.home.x, hero.pos.z - this.home.z) > (this.cfg.leash || 30);
+      this.npcTarget = away ? g.war.captainFoe(this) : null;
+    }
+    if (this.npcTarget && this.npcTarget.alive) hero = this.npcTarget;
+    const npc = !!hero.npc;
     if (this.shudder > 0 && this.state !== 'dead') {
       this.shudder -= dt;
       this.flash = Math.max(0, this.flash - dt * 5);
@@ -331,7 +346,7 @@ export class Commander {
           if (t > 0.14 && t < 0.5 && !this.hitDone && dist < 3.2) {
             this.hitDone = true;
             hero.takeHit(this.cfg.dmg * 1.6, this.pos.x, this.pos.z, true);
-            g.audio.play('slam', { vol: 0.8 });
+            g.audio.play('slam', { vol: 0.8, at: npc ? this.pos : null });
           }
           if (t >= 0.8) this.nextComboStep();
         } else {
@@ -381,7 +396,7 @@ export class Commander {
           this.rig.root.updateMatrixWorld(true);
           const from = this.rig.nodes.hand.localToWorld(this._v.set(0, 0, 1.2));
           const L = dist + 8;
-          g.fx.aimLine(from, { x: from.x + Math.sin(this.aimYaw) * L, y: from.y + this.aimY * L, z: from.z + Math.cos(this.aimYaw) * L }, start - lock + shots * 0.1);
+          if (!npc) g.fx.aimLine(from, { x: from.x + Math.sin(this.aimYaw) * L, y: from.y + this.aimY * L, z: from.z + Math.cos(this.aimYaw) * L }, start - lock + shots * 0.1);
         }
         if (this.t >= lock) this.heading = angleDamp(this.heading, this.aimYaw, 20, dt);
         if (this.t > start && this.fired < shots && this.t >= start + this.fired * 0.1) {
@@ -625,7 +640,7 @@ export class Commander {
     this.rig.root.updateMatrixWorld(true);
     const eye = this.rig.nodes.head.localToWorld(this._v.set(0, 0.25, 0.35));
     g.fx.hit(eye, 0xff3070);
-    if (name !== 'KICK') g.audio.play('hawk', { vol: 0.25, pitch: 1.4 });
+    if (name !== 'KICK') g.audio.play('hawk', { vol: 0.25, pitch: 1.4, at: this.npcTarget ? this.pos : null });
   }
 
   nextComboStep() {

@@ -148,6 +148,8 @@ button { font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer;
 .tag.captain { font-size: 11px; color: #d8e4a8; }
 .tag.captain .tjp { font-size: 13px; }
 .tag.captain .tbar { width: 54px; }
+.tag.ally { font-size: 11px; color: #8fe4ff; }
+.tag.ally .tjp { font-size: 13px; color: #6fd8ff; }
 
 /* objective marker: sits on the target, or pinned to the screen edge pointing at it */
 #objmarker { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; text-shadow: 0 1px 3px #000, 0 0 6px #000; }

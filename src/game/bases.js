@@ -102,6 +102,18 @@ export class LandingZones {
     lz.lamp.material.color.setRGB(0.1, 0.1, 0.1);
   }
 
+  // Zeon has taken a zone back (war.js): the beacon mast goes back up, its lamp and rings red again.
+  release(lz) {
+    if (!lz.captured) return;
+    lz.captured = false;
+    lz.fallT = 0;
+    lz.mast.rotation.z = 0;
+    for (const m of [lz.ring, lz.inner]) m.material.color.copy(ZEON);
+    const g = this.game, p = this._v.set(lz.x, 0.2, lz.z);
+    g.fx.ring(p, 1, RING_R * 1.3, 0xff5040, 0.6);
+    g.fx.dust(p, 20, 1.8);
+  }
+
   // Pods fall from the colony sky, then idle with a blinking beacon and a breathing ring.
   update(dt, onLanded) {
     const g = this.game;
@@ -165,6 +177,12 @@ export class LandingZones {
         lz.fallT = 0.001;
         for (const m of [lz.ring, lz.inner]) m.material.color.copy(FED);
         lz.lamp.material.color.setRGB(0.1, 0.1, 0.1);
+      }
+      if (!cap && lz.captured) {
+        lz.captured = false;
+        lz.fallT = 0;
+        lz.mast.rotation.z = 0;
+        for (const m of [lz.ring, lz.inner]) m.material.color.copy(ZEON);
       }
     }
     for (let i = this.list.length - 1; i >= 0; i--) {

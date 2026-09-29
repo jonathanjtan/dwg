@@ -30,6 +30,7 @@ export class Projectiles {
     this.beamMesh = glowInstanced(scene, 64, new THREE.Color(3.2, 1.1, 2.4));
     this.beamCore = glowInstanced(scene, 64, new THREE.Color(3, 3, 2.6));
     this.bulletMesh = glowInstanced(scene, 256, new THREE.Color(3, 1.6, 0.5));
+    this.allyMesh = glowInstanced(scene, 128, new THREE.Color(3, 1.0, 2.3)); // allied GMs' beam spray bolts (war.js)
     // Guntank ordnance
     this.missiles = [];
     this.shells = [];
@@ -133,6 +134,16 @@ export class Projectiles {
     if (Math.random() < 0.5) this.game.audio.play('mg', { vol: 0.28, at: from });
   }
 
+  // An allied GM's beam spray bolt: it only hurts Zeon's soldiers and squad leaders, never a pilot (war.js).
+  // fx: whether a pilot is near enough to see and hear it fired.
+  allyBullet(from, dir, fx = true) {
+    if (this.bullets.length > 250) return;
+    this.bullets.push({ p: from.clone(), d: dir.clone(), life: 0, max: 0.9, speed: BULLET_SPEED * 1.6, dmg: 4, team: 'fed' });
+    if (!fx) return;
+    this.game.fx.star(from, 0xff8ad8, 0.35);
+    if (Math.random() < 0.5) this.game.audio.play('spray', { vol: 0.18, at: from });
+  }
+
   update(dt) {
     const g = this.game;
     const combat = g.combat;
@@ -234,7 +245,7 @@ export class Projectiles {
       const b = this.bullets[i];
       b.life += dt;
       b.p.addScaledVector(b.d, b.speed * dt);
-      for (const pl of g.players) {
+      if (b.team !== 'fed') for (const pl of g.players) {
         const dx = b.p.x - pl.pos.x, dy = b.p.y - (pl.pos.y + 1.6), dz = b.p.z - pl.pos.z;
         if (dx * dx + dy * dy * 0.4 + dz * dz < 1.3 && pl.alive) {
           pl.takeHit(b.dmg, b.p.x - b.d.x * 5, b.p.z - b.d.z * 5, false, 'bullet');
@@ -242,6 +253,8 @@ export class Projectiles {
           continue outer;
         }
       }
+      // the other army's soldiers (Zeon rounds hit allied GMs, theirs hit Zeon)
+      if (g.war?.bulletHit(b)) { this.bullets.splice(i, 1); continue; }
       if (b.p.y < 0.05 || b.life > b.max || g.world.blocked(b.p.x, b.p.z, 0) && b.p.y < 6) {
         g.fx.sparks(b.p, 3, 0xffc070, 5);
         if (b.p.y < 0.3) g.fx.puff(b.p, 1, 0.55, 0.5, 1, 1);
@@ -258,6 +271,7 @@ export class Projectiles {
     for (let i = 0; i < pj.b.length; i += 7) this.beams.push({ p: V(pj.b, i), d: V(pj.b, i + 3), w: pj.b[i + 6] });
     this.rockets = rows(pj.rk || [], (p, v) => ({ p, v }));
     this.bullets = rows(pj.u, (p, d) => ({ p, d }));
+    if (pj.ua) this.bullets.push(...rows(pj.ua, (p, d) => ({ p, d, team: 'fed' })));
     this.missiles = rows(pj.mi, (p, v) => ({ p, v }));
     this.shells = rows(pj.sh, (p, v) => ({ p, v }));
   }
@@ -270,7 +284,7 @@ export class Projectiles {
       b.p.addScaledVector(b.d, 120 * dt);
       g.fx.streak(this._v, b.p, 0xff6fd0);
     }
-    for (const b of this.bullets) b.p.addScaledVector(b.d, BULLET_SPEED * dt);
+    for (const b of this.bullets) b.p.addScaledVector(b.d, BULLET_SPEED * (b.team === 'fed' ? 1.6 : 1) * dt);
     for (const r of this.rockets) {
       r.p.addScaledVector(r.v, dt);
       if (Math.random() < 0.8) g.fx.puff(r.p, 1, 0.8, 0.45, 0.3, 0.4);
@@ -302,15 +316,19 @@ export class Projectiles {
     this.beamMesh.count = this.beamCore.count = n;
     this.beamMesh.instanceMatrix.needsUpdate = this.beamCore.instanceMatrix.needsUpdate = true;
     n = 0;
+    let na = 0;
     for (const b of this.bullets) {
       _q.setFromUnitVectors(Zf, b.d);
       _p.copy(b.p);
       _s.set(0.16, 0.16, 1.8);
       _m.compose(_p, _q, _s);
-      this.bulletMesh.setMatrixAt(n++, _m);
+      if (b.team !== 'fed') this.bulletMesh.setMatrixAt(n++, _m);
+      else if (na < 128) this.allyMesh.setMatrixAt(na++, _m);
     }
     this.bulletMesh.count = n;
     this.bulletMesh.instanceMatrix.needsUpdate = true;
+    this.allyMesh.count = na;
+    this.allyMesh.instanceMatrix.needsUpdate = true;
     n = 0;
     for (const m of this.missiles) {
       _p.copy(m.v).normalize();

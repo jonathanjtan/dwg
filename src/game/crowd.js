@@ -1,10 +1,16 @@
-// Zaku II grunt crowd: instanced rendering + lightweight squad AI.
+// Grunt crowds: instanced rendering + lightweight squad AI. Two armies share it: Zeon's Zaku II (team 'zeon', the
+// pilots' enemies) and the Federation's allied GMs (team 'fed', see war.js). Each soldier fights whatever it has
+// picked as its foe: for Zeon a pilot first, else the nearest GM; for a GM the nearest Zeon soldier or squad leader.
+// An enemy soldier is handed to the attack code as a proxy with a pilot's shape (pos, alive, state, takeHit), and a
+// blow between the armies only scratches (NPC_VS_NPC in war.js), so their brawls last minutes.
 import * as THREE from 'three';
 import { InstancedRig, Clip, makePose, poseFrom, lerpPose, P, RPITCH, RROLL, RYAW } from '../core/rig.js';
 import { zakuDef, Z } from '../models/zaku.js';
+import { gmDef, GM } from '../models/gm.js';
 import { SpatialHash, rand, clamp, angleDamp, wrapAngle, damp } from '../core/util.js';
 import { lensClear } from '../core/lensclear.js';
 import { gait, gaitSpec, gaitState } from '../core/gait.js';
+import { NPC_VS_NPC, LEADER_ARMOR } from './war.js';
 
 const MAX = 300;
 const GRAV = 30;
@@ -12,7 +18,16 @@ const WALK = 3.7;
 const AGGRO = 22; // a garrison squad engages when a pilot comes this close
 const LEASH = 60; // ...and falls back to its post once every pilot is this far away
 const AIM_T = 1.05; // how long a gunner shows its aim line before the burst
+const NPC_AIM_T = 0.6; // ...and how long it takes aim at another army's soldier (no line: that one isn't the pilot's)
 const PACE = WALK * 0.42; // a soldier at its post mills about at this amble
+
+// Each army's look and voice. eyeY: where a soldier's eye glints when it spots a pilot.
+const TEAMS = {
+  zeon: { def: () => zakuDef(), explode: [Z.DG, Z.LG, Z.J, 0x2b2e2a], eye: 0xff2f6e, eyeY: 2.95, swing: 'hawk', gun: 'mg' },
+  fed: { def: () => gmDef(GM, 1), explode: [GM.W, GM.R, GM.GR, 0x2b2e35], eye: 0x86ff6e, eyeY: 3.5, swing: 'slash_fast', gun: 'spray' },
+};
+// Who a soldier with no foe is facing: nobody, far away.
+const NOBODY = { npc: true, alive: false, state: 'intro', id: 0, pos: { x: 1e5, y: 0, z: 1e5 } };
 
 const ZSTANCE = poseFrom({
   y: -0.05, torso: [0.06, 0, 0], head: [0, 0, 0],
@@ -62,24 +77,40 @@ const DOWNPOSE = poseFrom({ pitch: -1.5, torso: [-0.1, 0, 0], head: [-0.3, 0.4, 
 const GETUP = poseFrom({ pitch: 0, torso: [0.6, 0, 0], head: [-0.2, 0, 0], uArmR: [-0.6, 0, -0.4], uArmL: [-0.6, 0, 0.4], thighR: [-1.1, 0, -0.1], shinR: [1.6, 0, 0], thighL: [-0.4, 0, 0.2], shinL: [1.2, 0, 0], y: -0.55 }, ZSTANCE);
 const SPAWN_POSE = poseFrom({ thighR: [-0.7, 0, -0.1], shinR: [1.1, 0, 0], thighL: [-0.2, 0, 0.1], shinL: [0.5, 0, 0], uArmR: [-0.3, 0, -0.6], uArmL: [-0.3, 0, 0.6] }, ZSTANCE);
 
-const EXPLODE_COLORS = [Z.DG, Z.LG, Z.J, 0x2b2e2a];
 const HIT_GOLD = [1.0, 0.6, 0.12], HIT_AMBER = [1.0, 0.4, 0.07], HIT_KILL = [1.2, 0.25, 0.12];
+const CAPTAIN_TINT = [0.9, 1.0, 1.12]; // an allied squad leader reads a shade bluer than its men
+
+// What a soldier looks like to the other army: the shape the attack code expects of a pilot.
+function proxyOf(crowd, g) {
+  return {
+    npc: true, unit: g,
+    get id() { return g.id; },
+    pos: { get x() { return g.x; }, get y() { return g.y; }, get z() { return g.z; } },
+    get alive() { return g.alive && g.hp > 0 && g.state !== 'dying'; },
+    get state() { return g.state === 'drop' || g.state === 'held' ? 'intro' : 'idle'; },
+    takeHit: (dmg, x, z, heavy) => crowd.npcHit(g, dmg, x, z, heavy),
+  };
+}
 
 export class Crowd {
-  constructor(game) {
+  constructor(game, team = 'zeon', max = MAX) {
     this.game = game;
-    this.def = zakuDef();
-    this.rig = new InstancedRig(this.def, MAX, game.scene);
-    // the mech gait on a Zaku: a trudging walk that stretches into a run at the charge; gunners keep both hands on
-    // the gun
+    this.team = team;
+    this.look = TEAMS[team];
+    this.max = max;
+    this.def = this.look.def();
+    this.rig = new InstancedRig(this.def, max, game.scene);
+    // the mech gait: a trudging walk that stretches into a run at the charge; gunners keep both hands on the gun
     this.gait = gaitSpec(this.def, WALK * 1.7, { stride: 1.4, impact: 0.045, sway: 0.045, lat: 0.04, lean: 0.24, arm: [0.12, 0.16], inertia: 0 });
     this.gaitGun = { ...this.gait, arm: [0, 0], carry: [0, 0, 0, 0, 0] };
     lensClear(this.rig.mat);
     this.list = [];
     this.pool = [];
-    for (let i = 0; i < MAX; i++) this.pool.push(this.makeGrunt(i));
+    for (let i = 0; i < max; i++) this.pool.push(this.makeGrunt(i));
     this.grid = new SpatialHash(3);
     this.tmp = [];
+    this.tmp2 = [];
+    this.foes = null; // the other army's crowd (main.js pairs them up)
     this.meleeTokens = 0;
     this.gunTokens = 0;
     this.maxMelee = 3;
@@ -98,14 +129,17 @@ export class Crowd {
   }
 
   makeGrunt(i) {
-    return {
+    const g = {
       i, alive: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, hp: 60, maxHp: 60,
       state: 'idle', t: 0, gs: gaitState(), gun: false, cd: 0, token: 0, flash: 0, paceT: 0, wx: null, wz: 0, pacing: false,
       hitIds: [0, 0, 0, 0], hitCursor: 0, ringA: 0, ringR: 6, spin: 0, pitch: 0, roll: 0, aimYaw: 0, aimY: 0,
       pose: makePose(), scale: 1, radius: 0.95, fade: 1, dieT: 0, spawnVy: 0, fired: 0, think: 0, lastHitT: -9,
       kind: 'grunt', height: 3.1, staggerAlt: false, aggro: rand(0.6, 1.2),
       squad: null, slotX: 0, slotZ: 0, press: false, outerR: 13,
+      foe: null, foeId: 0, seekT: 0, byNpc: false, captain: false, npcAim: false,
     };
+    g.proxy = proxyOf(this, g);
+    return g;
   }
 
   get count() {
@@ -113,7 +147,8 @@ export class Crowd {
   }
 
   // squad: { x, z, engaged, n, base?, post?, rally? } — garrisons hold their post around (x, z) until a pilot comes near.
-  spawn(x, z, { gun = false, drop = false, yaw = 0, hp = 50, squad = null } = {}) {
+  // Marching squads (war.js) also carry `march`, and their anchor (x, z) walks the route.
+  spawn(x, z, { gun = false, drop = false, yaw = 0, hp = 50, squad = null, captain = false } = {}) {
     const g = this.pool.pop();
     if (!g) return null;
     g.alive = true;
@@ -122,8 +157,9 @@ export class Crowd {
     g.vx = g.vz = 0;
     g.vy = drop ? -rand(10, 16) : 0;
     g.yaw = yaw;
-    g.hp = g.maxHp = hp * this.game.difficulty.enemyHp;
+    g.hp = g.maxHp = hp * (this.team === 'zeon' ? this.game.difficulty.enemyHp : 1);
     g.gun = gun;
+    g.captain = captain;
     g.state = drop ? 'drop' : 'idle';
     g.t = 0;
     g.cd = gun ? rand(3, 8) : rand(0.5, 2.5);
@@ -146,11 +182,16 @@ export class Crowd {
       g.slotZ = z - squad.z;
     }
     g.think = rand(0, 0.5);
+    g.seekT = rand(0, 0.4);
+    g.foe = null;
+    g.foeId = 0;
+    g.byNpc = false;
+    g.npcAim = false;
     g.wx = null;
     g.gs.amp = 0;
     g.gs.ph = rand(0, 6);
     g.dieT = 0;
-    g.scale = rand(0.97, 1.04);
+    g.scale = captain ? 1.12 : rand(0.97, 1.04);
     g.aggro = rand(0.6, 1.3);
     this.list.push(g);
     return g;
@@ -158,6 +199,7 @@ export class Crowd {
 
   remove(g) {
     g.alive = false;
+    g.foe = null;
     this.releaseToken(g);
     if (g.squad) { g.squad.n--; g.squad = null; }
     const idx = this.list.indexOf(g);
@@ -183,7 +225,7 @@ export class Crowd {
     return g.hitIds.includes(id);
   }
 
-  // Called by combat when the hero's attack connects.
+  // Called by combat when the hero's attack connects (and, with opts.npc, by npcHit for another army's blow).
   damage(g, dmg, kb, up, fromX, fromZ, id, opts = {}) {
     if (!g.alive || g.state === 'dying' || g.state === 'held') return false;
     if (id && this.alreadyHit(g, id)) return false;
@@ -193,13 +235,16 @@ export class Crowd {
     }
     const game = this.game;
     g.hp -= dmg;
+    g.byNpc = !!opts.npc; // whose blow it was decides whose KO it is
     const heavy = up > 6 || kb > 8.5 || !!opts.big;
-    g.flash = 1;
+    g.flash = opts.npc ? 0.6 : 1;
     g.hitKind = g.hp <= 0 ? 2 : heavy ? 1 : 0;
     g.shudder = 0.05; // victims hold for ~3 frames, then the reaction carries the weight
     g.lastHitT = game.time;
+    // an allied squad leader shrugs off the enemy's soldiers (it only falls to them, slowly)
+    if (opts.npc && g.captain && g.hp > 0) return true;
     this.releaseToken(g);
-    if (g.squad) g.squad.engaged = true;
+    if (g.squad && !opts.npc) g.squad.engaged = true; // another army's blow isn't the pilots' fight
     let dx = g.x - fromX, dz = g.z - fromZ;
     const l = Math.hypot(dx, dz) || 1;
     dx /= l; dz /= l;
@@ -242,6 +287,17 @@ export class Crowd {
     return true;
   }
 
+  // A blow from the other army's soldier or squad leader: a scratch and a flinch.
+  npcHit(g, dmg, fromX, fromZ, heavy = false) {
+    if (!g.alive || g.hp <= 0 || g.state === 'dying' || g.state === 'held' || g.state === 'drop') return false;
+    const ok = this.damage(g, dmg * NPC_VS_NPC * (g.captain ? LEADER_ARMOR : 1), heavy ? 6 : 2.5, 0, fromX, fromZ, 0, { npc: true });
+    if (ok && this.heard(g, 45)) {
+      this.game.fx.sparks(this._v.set(g.x, g.y + 1.8, g.z), 3, 0xffc070, 6);
+      this.game.audio.play('hit', { vol: 0.22, pitch: rand(0.9, 1.1), at: this._v });
+    }
+    return ok;
+  }
+
   kill(g) {
     g.state = 'dying';
     g.t = 0;
@@ -253,6 +309,7 @@ export class Crowd {
     this.releaseToken(g);
     g.state = 'held';
     g.holder = holder;
+    g.byNpc = false;
     g.t = 0;
     g.vx = g.vy = g.vz = 0;
     g.flash = 1;
@@ -289,15 +346,17 @@ export class Crowd {
   explodeGrunt(g) {
     const game = this.game;
     const p = this._v.set(g.x, g.y + 1.7, g.z);
-    game.fx.explode(p, rand(1.35, 1.6), EXPLODE_COLORS);
-    if (this.boomBudget > 0) {
+    game.fx.explode(p, rand(1.35, 1.6), this.look.explode);
+    if (this.boomBudget > 0 && this.heard(g, 70)) {
       this.boomBudget--;
       game.audio.play('boom', { vol: 0.95, pitch: rand(0.85, 1.05), at: p });
-      // a Zaku going up right next to you rocks the view a little
+      // a suit going up right next to you rocks the view a little
       const h = game.local.pos, d = Math.hypot(g.x - h.x, g.z - h.z);
       if (d < 10) game.camera.shake(0.07 * (1 - d / 10));
     }
-    game.onGruntKilled(g);
+    // only a pilot's KO counts for the pilots (the KO count, the plaza, drops); the armies keep their own tally
+    if (this.team === 'fed' || g.byNpc) game.war?.onSoldierDown(this, g);
+    else game.onGruntKilled(g);
     this.remove(g);
   }
 
@@ -331,6 +390,12 @@ export class Crowd {
     return d;
   }
 
+  // Is a pilot close enough to hear (and see) this soldier? Fights nobody is near stay quiet.
+  heard(g, r) {
+    for (const p of this.game.players) if (Math.abs(p.pos.x - g.x) + Math.abs(p.pos.z - g.z) < r * 1.3 && Math.hypot(p.pos.x - g.x, p.pos.z - g.z) < r) return true;
+    return false;
+  }
+
   // Each grunt chases the nearest pilot, sticking with its current one unless the other is much closer.
   targetFor(g, players) {
     if (players.length === 1) return players[0];
@@ -345,14 +410,37 @@ export class Crowd {
     return cur;
   }
 
+  // Pick this soldier's foe. Zeon: the pilots keep priority as ever (the front rank, the gunners and any soldier the
+  // pilots are close to or its squad is fighting), and the rest take on an enemy soldier in reach. A GM: the nearest
+  // Zeon soldier or squad leader in reach, or nobody.
+  seek(g, players, war) {
+    const npc = war ? war.foeFor(this, g) : null;
+    if (this.team !== 'zeon') { this.setFoe(g, npc); return; }
+    const p = this.targetFor(g, players);
+    if (!npc) { this.setFoe(g, p); return; }
+    const pd = p.alive && p.state !== 'intro' ? Math.hypot(p.pos.x - g.x, p.pos.z - g.z) : Infinity;
+    const nd = Math.hypot(npc.pos.x - g.x, npc.pos.z - g.z);
+    const sq = g.squad;
+    const onPilot = pd < AGGRO || (sq && sq.engaged && pd < 34);
+    this.setFoe(g, onPilot && (g.press || g.gun || nd > 7 || pd < nd) ? p : npc);
+  }
+
+  setFoe(g, foe) {
+    g.foe = foe;
+    g.foeId = foe ? foe.id ?? 0 : 0;
+    if (foe && foe.npc && g.squad) this.game.war?.sighted(g.squad);
+  }
+
   update(dt) {
     const game = this.game;
     const players = game.players;
+    const war = game.war?.active ? game.war : null;
+    const foes = war && this.foes && this.foes.count ? this.foes : null;
     this.boomBudget = Math.min(6, this.boomBudget + dt * 18);
     this.grid.clear();
     for (const g of this.list) this.grid.insert(g, g.x, g.z);
     const tokenScale = game.difficulty.aggression * players.length;
-    this.assignPress(dt, players);
+    if (this.team === 'zeon') this.assignPress(dt, players);
 
     for (let n = 0; n < this.list.length; n++) {
       const g = this.list[n];
@@ -360,7 +448,15 @@ export class Crowd {
       if (g.shudder > 0) { g.shudder -= dt; continue; }
       g.t += dt;
       g.cd -= dt;
-      const hero = this.targetFor(g, players);
+      // who it fights: re-picked a few times a second between attacks, kept through one
+      if (g.state === 'idle' || g.state === 'approach') {
+        g.seekT -= dt;
+        if (g.seekT <= 0) { g.seekT = rand(0.3, 0.55); this.seek(g, players, war); }
+      }
+      let hero = g.foe;
+      if (hero && hero.npc && (!hero.alive || hero.id !== g.foeId)) hero = g.foe = null;
+      if (!hero) hero = this.team === 'zeon' ? this.targetFor(g, players) : NOBODY;
+      const npc = !!hero.npc;
       const hx = hero.pos.x, hz = hero.pos.z;
       const heroTargetable = hero.alive && hero.state !== 'intro';
       const dx = hx - g.x, dz = hz - g.z;
@@ -379,7 +475,7 @@ export class Crowd {
             g.vy = 0;
             g.state = 'idle';
             g.t = 0;
-            game.fx.dust(this._v.set(g.x, 0.1, g.z), 6, 1);
+            if (this.heard(g, 90)) game.fx.dust(this._v.set(g.x, 0.1, g.z), 6, 1);
           }
           break;
         }
@@ -387,33 +483,27 @@ export class Crowd {
         case 'approach': {
           g.think -= dt;
           const sq = g.squad;
-          // garrison: hold the post until a pilot comes close
-          if (sq && !sq.engaged) {
-            if (heroTargetable && dist < AGGRO) { sq.engaged = true; this.alert(g); }
-            else {
-              // hold the post, milling about it: every few seconds a spot near the slot, an amble there, a look round
-              // (render turns the head); far off it (back from a fight), march straight back
-              g.paceT -= dt;
-              if (g.paceT <= 0) this.pace(g);
-              const tx = sq.x + g.slotX + g.wx, tz = sq.z + g.slotZ + g.wz;
-              let mx = tx - g.x, mz = tz - g.z;
-              const ml = Math.hypot(mx, mz);
-              if (g.pacing && ml < 0.3) g.pacing = false;
-              // (a soldier standing still lets the ranks jostle it up to a step off its spot, as before)
-              const speed = ml > 3 ? WALK * 0.8 : g.pacing || ml > 1.2 ? Math.min(PACE, 0.3 + ml * 2) : 0;
-              if (ml > 0.01) { mx /= ml; mz /= ml; }
-              g.vx = damp(g.vx, mx * speed, 4, dt);
-              g.vz = damp(g.vz, mz * speed, 4, dt);
-              g.state = speed > 0 ? 'approach' : 'idle';
-              const face = speed > 0 ? Math.atan2(g.vx, g.vz) : dist < 34 ? toHero : Math.atan2(g.slotX, g.slotZ);
-              g.yaw = angleDamp(g.yaw, face, 3, dt);
-              break;
-            }
+          // garrison: hold the post (a column: keep formation on the march) until a pilot comes close, or an enemy
+          // soldier is in reach
+          if (sq && !sq.engaged && !(npc && heroTargetable)) {
+            if (!npc && heroTargetable && dist < AGGRO) { sq.engaged = true; this.alert(g); }
+            else { this.keepPost(g, sq, dt, dist, toHero); break; }
+          }
+          if (npc && !heroTargetable) {
+            // nobody to fight and no post to keep: stand
+            g.vx = damp(g.vx, 0, 4, dt);
+            g.vz = damp(g.vz, 0, 4, dt);
+            g.state = 'idle';
+            break;
           }
           // decide on an attack when close and a token is free (only the front rank presses in)
           if (heroTargetable && g.cd <= 0 && g.think <= 0) {
             g.think = rand(0.2, 0.5);
-            if (!g.gun && g.press && dist < 11 && this.meleeTokens < this.maxMelee * tokenScale) {
+            if (npc) {
+              // another army's soldier: no tokens, no aim line, just a steady exchange of blows
+              if (!g.gun && dist < 7) { g.state = 'charge'; g.t = 0; break; }
+              if (g.gun && dist < 20 && dist > 4) { this.startAim(g, hero, dist, toHero, true); break; }
+            } else if (!g.gun && g.press && dist < 11 && this.meleeTokens < this.maxMelee * tokenScale) {
               g.token = 1;
               this.meleeTokens++;
               g.state = 'charge';
@@ -424,32 +514,26 @@ export class Crowd {
               g.token = 2;
               this.gunTokens++;
               this.nextVolley = game.time + rand(5, 8) / (game.difficulty.aggression * Math.sqrt(players.length));
-              g.state = 'aim';
-              g.t = 0;
-              g.aimYaw = toHero;
-              g.aimY = (hero.pos.y + 1.6 - 2.35) / Math.max(1, dist);
-              const fx = Math.sin(toHero), fz = Math.cos(toHero);
-              const from = this._v.set(g.x + fx * 1.9 - fz * 0.62, 2.35, g.z + fz * 1.9 + fx * 0.62);
-              const L = dist + 8;
-              game.fx.aimLine(from, { x: from.x + fx * L, y: from.y + g.aimY * L, z: from.z + fz * L }, AIM_T);
+              this.startAim(g, hero, dist, toHero, false);
               break;
             }
           }
           // steer toward a ring slot around the hero: the front rank close in, the rest watch from further out
+          // (another army's soldier: straight into sword's reach, gunners a few lengths off)
+          const R = npc ? (g.gun ? 10 : 3.2) : g.gun || g.press ? g.ringR : g.outerR;
           let tx, tz;
           if (dist > 34) { tx = hx; tz = hz; }
           else {
             // the slot follows each soldier's own bearing (with a slow sidestep) so they close in radially
             // instead of cutting across the hero to a slot on the far side
             g.ringA = angleDamp(g.ringA, Math.atan2(g.x - hx, g.z - hz), 1.5, dt) + dt * 0.08 * (g.i % 2 ? 1 : -1);
-            const R = g.gun || g.press ? g.ringR : g.outerR;
             tx = hx + Math.sin(g.ringA) * R;
             tz = hz + Math.cos(g.ringA) * R;
           }
           let mx = tx - g.x, mz = tz - g.z;
           const ml = Math.hypot(mx, mz);
           // close to the ring but never back away from an advancing pilot: gunners plant their feet and shoot
-          const inside = dist <= 34 && dist < (g.gun || g.press ? g.ringR : g.outerR) + 0.5;
+          const inside = dist <= 34 && dist < R + 0.5;
           const speed = ml > 1.2 && !inside ? WALK * (dist > 34 ? 1.3 : 1) : 0;
           if (ml > 0.01) { mx /= ml; mz /= ml; }
           g.vx = damp(g.vx, mx * speed, 4, dt);
@@ -462,7 +546,7 @@ export class Crowd {
         case 'charge': {
           // close in for a heat hawk swing
           const want = 2.6;
-          const sp = dist > want ? WALK * 1.7 : 0;
+          const sp = dist > want ? WALK * (npc ? 1.25 : 1.7) : 0;
           g.vx = damp(g.vx, (dx / (dist || 1)) * sp, 8, dt);
           g.vz = damp(g.vz, (dz / (dist || 1)) * sp, 8, dt);
           g.yaw = angleDamp(g.yaw, toHero, 10, dt);
@@ -476,12 +560,17 @@ export class Crowd {
           g.yaw = angleDamp(g.yaw, toHero, 5, dt);
           // telegraph: a star glints on the raised heat hawk; red means the blow will really land
           const T = 0.9 / game.difficulty.speed;
-          if (g.t >= T - 0.3 && g.t - dt < T - 0.3) {
+          if (!npc && g.t >= T - 0.3 && g.t - dt < T - 0.3) {
             g.feint = game.time < this.feintUntil;
             const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw);
             game.fx.glint(this._v.set(g.x - fx * 0.5 - fz * 0.6, 4.4, g.z - fz * 0.5 + fx * 0.6), g.feint ? 0xffffff : 0xff3040);
           }
-          if (g.t >= T) { g.state = 'strike'; g.t = 0; game.audio.play('hawk', { vol: 0.35, at: this._v.set(g.x, 1, g.z) }); }
+          if (npc) g.feint = false;
+          if (g.t >= T) {
+            g.state = 'strike';
+            g.t = 0;
+            if (!npc || this.heard(g, 45)) game.audio.play(this.look.swing, { vol: npc ? 0.2 : 0.35, at: this._v.set(g.x, 1, g.z) });
+          }
           break;
         }
         case 'strike': {
@@ -490,16 +579,16 @@ export class Crowd {
             const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw);
             const dot = (dx * fx + dz * fz) / (dist || 1);
             // after a blow lands the ring feints for a few seconds: pressure without a chip-damage grind
-            if (!g.feint && dist < 3.6 && dot > 0.35 && hero.pos.y < 2.5 && hero.takeHit(16 + rand(0, 7), g.x, g.z, false)) {
+            if (!g.feint && dist < 3.6 && dot > 0.35 && hero.pos.y < 2.5 && hero.takeHit(16 + rand(0, 7), g.x, g.z, false) && !npc) {
               this.feintUntil = game.time + rand(2.5, 4) / game.difficulty.aggression;
             }
-            const lunge = g.feint ? 1.5 : 5; // feints stop short
+            const lunge = g.feint ? 1.5 : npc ? 3 : 5; // feints stop short
             g.vx = Math.sin(g.yaw) * lunge;
             g.vz = Math.cos(g.yaw) * lunge;
           }
           g.vx = damp(g.vx, 0, 6, dt);
           g.vz = damp(g.vz, 0, 6, dt);
-          if (g.t >= 0.8) { this.releaseToken(g); g.state = 'idle'; g.cd = rand(2.6, 4.8) / g.aggro; }
+          if (g.t >= 0.8) { this.releaseToken(g); g.state = 'idle'; g.cd = npc ? rand(2, 3.6) : rand(2.6, 4.8) / g.aggro; }
           break;
         }
         case 'aim': {
@@ -507,7 +596,7 @@ export class Crowd {
           g.vx = damp(g.vx, 0, 8, dt);
           g.vz = damp(g.vz, 0, 8, dt);
           g.yaw = angleDamp(g.yaw, g.aimYaw, 14, dt);
-          if (g.t > AIM_T) { g.state = 'fire'; g.t = 0; g.fired = 0; }
+          if (g.t > (g.npcAim ? NPC_AIM_T : AIM_T)) { g.state = 'fire'; g.t = 0; g.fired = 0; }
           break;
         }
         case 'fire': {
@@ -517,9 +606,11 @@ export class Crowd {
             const fx = Math.sin(g.aimYaw), fz = Math.cos(g.aimYaw);
             const from = this._v.set(g.x + fx * 1.9 - fz * 0.62, 2.35, g.z + fz * 1.9 + fx * 0.62);
             const a = g.aimYaw + rand(-0.025, 0.025);
-            game.projectiles.enemyBullet(from, new THREE.Vector3(Math.sin(a), g.aimY, Math.cos(a)).normalize());
+            const dir = new THREE.Vector3(Math.sin(a), g.aimY, Math.cos(a)).normalize();
+            if (this.team === 'zeon') game.projectiles.enemyBullet(from, dir);
+            else game.projectiles.allyBullet(from, dir, this.heard(g, 70));
           }
-          if (g.t > 0.7) { this.releaseToken(g); g.state = 'idle'; g.cd = rand(9, 14) / g.aggro; }
+          if (g.t > 0.7) { this.releaseToken(g); g.state = 'idle'; g.cd = g.npcAim ? rand(5, 8) : rand(9, 14) / g.aggro; }
           break;
         }
         case 'stagger': {
@@ -537,7 +628,7 @@ export class Crowd {
           if (g.y <= 0 && g.vy < 0) {
             g.y = 0;
             g.pitch = g.pitchTarget;
-            game.fx.dust(this._v.set(g.x, 0.1, g.z), 4, 0.9);
+            if (this.heard(g, 90)) game.fx.dust(this._v.set(g.x, 0.1, g.z), 4, 0.9);
             if (!g.bounced && g.vy < -3) {
               g.bounced = true;
               g.vy = Math.min(2.8, -g.vy * 0.28);
@@ -574,28 +665,16 @@ export class Crowd {
           g.vz = damp(g.vz, 0, 4, dt);
           if (g.y > 0) { g.vy -= GRAV * dt; g.y = Math.max(0, g.y + g.vy * dt); }
           g.flash = 0.5 + 0.5 * Math.sin(g.t * 50);
-          if (Math.random() < dt * 14) game.fx.sparks(this._v.set(g.x + rand(-0.6, 0.6), g.y + rand(1, 2.6), g.z + rand(-0.6, 0.6)), 4, 0xffc060, 7);
+          if (Math.random() < dt * 14 && this.heard(g, 90)) game.fx.sparks(this._v.set(g.x + rand(-0.6, 0.6), g.y + rand(1, 2.6), g.z + rand(-0.6, 0.6)), 4, 0xffc060, 7);
           if (g.t >= g.dieT) { this.explodeGrunt(g); n--; continue; }
           break;
         }
       }
 
-      // separation + hero push
+      // separation (from comrades and the other army's soldiers) + hero push
       if (g.state !== 'air' && g.state !== 'drop' && g.state !== 'held') {
-        const near = this.grid.query(g.x, g.z, 2.6, this.tmp);
-        for (let k = 0; k < near.length; k++) {
-          const o = near[k];
-          if (o === g) continue;
-          const ox = g.x - o.x, oz = g.z - o.z;
-          const d2 = ox * ox + oz * oz;
-          const min = 2.3;
-          if (d2 < min * min && d2 > 1e-6) {
-            const d = Math.sqrt(d2);
-            const push = (min - d) * 0.5;
-            g.x += (ox / d) * push;
-            g.z += (oz / d) * push;
-          }
-        }
+        this.separate(g, this.grid, 2.3, false);
+        if (foes) this.separate(g, foes.grid, 2.2, true);
         for (const pl of players) {
           if (!pl.alive || pl.pos.y > 2.5) continue;
           const px = pl.pos.x - g.x, pz = pl.pos.z - g.z;
@@ -624,13 +703,72 @@ export class Crowd {
     }
   }
 
+  // Push g half out of the bodies in `grid` closer than `min` (each side takes the other half). The other army's grid
+  // is from its last update: skip the fallen and the flying.
+  separate(g, grid, min, other) {
+    const near = grid.query(g.x, g.z, 2.6, this.tmp2);
+    for (let k = 0; k < near.length; k++) {
+      const o = near[k];
+      if (o === g || (other && (!o.alive || o.state === 'air' || o.state === 'drop'))) continue;
+      const ox = g.x - o.x, oz = g.z - o.z;
+      const d2 = ox * ox + oz * oz;
+      if (d2 < min * min && d2 > 1e-6) {
+        const d = Math.sqrt(d2);
+        const push = (min - d) * 0.5;
+        g.x += (ox / d) * push;
+        g.z += (oz / d) * push;
+      }
+    }
+  }
+
+  // Holding the post: milling about it (every few seconds a spot near the slot, an amble there, a look round; render
+  // turns the head), and marching straight back from a fight. A column on the march closes up its ranks and keeps
+  // pace with its anchor instead.
+  keepPost(g, sq, dt, dist, toHero) {
+    const marching = !!sq.march && !sq.wait;
+    if (sq.march) { g.wx = g.wz = 0; g.pacing = false; g.paceT = Math.max(g.paceT, 2); }
+    else {
+      g.paceT -= dt;
+      if (g.paceT <= 0) this.pace(g);
+    }
+    const k = sq.march ? 0.5 : 1;
+    const tx = sq.x + g.slotX * k + (g.wx || 0), tz = sq.z + g.slotZ * k + (g.wz || 0);
+    let mx = tx - g.x, mz = tz - g.z;
+    const ml = Math.hypot(mx, mz);
+    if (sq.march) sq.lag = Math.max(sq.lag || 0, ml);
+    if (g.pacing && ml < 0.3) g.pacing = false;
+    // (a soldier standing still lets the ranks jostle it up to a step off its spot, as before)
+    const speed = marching ? (ml > 0.6 ? Math.min(WALK * 1.25, 1 + ml * 1.2) : 0)
+      : ml > 3 ? WALK * 0.8 : g.pacing || ml > 1.2 ? Math.min(PACE, 0.3 + ml * 2) : 0;
+    if (ml > 0.01) { mx /= ml; mz /= ml; }
+    g.vx = damp(g.vx, mx * speed, 4, dt);
+    g.vz = damp(g.vz, mz * speed, 4, dt);
+    g.state = speed > 0 ? 'approach' : 'idle';
+    const face = speed > 0.2 ? Math.atan2(g.vx, g.vz) : dist < 34 ? toHero : sq.march ? g.yaw : Math.atan2(g.slotX, g.slotZ);
+    g.yaw = angleDamp(g.yaw, face, 3, dt);
+  }
+
+  // A gunner takes aim. At a pilot it paints the red aim line first; at another army's soldier it just aims.
+  startAim(g, hero, dist, toHero, npc) {
+    g.state = 'aim';
+    g.t = 0;
+    g.npcAim = npc;
+    g.aimYaw = toHero;
+    g.aimY = (hero.pos.y + 1.6 - 2.35) / Math.max(1, dist);
+    if (npc) return;
+    const fx = Math.sin(toHero), fz = Math.cos(toHero);
+    const from = this._v.set(g.x + fx * 1.9 - fz * 0.62, 2.35, g.z + fz * 1.9 + fx * 0.62);
+    const L = dist + 8;
+    this.game.fx.aimLine(from, { x: from.x + fx * L, y: from.y + g.aimY * L, z: from.z + fz * L }, AIM_T);
+  }
+
   // A garrison soldier spots a pilot: the mono-eye flares and swings on with its "pyuiin".
   alert(g) {
     const game = this.game;
     const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw);
-    const p = this._v.set(g.x + fx * 0.55, 2.95 * g.scale, g.z + fz * 0.55);
-    game.fx.glint(p, 0xff2f6e);
-    game.audio.play('eye', { at: p });
+    const p = this._v.set(g.x + fx * 0.55, this.look.eyeY * g.scale, g.z + fz * 0.55);
+    game.fx.glint(p, this.look.eye);
+    if (this.team === 'zeon') game.audio.play('eye', { at: p });
   }
 
   // Only the nearest few engaged soldiers per pilot may close in and swing; the rest form a watching ring
@@ -673,6 +811,7 @@ export class Crowd {
       seen.add(id);
       let g = byId.get(id);
       const x = a[o + 1] / 100, y = a[o + 2] / 100, z = a[o + 3] / 100, yaw = a[o + 4] / 1000;
+      const f = a[o + 11];
       if (!g) {
         g = this.pool.pop();
         if (!g) continue;
@@ -680,7 +819,8 @@ export class Crowd {
         g.x = x; g.y = y; g.z = z; g.yaw = yaw;
         g.gs.ph = Math.random() * 6;
         g.fade = 1;
-        g.scale = 0.97 + ((id * 7919) % 70) / 1000;
+        g.captain = !!(f & 16384);
+        g.scale = g.captain ? 1.12 : 0.97 + ((id * 7919) % 70) / 1000;
         g.netId = id;
         this.list.push(g);
         byId.set(id, g);
@@ -693,10 +833,9 @@ export class Crowd {
       g.vz = a[o + 8] / 100;
       g.flash = a[o + 9] / 1000;
       g.pitch = a[o + 10] / 1000;
-      const f = a[o + 11];
       g.gun = !!(f & 1);
       g.staggerAlt = !!(f & 2);
-      g.hp = f & 4 ? 0 : Math.max(1, f >> 6) / 255; g.maxHp = 1;
+      g.hp = f & 4 ? 0 : Math.max(1, (f >> 6) & 255) / 255; g.maxHp = 1;
       g.hitKind = (f >> 3) & 3;
       g.shudder = f & 32 ? 0.03 : 0;
       g.i = a[o + 12];
@@ -805,6 +944,7 @@ export class Crowd {
       // hit tint: one white-hot frame, then a gold / amber / red (killing blow) wash that decays fast;
       // KO'd bodies keep a red ember while they fly
       let cr = 1, cg = 1, cb = 1;
+      if (g.captain) [cr, cg, cb] = CAPTAIN_TINT;
       const ember = g.hp <= 0 && (g.state === 'air' || g.state === 'dying') ? 0.45 : 0;
       if (g.flash > 0.93) { cr = cg = cb = 2.6; }
       else if (g.flash > 0 || ember) {
