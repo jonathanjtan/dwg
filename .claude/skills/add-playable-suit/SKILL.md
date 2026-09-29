@@ -227,6 +227,20 @@ Config fields (doc comment above `class Hero`) are `hp`, `run`, `boostSpeed`, `b
 - **Poses:** `airPose` and `boostPose` (merged over the humanoid defaults).
 - **Air SP:** `spAirY`, `spAirReach`.
 - **Hovering:** `hover` (no footsteps).
+- **Gait:** walking and running come from `src/core/gait.js`, shared by the suits, the commanders and the grunts.
+  The legs are IK with planted feet, and the cycle is driven by distance travelled, so steps always match ground
+  speed. The defaults are the Gundam's; a new walker only adds `gait: {...}` to its config:
+  - `stride`: leg lengths per step at its `run`. Bigger means slower, heavier steps: 1.6 for the Guncannon or
+    Sazabi, 1.4 for the F91.
+  - `duty: [walk, run]`: the share of the cycle each foot is down. Longer contact reads heavier.
+  - `impact`, `sway`, `roll`, `lat`: the weight in each footfall. `lean`: the forward pitch at a run.
+  - `arm` and `carry`: how the weapon and shield arms are held. Zero `carry[2]` for a long gun that would swing into
+    the legs.
+
+  The model needs `thighR`/`shinR` pivots and must stand on straight legs in its rest pose, since the leg lengths
+  come from `rigDef`. A suit without legs (the Ball) overrides `locomotion` and returns `this.beat(dt, sp)` for its
+  footfalls. Check it by filming side and 3/4 runs, and by stepping the harness while reading the foot's world
+  position (the end of `hero.rig.nodes.shinR`) each frame: a planted foot should barely move while it's down.
 
 Hooks: `buildWeapons` (anything in the scene goes through `this.own()`, so it attaches and detaches with the suit),
 `preUpdate`, `onMoveStart`, `onMoveTick`, `onMoveEnd`, `onInterrupt` and `onEndMusou`. Then `carryPose(target)`,
