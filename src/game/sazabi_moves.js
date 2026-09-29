@@ -58,7 +58,7 @@ const funnels = (t0, step, mode, n = 6, i0 = 0) => Array.from({ length: n }, (_,
 // ev: [t, name, arg]: 'funnels' deploys the six funnels ('tgt' around the target, 'ring' round the suit, 'field' wide
 // over the field, 'line' in a row out in front), 'recall' brings them home, 'linefire' fires the 'line' down its length,
 // 'mega' fires the abdominal mega particle cannon point-blank, 'burstgreen' the air SP's finishing burst.
-// shots: { t, kind: 'srifle' | 'funnel' | 'down' | 'up' | 'missile', i (funnel), mode ('tgt' | 'out' | 'rain'), ang }
+// shots: { t, kind: 'srifle' | 'funnel' | 'down' | 'up' | 'missile', i (funnel), mode ('tgt' | 'out' | 'rain'), ang, dmg (funnel) }
 // wpn: [t, weapon] (saber: beam tomahawk lit | rifle: beam shot rifle | null); lift: [t0, t1] thrusters firing for lift.
 // SP stocks (hero.js): spcStep on the charge SP's wind-up, stockDur on the frenzy it stretches.
 export const MOVES = {
@@ -144,8 +144,10 @@ export const MOVES = {
 
   // ---- charge attacks ----
   // K alone: the beam shot rifle. Mash K for a slow, heavy shot combo; hold it for the charge shot.
+  // Tapping K: the beam shot rifle, five shots ~0.27 s apart as in Reborn, each a flinch; see the Gundam's C1 in
+  // moves.js for how chain and dur set the gap and the recovery.
   C1: {
-    dur: 0.42, chain: 0.16, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true,
+    dur: 0.4, chain: 0.31, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true,
     clip: clip([
       k(0, { ...RIFLE }),
       k(0.1, { ...RIFLE }, 'snap'),
@@ -155,7 +157,7 @@ export const MOVES = {
     shots: [{ t: 0.12, kind: 'srifle' }],
   },
   C1R: {
-    dur: 0.3, chain: 0.1, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 10,
+    dur: 0.31, chain: 0.225, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 5, // five in the footage
     clip: clip([
       k(0, { ...RIFLE }),
       k(0.05, { uArmR: [-1.55, 0, -0.15], hand: [1.65, 0, 0] }, 'snap'),
@@ -181,7 +183,9 @@ export const MOVES = {
       { t: 0.38, t1: 0.5, shape: 'arc', range: 5.4, arc: 150, hy: 5, dmg: 34, kb: 2, up: 13, big: true },
     ],
     ev: [[0.02, 'flash', 'gold'], [0.55, 'funnels', 'tgt'], [1.5, 'recall']],
-    shots: [...funnels(0.78, 0.07, 'tgt'), ...funnels(1.2, 0.04, 'tgt')],
+    // the funnels' converging shots are lighter than elsewhere (dmg), so the whole charge shot lands about as hard as
+    // the other suits' (~120 on one target)
+    shots: [...funnels(0.78, 0.07, 'tgt'), ...funnels(1.2, 0.04, 'tgt')].map((s) => ({ ...s, dmg: 5 })),
     sfxs: [[0.1, 'qb'], [0.38, 'slash_rise']],
   },
 

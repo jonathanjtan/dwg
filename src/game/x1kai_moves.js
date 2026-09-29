@@ -140,8 +140,10 @@ export const MOVES = {
   // ---- charge attacks ----
   // K alone: the buster gun, from under the mantle. Mash K for a shot combo (about six in the footage); hold it for the
   // charge shot.
+  // Tapping K: the buster gun from under the mantle, five shots ~0.35 s apart as in Reborn, each a flinch; see the
+  // Gundam's C1 in moves.js for how chain and dur set the gap and the recovery.
   C1: {
-    dur: 0.36, chain: 0.12, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, mantle: true,
+    dur: 0.45, chain: 0.38, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, mantle: true,
     clip: clip([
       k(0, { ...PISTOL }),
       k(0.08, { ...PISTOL }, 'snap'),
@@ -151,7 +153,7 @@ export const MOVES = {
     shots: [{ t: 0.1, kind: 'buster' }],
   },
   C1R: {
-    dur: 0.22, chain: 0.08, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, mantle: true, maxRepeat: 6,
+    dur: 0.37, chain: 0.305, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, mantle: true, maxRepeat: 5,
     clip: clip([
       k(0, { ...PISTOL }),
       k(0.04, { uArmR: [-1.5, 0, -0.15], hand: [1.6, 0, 0] }, 'snap'),

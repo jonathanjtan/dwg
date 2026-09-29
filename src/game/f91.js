@@ -13,7 +13,7 @@ import { Trail } from '../fx/fx.js';
 
 const WEAPON_ID = { saber: 1, rifle: 2, launcher: 3, sabers: 4 };
 const WEAPON_OF = [null, 'saber', 'rifle', 'launcher', 'sabers'];
-const RIFLE_SHOT = { dmg: 22, kb: 4, up: 1 };
+const RIFLE_SHOT = { dmg: 13, kb: 2.5, up: 0, pierce: 1 }; // K: a flinch, stopped by the first body it hits (Reborn)
 const RIFLE_UP = { dmg: 30, kb: 5, up: 5, big: true, w: 1.3 }; // C2: the rifle shot up into the launched target
 const VSBR_CHARGE = { dmg: 40, kb: 10, up: 10, big: true, w: 2.2, r: 1.4, speed: 112 }; // the charge shot, one per barrel
 const VSBR_SHOT = { dmg: 18, kb: 4, up: 2, w: 1.4, r: 1.0 }; // C6's volleys, one per barrel

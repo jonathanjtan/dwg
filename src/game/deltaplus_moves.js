@@ -116,8 +116,10 @@ export const MOVES = {
 
   // ---- charge attacks ----
   // K alone: beam rifle. Mash K for a shot combo (up to five, as the wiki says); hold it for a charge shot.
+  // Tapping K: the beam rifle, "up to five times" (wiki), ~0.33 s apart in the footage, each a flinch; see the
+  // Gundam's C1 in moves.js for how chain and dur set the gap and the recovery.
   C1: {
-    dur: 0.38, chain: 0.12, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true,
+    dur: 0.49, chain: 0.37, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true,
     clip: clip([
       k(0, { ...RIFLE, torso: [0, -0.5, 0], uArmR: [-1.3, 0, 0.1], fArmR: [-0.3, 0, 0], hand: [1.6, 0, 0] }),
       k(0.09, { ...RIFLE }, 'snap'),
@@ -127,7 +129,7 @@ export const MOVES = {
     shots: [{ t: 0.11, kind: 'rifle' }],
   },
   C1R: {
-    dur: 0.24, chain: 0.09, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 5,
+    dur: 0.41, chain: 0.29, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 5,
     clip: clip([
       k(0, { ...RIFLE }),
       k(0.05, { uArmR: [-1.75, 0, 0.1], hand: [1.42, 0, 0] }, 'snap'),

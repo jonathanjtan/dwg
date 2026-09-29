@@ -11,9 +11,12 @@ import { Trail } from '../fx/fx.js';
 
 const HOVER = 0.32; // how far the pod floats off the ground; move clips pose `y` relative to it
 const MUZZLE = 1.55; // cannon muzzle, up the barrel from the turret's pivot
-// 180mm shells: flight speed, fuse, blast radius / damage / throw.
+// 180mm shells: flight speed, fuse, blast radius / damage / throw (fxR: how big the burst looks, when that differs).
+// K's shell, as in Reborn: a short flight, then a burst about one suit across that staggers what it catches (the
+// footage's blast is ~0.5 H in radius); the fireball stays big. SHELL (the jump shot) keeps the old knockdown burst.
+const TAP_SHELL = { speed: 68, fuse: 0.4, r: 1.7, fxR: 2.6, dmg: 24, kb: 3, up: 0, big: false, smoke: 0.55, sound: 'cboom' };
 const SHELL = { speed: 68, fuse: 0.55, r: 2.8, dmg: 30, kb: 6, up: 4, big: false, smoke: 0.55, sound: 'cboom' };
-const HEAVY_SHELL = { speed: 78, fuse: 0.7, r: 4.3, dmg: 74, kb: 12, up: 9, big: true, smoke: 0.8, sound: 'cboom' };
+const HEAVY_SHELL = { speed: 78, fuse: 0.7, r: 4.3, dmg: 92, kb: 12, up: 9, big: true, smoke: 0.8, sound: 'cboom' }; // CS: > a K mash
 const SP_SHELL = { speed: 64, fuse: 0.6, r: 2.8, dmg: 22, kb: 6, up: 5, big: false, sp: true, lite: true, smoke: 0.5, sound: 'cboom' };
 const TRAIL_COLOR = 0x5c6e8a; // dim, so the ribbon stays a bright leading edge instead of blooming into a sheet
 const TRAIL_REACH = 1.75; // claw trails run from the claw out to this multiple of its distance from the pod's centre
@@ -232,7 +235,7 @@ export class Ball extends Hero {
     }
     // 'shell' / 'heavy' / 'dn': a 180mm shell with a smoke trail
     const heavy = shot.kind === 'heavy';
-    const o = heavy ? HEAVY_SHELL : shot.sp ? SP_SHELL : SHELL;
+    const o = heavy ? HEAVY_SHELL : shot.sp ? SP_SHELL : shot.kind === 'shell' ? TAP_SHELL : SHELL;
     let aim = this.heading;
     const tgt = this.aimAt(aim, shot.kind === 'dn' ? 22 : 36, 0.6);
     if (tgt) this.aimShot(aim = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z), tgt);

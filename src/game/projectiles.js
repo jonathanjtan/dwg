@@ -59,11 +59,13 @@ export class Projectiles {
     this.rockets.length = 0;
   }
 
-  // o: { dmg, kb, up, big, w (thickness), r (hit radius), speed, max (lifetime), sp (no hit-stop: remote weapons) }
+  // o: { dmg, kb, up, big, w (thickness), r (hit radius), speed, max (lifetime), sp (no hit-stop: remote weapons),
+  // pierce (how many targets it hits before it ends; default: everything in its path) }
   heroBeam(owner, from, dir, o = {}) {
     this.beams.push({
       owner, p: from.clone(), d: dir.clone(), life: 0, max: o.max ?? 0.8, speed: o.speed ?? 120, id: ++this.serial,
       dmg: o.dmg ?? 22, kb: o.kb ?? 4, up: o.up ?? 1, big: !!o.big, sp: !!o.sp, w: o.w ?? 1, r: o.r ?? 0.8, kills: 0,
+      pierce: o.pierce ?? Infinity,
     });
   }
 
@@ -80,17 +82,19 @@ export class Projectiles {
   }
 
   // Detonation: white flash, fireball, smoke, and a blast that throws everything within r.
-  // o.lite: a lighter burst for barrages (no light, smaller fireball); o.sp: an SP blast (no hit-stop).
+  // o.lite: a lighter burst for barrages (no light, smaller fireball); o.sp: an SP blast (no hit-stop); o.fxR: the
+  // radius the burst looks (default r), for a shell whose fireball is bigger than what it damages.
   heroBlast(owner, p, r, dmg, kb, up, o = {}) {
     const g = this.game;
     const c = this._v.set(p.x, Math.max(0.8, p.y), p.z);
+    const fr = o.fxR ?? r;
     if (o.lite) {
       // a quick burst: fireball, smoke and a flash, without the full explosion's debris, embers and light
-      g.fx.fireball(c, r / 2.6);
+      g.fx.fireball(c, fr / 2.6);
       g.fx.puff(c, 3, 0.4, 0.9, 1.2, 2.2);
       g.fx.star(c, 0xfff0d0, 1.3);
     } else {
-      g.fx.explode(c, r / 1.9, [0x8a867c, 0x6f6c64, 0x3a3532]);
+      g.fx.explode(c, fr / 1.9, [0x8a867c, 0x6f6c64, 0x3a3532]);
       g.fx.star(c, 0xfff0d0, 2.2);
       g.fx.light(c, 0xffb060, 120, 18, 0.35);
     }
@@ -132,15 +136,21 @@ export class Projectiles {
   update(dt) {
     const g = this.game;
     const combat = g.combat;
-    // hero beams: pierce everything in their path
+    // hero beams: pierce everything in their path, or end on their `pierce`-th hit (the nearest targets first)
+    const byNear = (a, b) => a.u - b.u;
     for (let i = this.beams.length - 1; i >= 0; i--) {
       const b = this.beams[i];
       b.life += dt;
       const ax = b.p.x, ay = b.p.y, az = b.p.z;
       b.p.addScaledVector(b.d, b.speed * dt);
-      g.fx.streak(this._v.set(ax, ay, az), b.p, 0xff6fd0);
-      if (b.w > 1.5) g.fx.streak(this._v.set(ax, ay, az), b.p, 0xffc0f0);
+      const found = [];
       combat.beamSweep(ax, ay, az, b.p.x, b.p.y, b.p.z, b.r, (t, boss) => {
+        found.push({ t, boss, u: ((t.x ?? t.pos.x) - ax) * b.d.x + ((t.z ?? t.pos.z) - az) * b.d.z });
+      });
+      if (b.pierce < Infinity) found.sort(byNear);
+      let stopAt = null;
+      for (const { t, boss } of found) {
+        if (b.kills >= b.pierce) break;
         const ok = boss ? t.damage(b.dmg * 1.1, b.kb, b.up, ax, az, b.id) : g.crowd.damage(t, b.dmg, b.kb, b.up, ax, az, b.id, { big: b.big });
         if (ok) {
           b.kills++;
@@ -150,8 +160,14 @@ export class Projectiles {
           if (b.big) g.fx.star(hp, 0xffd0f4, 2);
           combat.registerHits(1, { big: b.big && b.kills === 1, sp: b.sp }, b.owner);
           if (combat.hitSfxBudget >= 1) { combat.hitSfxBudget--; g.audio.play(b.big ? 'hit_heavy' : 'bhit', { vol: 0.6 }); }
+          if (b.kills >= b.pierce) stopAt = t;
         }
-      });
+      }
+      // a beam that has spent its hits ends in the target it struck
+      if (stopAt) b.p.set(stopAt.x ?? stopAt.pos.x, b.p.y, stopAt.z ?? stopAt.pos.z);
+      g.fx.streak(this._v.set(ax, ay, az), b.p, 0xff6fd0);
+      if (b.w > 1.5) g.fx.streak(this._v.set(ax, ay, az), b.p, 0xffc0f0);
+      if (stopAt) { this.beams.splice(i, 1); continue; }
       if (b.life > b.max || g.world.blocked(b.p.x, b.p.z, 0) && b.p.y < 8) {
         g.fx.hit(b.p, 0xff7ad0, true);
         g.fx.puff(b.p, 4, 0.5, 0.9);

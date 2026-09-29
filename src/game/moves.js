@@ -133,8 +133,12 @@ export const MOVES = {
 
   // ---- charge attacks ----
   // K alone: beam rifle. Mash K for a shot combo; hold it for a charge shot.
+  // Tapping K: the beam rifle. Reborn (every suit's "Shot Combo", and the wiki's "can shoot up to five times"): a mash
+  // fires five shots, about 0.28 s apart here, that make the target flinch, then the rifle comes down. No ammo or
+  // reload; the five-shot cap and the recovery after it are the limit. chain = the gap to the next shot (a connecting
+  // shot's hit-stop adds ~0.03 s), dur - shot = the recovery after the last one.
   C1: {
-    dur: 0.4, chain: 0.13, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true,
+    dur: 0.5, chain: 0.33, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true,
     clip: clip([
       k(0, { ...RIFLE, torso: [0, -0.5, 0], uArmR: [-1.3, 0, 0.1], fArmR: [-0.3, 0, 0], hand: [1.6, 0, 0] }),
       k(0.1, { ...RIFLE }, 'snap'),
@@ -144,7 +148,7 @@ export const MOVES = {
     shots: [{ t: 0.12, kind: 'rifle' }],
   },
   C1R: {
-    dur: 0.26, chain: 0.1, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 6, // 4-6 in the footage
+    dur: 0.41, chain: 0.24, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 5, // five in the footage
     clip: clip([
       k(0, { ...RIFLE }),
       k(0.05, { uArmR: [-1.75, 0, 0.1], hand: [1.42, 0, 0] }, 'snap'),

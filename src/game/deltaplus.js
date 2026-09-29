@@ -13,7 +13,7 @@ import { Trail } from '../fx/fx.js';
 
 const WEAPON_ID = { saber: 1, rifle: 2, twin: 3, shieldSaber: 4, bayonet: 5 };
 const WEAPON_OF = [null, 'saber', 'rifle', 'twin', 'shieldSaber', 'bayonet'];
-const RIFLE_SHOT = { dmg: 23, kb: 4, up: 1 };
+const RIFLE_SHOT = { dmg: 13, kb: 2.5, up: 0, pierce: 1 }; // K: a flinch, stopped by the first body it hits (Reborn)
 const CHARGE_SHOT = { dmg: 74, kb: 10, up: 10, big: true, w: 2.4, r: 1.5, speed: 112 };
 const CANNON_SHOT = { dmg: 56, kb: 10, up: 6, big: true, w: 2.6, r: 1.6, speed: 118 }; // Transform Shot, from the nose
 const SP_SHOT = { dmg: 30, kb: 3, up: 2, big: true, w: 1.8, r: 1.2, sp: true }; // the SP's three shots down

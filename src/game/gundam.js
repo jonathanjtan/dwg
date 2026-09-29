@@ -10,8 +10,10 @@ import { Trail } from '../fx/fx.js';
 
 const WEAPON_ID = { saber: 1, rifle: 2, javelin: 3, bazooka: 4, hammer: 5, sabers: 6 };
 const WEAPON_OF = [null, 'saber', 'rifle', 'javelin', 'bazooka', 'hammer', 'sabers'];
-// Beam presets: the rapid rifle shot and the heavy charge shot that throws its target.
-const RIFLE_SHOT = { dmg: 22, kb: 4, up: 1 };
+// Beam presets: the rapid rifle shot and the heavy charge shot that throws its target. The rifle shot is a poke, as in
+// Reborn: the target flinches (no knockdown) and the beam stops in the first body it hits. Four shots drop a grunt, and a
+// five-shot mash does about 65% of the J string's damage per second to one target. The charge shot pierces and throws.
+const RIFLE_SHOT = { dmg: 13, kb: 2.5, up: 0, pierce: 1 };
 const CHARGE_SHOT = { dmg: 72, kb: 10, up: 10, big: true, w: 2.4, r: 1.5, speed: 110 };
 const SABER_COLOR = new THREE.Color(3.2, 0.55, 1.9);
 const SABER_TRAIL = 0xff4fb8;

@@ -134,8 +134,11 @@ export const BALL_MOVES = {
 
   // ---- charge attacks ----
   // K alone: the 180mm cannon. Mash K for a shot combo; hold it for one heavy shell.
+  // Tapping K: the head cannon. Reborn's Ball fires five shells ~0.33 s apart (a mash), each a small burst that
+  // staggers what it hits, then settles; see the Gundam's C1 in moves.js for how chain and dur set the gap and the
+  // recovery.
   C1: {
-    dur: 0.42, chain: 0.15, rate: 1, next: null, charge: 'C1R', shot: true,
+    dur: 0.54, chain: 0.37, rate: 1, next: null, charge: 'C1R', shot: true,
     clip: clip([
       k(0, { torso: [0.05, 0, 0], ...CAN_REST }),
       k(0.1, { torso: [0.12, 0, 0], ...CAN_LEVEL }, 'snap'),
@@ -145,7 +148,7 @@ export const BALL_MOVES = {
     shots: [{ t: 0.12, kind: 'shell' }],
   },
   C1R: {
-    dur: 0.33, chain: 0.12, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 8,
+    dur: 0.46, chain: 0.285, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 5, // five in the footage
     clip: clip([
       k(0, { torso: [0.08, 0, 0], ...CAN_LEVEL }),
       k(0.06, { head: [1.2, 0, 0] }, 'snap'),

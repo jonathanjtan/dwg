@@ -9,7 +9,9 @@ import { Hero, curve } from './hero.js';
 import { damp, lerp } from '../core/util.js';
 import { Trail } from '../fx/fx.js';
 
-const RIFLE_SHOT = { dmg: 22, kb: 4, up: 1 };
+// The beam rifle's shot (K): a poke, as in Reborn. The target flinches (no knockdown) and the beam stops in the first
+// body it hits; the cannons (C3, C4, the charge shot) are where the Guncannon's weight is.
+const RIFLE_SHOT = { dmg: 13, kb: 2.5, up: 0, pierce: 1 };
 const CANNON_TILT = 1.45; // radians the cannons swing through from upright to level
 const CANNON_KICK = 0.08; // share of that swing a shot kicks the barrels up by (the suit itself doesn't budge)
 // 240mm shells: flight speed, fuse, blast radius / damage / throw.

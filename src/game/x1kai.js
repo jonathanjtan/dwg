@@ -14,10 +14,10 @@ import { Trail } from '../fx/fx.js';
 
 const WEAPON_ID = { saber: 1, rifle: 2, cross: 3, whip: 4, shield: 5 };
 const WEAPON_OF = [null, 'saber', 'rifle', 'cross', 'whip', 'shield'];
-const BUSTER_SHOT = { dmg: 20, kb: 4, up: 1 };
+const BUSTER_SHOT = { dmg: 13, kb: 2.5, up: 0, pierce: 1 }; // K: a flinch, stopped by the first body it hits (Reborn)
 // the charge shot's sustained beam: a heavy bolt every 0.05 s (no hit-stop, so the stream keeps its rhythm); the last
-// one throws whatever is still in it
-const STREAM_SHOT = { dmg: 8, kb: 1.5, up: 0.6, w: 1.7, r: 1.4, speed: 130, max: 0.45, sp: true };
+// one throws whatever is still in it. The stream's total on one target (~85) matches the other suits' charge shots.
+const STREAM_SHOT = { dmg: 5, kb: 1.5, up: 0.6, w: 1.7, r: 1.4, speed: 130, max: 0.45, sp: true };
 const STREAM_LAST = { dmg: 30, kb: 10, up: 8, big: true, w: 2.6, r: 1.6, speed: 130, sp: true };
 const MANTLE_LINGER = 0.5; // seconds after an attack before the ABC mantle is back on (Reborn)
 const SABER_COLOR = new THREE.Color(3.2, 0.6, 2.4); // pink-violet, in the family of the game's other beam weapons

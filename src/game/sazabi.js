@@ -14,7 +14,8 @@ import { Trail } from '../fx/fx.js';
 
 const WEAPON_ID = { saber: 1, rifle: 2 };
 const WEAPON_OF = [null, 'saber', 'rifle'];
-const RIFLE_SHOT = { dmg: 30, kb: 5, up: 1.5, w: 1.6, r: 1 };
+const RIFLE_SHOT = { dmg: 30, kb: 5, up: 1.5, w: 1.6, r: 1 }; // the SPs' heavy rifle shots
+const TAP_SHOT = { dmg: 13, kb: 3, up: 0, w: 1.6, r: 1, pierce: 1 }; // K: a flinch, stopped by the first body it hits (Reborn)
 const UP_SHOT = { dmg: 60, kb: 6, up: 8, big: true, w: 2.6, r: 1.4, speed: 110 }; // DC: the heavy beam up at the catch
 const FUNNEL_SHOT = { dmg: 12, kb: 2, up: 1, r: 0.9, sp: true }; // sp: a funnel's hit doesn't hit-stop the suit
 const MISSILE = { speed: 34, fuse: 1.0, r: 3, dmg: 22, kb: 5, up: 4, big: false, lite: true, smoke: 0.6 };
@@ -352,7 +353,7 @@ export class Sazabi extends Hero {
     this.aimShot(aim, tgt);
     const dir = new THREE.Vector3(Math.sin(aim), 0, Math.cos(aim));
     const from = this.muzzle(new THREE.Vector3());
-    g.projectiles.heroBeam(this, from, dir, RIFLE_SHOT);
+    g.projectiles.heroBeam(this, from, dir, shot.sp ? RIFLE_SHOT : TAP_SHOT);
     g.fx.muzzle(from, dir, 0xffd060, 1.3);
     g.audio.play('srifle');
     g.camera.shake(0.15);
@@ -384,7 +385,7 @@ export class Sazabi extends Hero {
       const A = this.funnelAnchor;
       dir = new THREE.Vector3(A.x - from.x + (Math.random() - 0.5), A.y + 1.6 - from.y, A.z - from.z + (Math.random() - 0.5)).normalize();
     }
-    g.projectiles.heroBeam(this, from, dir, FUNNEL_SHOT);
+    g.projectiles.heroBeam(this, from, dir, shot.dmg ? { ...FUNNEL_SHOT, dmg: shot.dmg } : FUNNEL_SHOT);
     g.fx.muzzle(from, dir, 0xffd060, 0.7);
     g.audio.play('funnel', { at: from });
   }
