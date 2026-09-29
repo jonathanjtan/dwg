@@ -98,6 +98,7 @@ export class Ball extends Hero {
   }
 
   // Every pose floats: the hover and a slow bob go on top of whatever the state or move asked for. Knocked down,
+    return this.beat(dt, sp);
   // the pod tips over on its back on the ground.
   carryPose(t) {
     const down = this.state === 'down' || this.state === 'dead';

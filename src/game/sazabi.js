@@ -34,6 +34,8 @@ export const SAZABI = {
   spColor: 0xff4a3a, spDome: 0xffa080, spAura: 0xff4a3a, hitColor: 0xffe0a0,
   airPose: { uArmL: [-0.6, 0, 0.5], fArmL: [-1.0, 0, 0] },
 };
+  // heavy: a long, slow stride with a lot of weight in each footfall
+  gait: { stride: 1.6, duty: [0.62, 0.36], crouch: 0.06, impact: 0.05, sway: 0.05, roll: 0.06, lat: 0.04, turn: 0.11, lean: 0.24 },
 
 export class Sazabi extends Hero {
   constructor(game) {

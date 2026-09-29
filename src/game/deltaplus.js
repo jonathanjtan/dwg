@@ -35,6 +35,7 @@ export const DELTAPLUS = {
   debris: [0xe8ebf2, 0x364683, 0xa8283a], spAirY: 2.2, spAirReach: 9, // the air SP hovers low, as in Reborn
   impactColor: 0x8fe0ff, ringColor: 0xbfeeff, impactLight: 0x8fe0ff, domeColor: 0x7fd0ff,
   spColor: 0xffc860, spDome: 0xffe0a0, spAura: 0xffc860, hitColor: 0xcfeeff,
+  gait: { lean: 0.3 },
 };
 
 export class DeltaPlus extends Hero {

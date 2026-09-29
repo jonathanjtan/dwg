@@ -1,9 +1,10 @@
 // Named officers (Denim, Gene) and the boss (Char's red Zaku).
 import * as THREE from 'three';
-import { RigObject, Clip, makePose, poseFrom, lerpPose, P, RY, RPITCH, RYAW } from '../core/rig.js';
+import { RigObject, Clip, makePose, poseFrom, lerpPose, P, RPITCH, RYAW } from '../core/rig.js';
 import { MOVES } from './moves.js';
-import { rand, clamp, damp, angleDamp, wrapAngle } from '../core/util.js';
+import { rand, damp, angleDamp, wrapAngle } from '../core/util.js';
 import { Trail } from '../fx/fx.js';
+import { gait, gaitSpec, gaitState } from '../core/gait.js';
 import { lensClear } from '../core/lensclear.js';
 
 const GRAV = 32;
@@ -81,6 +82,12 @@ export class Commander {
     this.nextShot = 0; // game time before which this commander won't open fire again
     this.hitDone = false;
     this.speed = cfg.speed;
+    // the mech gait on a Zaku, run speed its fastest approach; Char's goes long and light
+    this.gaitSpec = gaitSpec(cfg.def, cfg.speed * 1.3, cfg.kind === 'char'
+      ? { stride: 1.6, impact: 0.03, sway: 0.03, lean: 0.3, arm: [0.1, 0.14] }
+      : { stride: 1.45, impact: 0.045, sway: 0.045, lat: 0.04, lean: 0.26, arm: [0.1, 0.16] });
+    this.gs = gaitState();
+    this.paceT = 0;
     this.home = cfg.home || null; // squad leaders guard their landing zone
     this.height = 3.2;
     this.x = this.pos.x;
@@ -100,6 +107,7 @@ export class Commander {
     this.blend = 0;
     this.state = s;
     this.t = 0;
+    this.gs.amp = 0; // the gait picks up again from the stance
   }
 
   dispose() {
@@ -238,18 +246,26 @@ export class Commander {
         break;
       }
       case 'idle': {
-        this.heading = angleDamp(this.heading, toHero, 8, dt);
         if (this.home && Math.hypot(hero.pos.x - this.home.x, hero.pos.z - this.home.z) > (this.cfg.leash || 30)) {
-          // hold the post: walk back and wait
-          const hx = this.home.x - this.pos.x, hz = this.home.z - this.pos.z, hd = Math.hypot(hx, hz);
-          const s = hd > 1.5 ? sp * 0.6 : 0;
+          // hold the post: walk back, then pace about it (a spot a few steps off every few seconds, a look round)
+          this.paceT -= dt;
+          if (this.paceT <= 0) {
+            this.paceT = rand(4, 8);
+            const a = rand(0, Math.PI * 2), r = Math.random() < 0.3 ? 0 : rand(1, 3.5);
+            this.paceX = this.home.x + Math.sin(a) * r;
+            this.paceZ = this.home.z + Math.cos(a) * r;
+            if (g.world.blocked(this.paceX, this.paceZ, 1.3)) { this.paceX = this.home.x; this.paceZ = this.home.z; }
+          }
+          const hx = (this.paceX ?? this.home.x) - this.pos.x, hz = (this.paceZ ?? this.home.z) - this.pos.z, hd = Math.hypot(hx, hz);
+          const s = hd > 4 ? sp * 0.6 : hd > 0.25 ? Math.min(sp * 0.3, hd * 1.5) : 0;
           this.vel.x = damp(this.vel.x, hd > 0.01 ? (hx / hd) * s : 0, 5, dt);
           this.vel.z = damp(this.vel.z, hd > 0.01 ? (hz / hd) * s : 0, 5, dt);
-          if (s > 0) this.heading = angleDamp(this.heading, Math.atan2(hx, hz), 5, dt);
+          this.heading = s > 0 ? angleDamp(this.heading, Math.atan2(hx, hz), 5, dt) : angleDamp(this.heading, toHero, 2, dt);
           this.cd = Math.max(this.cd, 0.8);
-          this.walkPose(target, dt);
+          this.walkPose(target, dt, true);
           break;
         }
+        this.heading = angleDamp(this.heading, toHero, 8, dt);
         // guard reaction to hero swings
         if (heroOk && dist < 6 && hero.state === 'attack' && Math.random() < dt * (isChar ? 3 : this.kind === 'captain' ? 0.7 : 1.4)) {
           this.setState('guard');
@@ -580,20 +596,17 @@ export class Commander {
     return keys[keys.length - 1][1];
   }
 
-  walkPose(target, dt) {
+  // Walking, running and strafing: the mech gait, in the direction of travel relative to the facing. At its post
+  // (`post`), standing between steps, it looks round: a turn of the head and chest, held, then another.
+  walkPose(target, dt, post = false) {
     const sp = Math.hypot(this.vel.x, this.vel.z);
-    this.phase = (this.phase || 0) + dt * sp * 0.7;
-    const w = clamp(sp / this.speed, 0, 1);
-    const s = Math.sin(this.phase), c = Math.cos(this.phase);
+    const h = this.heading, sh = Math.sin(h), ch = Math.cos(h);
+    const a = sp > 0.3 ? Math.atan2(-this.vel.x * ch + this.vel.z * sh, this.vel.x * sh + this.vel.z * ch) : 0;
     target.set(CSTANCE);
-    target[P.torso * 3] += 0.2 * w;
-    target[P.thighR * 3] += -0.8 * s * w;
-    target[P.thighL * 3] += 0.8 * s * w;
-    target[P.shinR * 3] += Math.max(0, c) * 1.1 * w;
-    target[P.shinL * 3] += Math.max(0, -c) * 1.1 * w;
-    target[P.uArmR * 3] += 0.4 * s * w;
-    target[P.uArmL * 3] -= 0.4 * s * w;
-    target[RY] = -0.1 - Math.abs(c) * 0.08 * w;
+    gait(target, this.gaitSpec, this.gs, sp, a, dt, this.pos.x + this.vel.x * dt, this.pos.z + this.vel.z * dt, h);
+    this.look = damp(this.look || 0, post && sp < 0.5 ? Math.sin(this.game.time * 0.5 + this.netId) * 0.8 : 0, 2.5, dt);
+    target[P.head * 3 + 1] += this.look * 0.7;
+    target[P.torso * 3 + 1] += this.look * 0.3;
   }
 
   dash(toHero) {

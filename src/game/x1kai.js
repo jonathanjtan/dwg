@@ -31,6 +31,8 @@ export const X1KAI = {
   debris: [0xc4c9d6, 0x122c58, 0x1a1a20], spAirY: 4.2, spAirReach: 6.5,
   impactColor: 0xff5fd0, ringColor: 0xffb0e0, impactLight: 0xff6fd0, domeColor: 0xff4fc0,
   spColor: 0xff5fd0, spDome: 0xffa0e0, spAura: 0x8ad8ff,
+  // light and quick, pitched well forward
+  gait: { stride: 1.5, duty: [0.56, 0.3], impact: 0.03, sway: 0.03, lat: 0.02, turn: 0.15, lean: 0.34 },
 };
 
 export class X1Kai extends Hero {

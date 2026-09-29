@@ -31,6 +31,8 @@ export const GUNCANNON = {
   boostPose: { uArmR: [0.5, 0, -0.4], fArmR: [-0.4, 0, 0], hand: [1.0, 0, 0], uArmL: [0.2, 0, 0.5], fArmL: [-1.4, 0, 0] },
 };
 
+  // heavy: long, low strides (Reborn's SP run leans hard and plants deep), the hips rolling over each footfall
+  gait: { stride: 1.6, duty: [0.62, 0.36], crouch: 0.08, impact: 0.05, sway: 0.05, roll: 0.06, lat: 0.045, turn: 0.1, lean: 0.32, arm: [0.06, 0.08], carry: [0.2, -0.25, 0, 0.12, -0.15] },
 export class Guncannon extends Hero {
   constructor(game) {
     super(game, GUNCANNON);

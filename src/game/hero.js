@@ -4,7 +4,8 @@
 // class.
 import * as THREE from 'three';
 import { RigObject, makePose, lerpPose, poseFrom, RY, RPITCH, RROLL, P } from '../core/rig.js';
-import { clamp, damp, angleDamp, wrapAngle, lerp, rand } from '../core/util.js';
+import { clamp, damp, angleDamp, wrapAngle, rand } from '../core/util.js';
+import { gait, gaitSpec, gaitState } from '../core/gait.js';
 
 const GRAV = 28;
 const ATK_RATE = 0.86; // swings play a touch under keyframed speed: heavier, more deliberate
@@ -60,6 +61,8 @@ export class Hero {
     this.owned = []; // scene objects besides the rig (weapons, trails) that come and go with the suit
     suit._def = suit._def || suit.def();
     this.rig = new RigObject(suit._def);
+    this.gaitSpec = suit._def.parts.thighR ? gaitSpec(suit._def, suit.run, suit.gait) : null;
+    this.gs = gaitState();
     this.boostPose = poseFrom({
       torso: [0.6, 0, 0], head: [-0.4, 0, 0], y: -0.15,
       thighR: [0.45, 0, -0.1], shinR: [0.8, 0, 0], thighL: [0.15, 0, 0.1], shinL: [0.6, 0, 0],
@@ -462,60 +465,41 @@ export class Hero {
     if (act.dodge) return this.dodge(dir);
     this.groundMove(dt, dir);
     const sp = Math.hypot(this.vel.x, this.vel.z);
-    const prev = this.phase;
-    this.phase += dt * sp * 0.62 * (9.4 / this.run);
-    // footsteps: every footfall lands with a thud (a suit that hovers only kicks up thruster wash)
-    if (Math.floor(prev / Math.PI) !== Math.floor(this.phase / Math.PI) && sp > 3) {
+    if (this.pos.y > 0) this.pos.y = Math.max(0, this.pos.y - dt * 4);
+    // footsteps: every footfall lands with a thud under the foot (a suit that hovers only kicks up thruster wash)
+    const foot = this.locomotion(dt, sp, sp > 0.5 ? this.travelAngle(this.vel.x, this.vel.z) : 0);
+    if (foot && sp > 3) {
       const w = Math.min(1, sp / this.run);
-      g.fx.dust(this._v.set(this.pos.x, 0.1, this.pos.z), this.suit.hover ? 2 : 3, 0.7);
+      const f = typeof foot === 'object' ? foot : this.pos;
+      g.fx.dust(this._v.set(f.x, 0.1, f.z), this.suit.hover ? 2 : 3, 0.7);
       if (!this.suit.hover) {
         g.audio.play('step', { vol: (0.45 + 0.4 * w) * (this.suit.stepVol || 1), pitch: this.suit.stepPitch || 1 });
         if (g.local === this) g.camera.thud(0.07 * w * (this.suit.stepVol || 1));
       }
     }
-    if (this.pos.y > 0) this.pos.y = Math.max(0, this.pos.y - dt * 4);
-    this.locomotion(dt, sp, sp > 0.5 ? this.travelAngle(this.vel.x, this.vel.z) : 0);
   }
 
-  // Run cycle. `a` is the direction of travel relative to the facing (see travelAngle): strafing, the hips turn
-  // toward the step while the chest stays on the target; backing off, the stride runs in reverse and the suit leans
-  // back a little.
+  // Walking and running: the mech gait (core/gait.js), tuned by the suit's `gait`. `a` is the direction of travel
+  // relative to the facing (see travelAngle): strafing, the hips turn toward the step while the chest stays on the
+  // target; backing off, the stride runs in reverse and the suit leans back a little. Returns the landing foot's
+  // position on a footfall.
   locomotion(dt, sp, a = 0) {
-    const w = clamp(sp / this.run, 0, 1);
-    const ca = Math.cos(a);
-    const back = ca < -0.35;
-    const ph = back ? -this.phase : this.phase;
-    const s = Math.sin(ph), c = Math.cos(ph);
-    const twist = back ? 0 : -clamp(a, -1.3, 1.3) * 0.42;
-    const lean = 0.32 * Math.max(0, ca) - 0.12 * Math.max(0, -ca);
     const t = this.target;
     t.set(this.stance);
-    const idle = Math.sin(this.game.time * 2.2) * 0.02;
-    t[RY] = lerp(t[RY] + idle, -0.12 + Math.abs(c) * 0.12, w);
-    const set = (name, x, y, z) => {
-      const i = P[name] * 3;
-      t[i] = lerp(t[i], x, w);
-      t[i + 1] = lerp(t[i + 1], y, w);
-      t[i + 2] = lerp(t[i + 2], z, w);
-    };
-    set('torso', lean, -0.15 + s * 0.18 - twist, 0);
-    set('head', -0.25 * Math.max(0.3, ca), 0.12 - s * 0.12, 0);
-    set('hips', 0, -s * 0.12 + twist, 0);
-    set('thighR', -0.9 * s - 0.1, 0, -0.06);
-    set('thighL', 0.9 * s - 0.1, 0, 0.06);
-    set('shinR', 0.25 + 1.2 * Math.max(0, c), 0, 0);
-    set('shinL', 0.25 + 1.2 * Math.max(0, -c), 0, 0);
-    this.runArms(set, s, w);
-    this.blendPose(dt, 0.12);
+    t[RY] += Math.sin(this.game.time * 2.2) * 0.02 * (1 - this.gs.amp);
+    if (this.stateT <= dt) { this.gs.v = sp; this.gs.amp = 0; } // out of a move: the gait picks up from the stance
+    const fall = gait(t, this.gaitSpec, this.gs, sp, a, dt, this.pos.x, this.pos.z, this.heading);
+    this.blendPose(dt);
+    if (!fall) return null;
+    const i = Math.floor(this.gs.ph / Math.PI) & 1; // the right foot lands on even half-cycles
+    return this._w.set(this.gs.ax[i], 0, this.gs.az[i]);
   }
 
-  // Arm swing while running (the Gundam pumps its saber arm; other suits override).
-  runArms(set, s) {
-    set('uArmR', 0.1 + 0.55 * s, 0, -0.35);
-    set('fArmR', -0.8, 0, 0);
-    set('hand', 0.9, 0, 0);
-    set('uArmL', -0.4 - 0.35 * s, 0, 0.3);
-    set('fArmL', -1.2, 0, 0);
+  // Footfalls for a suit without legs (the Ball's thruster wash): the old beat on distance.
+  beat(dt, sp) {
+    const prev = this.phase;
+    this.phase += dt * sp * 0.62 * (9.4 / this.run);
+    return Math.floor(prev / Math.PI) !== Math.floor(this.phase / Math.PI);
   }
 
   blendPose(dt) {

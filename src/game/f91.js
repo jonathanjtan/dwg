@@ -33,6 +33,8 @@ export const F91_SUIT = {
   debris: [0xf2f4f7, 0x3f6fc4, 0xd8342a], spAirY: 3.0, spAirReach: 6.5, // the air SP hovers about a height up
   impactColor: 0xfff2a0, ringColor: 0xfff6c8, domeColor: 0x9fd8ff,
   spColor: 0x7fffbe, spDome: 0xbfffdc, spAura: 0x7fffbe,
+  // light: a quicker, shorter stride and little sway
+  gait: { stride: 1.4, duty: [0.56, 0.3], impact: 0.025, sway: 0.025, roll: 0.04, lat: 0.02, turn: 0.15, lean: 0.3, lift: [0.1, 0.34] },
 };
 
 export class F91 extends Hero {

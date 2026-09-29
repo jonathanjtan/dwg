@@ -1,9 +1,10 @@
 // Zaku II grunt crowd: instanced rendering + lightweight squad AI.
 import * as THREE from 'three';
-import { InstancedRig, Clip, makePose, poseFrom, lerpPose, P, RY, RPITCH, RROLL, RYAW } from '../core/rig.js';
+import { InstancedRig, Clip, makePose, poseFrom, lerpPose, P, RPITCH, RROLL, RYAW } from '../core/rig.js';
 import { zakuDef, Z } from '../models/zaku.js';
 import { SpatialHash, rand, clamp, angleDamp, wrapAngle, damp } from '../core/util.js';
 import { lensClear } from '../core/lensclear.js';
+import { gait, gaitSpec, gaitState } from '../core/gait.js';
 
 const MAX = 300;
 const GRAV = 30;
@@ -11,6 +12,7 @@ const WALK = 3.7;
 const AGGRO = 22; // a garrison squad engages when a pilot comes this close
 const LEASH = 60; // ...and falls back to its post once every pilot is this far away
 const AIM_T = 1.05; // how long a gunner shows its aim line before the burst
+const PACE = WALK * 0.42; // a soldier at its post mills about at this amble
 
 const ZSTANCE = poseFrom({
   y: -0.05, torso: [0.06, 0, 0], head: [0, 0, 0],
@@ -68,6 +70,10 @@ export class Crowd {
     this.game = game;
     this.def = zakuDef();
     this.rig = new InstancedRig(this.def, MAX, game.scene);
+    // the mech gait on a Zaku: a trudging walk that stretches into a run at the charge; gunners keep both hands on
+    // the gun
+    this.gait = gaitSpec(this.def, WALK * 1.7, { stride: 1.4, impact: 0.045, sway: 0.045, lat: 0.04, lean: 0.24, arm: [0.12, 0.16], inertia: 0 });
+    this.gaitGun = { ...this.gait, arm: [0, 0], carry: [0, 0, 0, 0, 0] };
     lensClear(this.rig.mat);
     this.list = [];
     this.pool = [];
@@ -94,7 +100,7 @@ export class Crowd {
   makeGrunt(i) {
     return {
       i, alive: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, hp: 60, maxHp: 60,
-      state: 'idle', t: 0, phase: rand(0, 6), gun: false, cd: 0, token: 0, flash: 0,
+      state: 'idle', t: 0, gs: gaitState(), gun: false, cd: 0, token: 0, flash: 0, paceT: 0, wx: null, wz: 0, pacing: false,
       hitIds: [0, 0, 0, 0], hitCursor: 0, ringA: 0, ringR: 6, spin: 0, pitch: 0, roll: 0, aimYaw: 0, aimY: 0,
       pose: makePose(), scale: 1, radius: 0.95, fade: 1, dieT: 0, spawnVy: 0, fired: 0, think: 0, lastHitT: -9,
       kind: 'grunt', height: 3.1, staggerAlt: false, aggro: rand(0.6, 1.2),
@@ -140,6 +146,9 @@ export class Crowd {
       g.slotZ = z - squad.z;
     }
     g.think = rand(0, 0.5);
+    g.wx = null;
+    g.gs.amp = 0;
+    g.gs.ph = rand(0, 6);
     g.dieT = 0;
     g.scale = rand(0.97, 1.04);
     g.aggro = rand(0.6, 1.3);
@@ -292,6 +301,36 @@ export class Crowd {
     this.remove(g);
   }
 
+  // The next spot a soldier at its post ambles to: a few steps off its slot, never further from the squad's centre
+  // than its slot plus a step, and never into a building or onto a comrade. Some turns it stays put. The first pick
+  // after it takes the post just waits a while, so a squad doesn't set off in step.
+  pace(g) {
+    const first = g.wx === null;
+    g.paceT = first ? rand(0.5, 8) : rand(4, 9);
+    g.pacing = false;
+    if (first) g.wx = g.wz = 0;
+    if (first || Math.random() < 0.25) return;
+    const R = Math.max(4, Math.hypot(g.slotX, g.slotZ) + 1.2);
+    for (let tries = 0; tries < 3; tries++) {
+      const a = rand(0, TAU), r = rand(0.8, 2.6);
+      let ox = g.slotX + Math.sin(a) * r, oz = g.slotZ + Math.cos(a) * r;
+      const ol = Math.hypot(ox, oz);
+      if (ol > R) { ox *= R / ol; oz *= R / ol; }
+      const x = g.squad.x + ox, z = g.squad.z + oz;
+      if (this.game.world.blocked(x, z, 1.2) || this.grid.query(x, z, 2.4, this.tmp).some((o) => o !== g && Math.hypot(o.x - x, o.z - z) < 2.4)) continue;
+      g.wx = ox - g.slotX;
+      g.wz = oz - g.slotZ;
+      g.pacing = true;
+      return;
+    }
+  }
+
+  nearestPlayer(g) {
+    let d = Infinity;
+    for (const p of this.game.players) if (p.alive) d = Math.min(d, Math.hypot(p.pos.x - g.x, p.pos.z - g.z));
+    return d;
+  }
+
   // Each grunt chases the nearest pilot, sticking with its current one unless the other is much closer.
   targetFor(g, players) {
     if (players.length === 1) return players[0];
@@ -352,10 +391,16 @@ export class Crowd {
           if (sq && !sq.engaged) {
             if (heroTargetable && dist < AGGRO) { sq.engaged = true; this.alert(g); }
             else {
-              const tx = sq.x + g.slotX, tz = sq.z + g.slotZ;
+              // hold the post, milling about it: every few seconds a spot near the slot, an amble there, a look round
+              // (render turns the head); far off it (back from a fight), march straight back
+              g.paceT -= dt;
+              if (g.paceT <= 0) this.pace(g);
+              const tx = sq.x + g.slotX + g.wx, tz = sq.z + g.slotZ + g.wz;
               let mx = tx - g.x, mz = tz - g.z;
               const ml = Math.hypot(mx, mz);
-              const speed = ml > 1.2 ? WALK * 0.8 : 0;
+              if (g.pacing && ml < 0.3) g.pacing = false;
+              // (a soldier standing still lets the ranks jostle it up to a step off its spot, as before)
+              const speed = ml > 3 ? WALK * 0.8 : g.pacing || ml > 1.2 ? Math.min(PACE, 0.3 + ml * 2) : 0;
               if (ml > 0.01) { mx /= ml; mz /= ml; }
               g.vx = damp(g.vx, mx * speed, 4, dt);
               g.vz = damp(g.vz, mz * speed, 4, dt);
@@ -633,7 +678,7 @@ export class Crowd {
         if (!g) continue;
         g.alive = true;
         g.x = x; g.y = y; g.z = z; g.yaw = yaw;
-        g.phase = Math.random() * 6;
+        g.gs.ph = Math.random() * 6;
         g.fade = 1;
         g.scale = 0.97 + ((id * 7919) % 70) / 1000;
         g.netId = id;
@@ -724,21 +769,19 @@ export class Crowd {
         case 'approach':
         case 'charge': {
           const sp = Math.hypot(g.vx, g.vz);
-          g.phase += dt * sp * 0.85;
-          const w = clamp(sp / WALK, 0, 1);
           p.set(base);
-          const s = Math.sin(g.phase), c = Math.cos(g.phase);
-          const lean = g.state === 'charge' ? 0.35 : 0.14;
-          p[P.torso * 3] += lean * w;
-          p[P.torso * 3 + 1] += s * 0.12 * w;
-          p[P.thighR * 3] += (-0.75 * s) * w;
-          p[P.thighL * 3] += (0.75 * s) * w;
-          p[P.shinR * 3] += 1.0 * Math.max(0, c) * w;
-          p[P.shinL * 3] += 1.0 * Math.max(0, -c) * w;
-          if (!g.gun) p[P.uArmR * 3] += 0.4 * s * w;
-          p[P.uArmL * 3] -= 0.4 * s * w;
-          p[RY] = -0.05 - Math.abs(c) * 0.09 * w + Math.sin(g.phase * 0.5 + g.i) * 0.01;
-          p[RPITCH] = 0; p[RROLL] = 0; p[RYAW] = 0;
+          const sy = Math.sin(g.yaw), cy = Math.cos(g.yaw);
+          const a = sp > 0.3 ? Math.atan2(-g.vx * cy + g.vz * sy, g.vx * sy + g.vz * cy) : 0;
+          gait(p, g.gun ? this.gaitGun : this.gait, g.gs, sp, a, dt, g.x, g.z, g.yaw);
+          // standing at its post (no pilot near), a soldier looks round now and then: a turn of the head and chest,
+          // held, then another. From time and index alone, so co-op guests see the same without more state.
+          if (g.state === 'idle' && g.gs.amp < 0.9 && this.nearestPlayer(g) > AGGRO) {
+            const u = this.game.time * 0.22 + hash01(g.i, 5) * 9, seg = Math.floor(u);
+            const look = ((hash01(g.i, seg) - 0.5) + ((hash01(g.i, seg + 1) - hash01(g.i, seg)) * smooth(0.6, 0.95, u - seg))) * 1.7 * (1 - g.gs.amp);
+            p[P.head * 3 + 1] += look * 0.75;
+            p[P.torso * 3 + 1] += look * 0.35;
+            p[P.head * 3] += Math.abs(look) * 0.08;
+          }
           break;
         }
         case 'windup': WINDUP.sample(g.t * 0.9, p); break;
