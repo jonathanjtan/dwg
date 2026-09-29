@@ -27,8 +27,25 @@ Co-op, the select screens, the HUD and the combo guide all key off the roster en
 
 ## 1. Study the footage
 
-The user usually links a "ALL MOVES" video. Downloading the linked video is authorized by the request, and so are G Generation
-sprite sheets for portraits and unit cards (see step 7).
+Two sources, both treated as the source of truth:
+- **Footage:** the user's playlist of Dynasty Warriors: Gundam Reborn "ALL MOVES" videos
+  (https://www.youtube.com/playlist?list=PL-jigc1D_YGKF_Idbsx0UOG_cSuNQ7Zzb, one per suit; list it with
+  `yt-dlp --flat-playlist --print "%(playlist_index)s|%(id)s|%(title)s"`). It shows how each move looks and plays.
+- **The Koei wiki** (e.g. https://koei.fandom.com/wiki/Gundam, "Battle Data > Moveset"). It says what each input IS
+  in DWG1-3, and Reborn keeps the DWG3 input list for UC suits. The page itself sits behind Cloudflare (WebFetch and
+  curl get a 402 or a challenge), but the MediaWiki API works:
+  `curl -sL -A "Mozilla/5.0 ... Chrome/140.0 Safari/537.36" "https://koei.fandom.com/api.php?action=parse&page=<Page>&prop=wikitext&format=json&formatversion=2"`
+  (find page names with `action=opensearch&search=<name>`). Notation: `{{S}}` square = our J, `{{T}}` triangle = our
+  K, `{{C}}` circle = SP, `{{X}}` = boost. So `{{S}}, {{T}}` is C2, and a bracketed `({{T}})` is a K follow-up
+  (C2F). Reborn-only suits (DLC like the X1 Kai) may have no entry.
+
+Take what each input is from the wiki and how it looks from the footage; where they disagree, the footage wins
+(Reborn reanimated some moves, e.g. the Sazabi's C2 and dash charge). Before building anything, write an audit
+table: for every input (J string, K and its mash/hold, C2-C6 and their K follow-ups, DA and its follow-ups, DC, JA,
+JC, tap/held/air SP) give the footage timestamp, the wiki line and what the move does, then build from it.
+
+Downloading the linked video is authorized by the request, and so are G Generation sprite sheets for portraits and
+unit cards (see step 7).
 
 ```bash
 cd <scratchpad>/<suit> && yt-dlp --no-playlist -F "<url>"          # pick a 720p60 mp4 (298) + m4a (140)
@@ -41,8 +58,23 @@ mkdir -p sheets && ffmpeg -loglevel error -i video.mp4 -vf "fps=4,scale=400:-1,t
   sheet per segment: `-ss <t> -t <dur> -vf "fps=10,crop=640:500:320:80,scale=320:250,tile=6x5"`.
 - Crop the select screen's spec sheet at full size: MELEE, SHOT, DEFENSE, ARMOR, MOBILITY, THRUSTER, burst type and
   equipment go straight into the roster entry.
-- Reborn "ALL MOVES" videos usually skip C3-C6 and jump attacks. Invent those from the suit's own tools, in the spirit
-  of the ones shown, and say so in the moves file header.
+- Reborn "ALL MOVES" videos usually skip C3-C6 and jump attacks. Take those from the wiki's list first. Invent only
+  what neither source has, from the suit's own tools and in the spirit of the moves shown, and say so in the moves
+  file header. Mass-produced suits only get C1-C2 (plus a dash charge) in DWG3; invented extras are fine (the Ball
+  keeps its C3-C6) but they get the `new` source tag (step 7).
+- Misreads to avoid (the Gundam's C2 was built as a 360 spin that brought the javelin 0.6 s late, with no shield
+  follow-up):
+  - Cut 15-20 fps close-ups of the exact beat where each weapon comes out or changes.
+  - The gold/violet charge swirl is the `flash` event, not body motion.
+  - Check the wiki for bracketed K follow-ups and build them as `charge: 'C2F'` moves.
+  - A juggle's launch height has to meet its follow-up's reach: measure the target's height in the harness.
+  - A video doesn't show everything a suit can do. The wiki's general Reborn page lists system moves the move videos
+    skip (e.g. a held K firing the charge shot mid-combo), so check it before concluding a move doesn't exist.
+- Recoil: for every firing move, note whether the suit slides back and whether the body rocks back, and roughly how
+  far in suit heights. Measure against the ground (register frames to the floor, or track the shadow/feet), not
+  against the target, since charge shots knock the target back too. See "Guns and shots" in step 4 for the rules.
+- SP: the Reborn HUD's SP bar has three segments. Note how many stocks each SP spends and how long the held SP runs
+  per stock (step 3).
 - Reach: measure swing arcs in suit heights (H ~ 3.4 units for the Gundam). Normal blows land ~5-5.8 units out (the
   effect reaches past the limb), spins 5-6, shells ~2.6-4 across, big slams 7-7.5.
 
@@ -148,6 +180,26 @@ Move fields (see the headers of `moves.js`, `guncannon_moves.js` and `ball_moves
 - **Air moves and super armor:** `armor`, `invuln`, `isAir`, `hang`, `plunge {hang, land}`.
 - **SP:** `sp`, `spNext`, `spHold` (taken while SP is still held: the charge SP), `spRepeat`, `loop`, `steer`,
   `chargeAura` and `rushFx` (radial blur).
+- **SP stocks (Reborn):** the gauge holds three stocks of 100 (`SP_STOCK` in hero.js). The ground and aerial SP need
+  one and spend one; there's no weaker SP on a partial stock. Holding SP through the charge SP's wind-up (the
+  `chargeAura` phase) commits another banked stock every `spcStep` seconds (default 0.6; the footage shows 0.5-0.8),
+  and the clip holds short of its burst while it does. The stocks spent then set the frenzy:
+  - `stockDur: [s1, s2, s3]` on the frenzy phase: its length in seconds by stocks spent. Reborn runs about 3.3-3.6 s
+    a stock for most suits (the Guncannon about 2.5, the X1 Kai's vortex about 2.1); measure it on the HUD.
+  - `stockPower: [p1, p2, p3]` (optional): a damage multiplier by stocks spent, for a finisher that should scale.
+  - Build the frenzy's hits and shots over one pass with `every()`/`times()`: the hero replays the phase in passes
+    until the time is spent, cutting the last one short.
+  - Without these, a `loop` phase runs 1 / 1.6 / 2.2 times as long, an `spRepeat` phase repeats that many times
+    more, and a charge SP with neither hits 1 / 1.3 / 1.6 times as hard.
+- **Follow-ups:** a K follow-up to a charge attack is its own move reached through `charge` (`C2: { charge: 'C2F' }`;
+  extra K taps that lengthen a move are `C6X`), and a dash string's later hits chain through `next` (`DA`, `DA2`,
+  `DAF`). `guideRow` in hud.js keeps `CnF`/`CnX` on the charge attack's row and `DA2`-`DAF` on the dash row. A
+  connect-gated follow-up (the Delta Plus's C3F only comes out if C3 hit) is a `startMove` override in the suit class.
+- **String length follows the source.** If the wiki gives a four-press J string, there is no N5/N6 and no C6 (the
+  Delta Plus), and a dash string with a fixed length chains through `next` instead of `rush`.
+- **A suit's own input** (the Delta Plus's Transform Shot: a second boost press during the quick boost) goes in the
+  suit's `update()` override before `super.update`: start the move and strip the press from `act`, so the base
+  state machine and the other suits never see it.
 - Suit-specific fields are read in the suit's `onMoveTick` (the Guncannon's `can`/`hold`/`barrage`, the Ball's
   `tr`/`blur`/`roll`/`dive`).
 
@@ -204,9 +256,19 @@ far enough. What it needs from a suit:
   shoulder cannons, the Ball's turret, the Delta Plus's shield launcher) stay out of `guns`: they pitch on their own
   node, `aimShot` turns the body for them, and `trackAim` swings it round smoothly beforehand, so little is left to
   snap at the shot.
-- No recoil on the suit. Don't push `this.vel` back, give a shot a backward `lunge`, or key the torso rocking back or
-  `y` bobbing at the shot. The punch comes from the muzzle flash, smoke, sound and camera shake/kick, plus at most a
-  small barrel or arm kick (the arm snap keys, the Ball's head kick, the Guncannon's `canKick`).
+- Recoil follows the footage, move by move; there's no blanket rule. Regular and mashed shots never move the suit,
+  and neither do sustained barrages or funnels: their punch is the muzzle flash, smoke, sound and camera shake/kick,
+  plus at most a small barrel or arm kick (the arm snap keys, the Ball's head kick, the Guncannon's `canKick`). A
+  single heavy shot (the charge shot, a point-blank finisher, an SP blast) recoils only where the footage shows it:
+  - Gundam CS: slides back about half its height. F91 CS: skids about a third. X1 Kai CS: the X-thrusters hop it
+    back about 0.4 H *before* it fires (a `hopback` event).
+  - Ball CS and DC: back about one pod width, rocking back; its SP blasts throw it 1-2 widths.
+  - Guncannon, Delta Plus and Sazabi: nothing, charge shots included (braced, or planted).
+
+  Push along `-dir` (the shot's line), not the heading, since the arm aims away from it. Ground moves damp velocity
+  at rate 10, so a shove of `vel -= dir * N` in `fire()` slides about N/10 units: about `0.35 x H x 10` for a third
+  of the suit's height. A backward `lunge` curve and a torso key rocking back go with it only when the footage shows
+  the lean. Air moves don't apply velocity, so air recoil needs a `lunge` or its own event.
 - Remote weapons (funnels, bits, a squadron) are world-space meshes owned through `this.own()`. Keep their state as a
   mode, an anchor and a clock, compute positions from those in one function, and send just those in `netExtras` so
   the guest runs the same function (the Sazabi's `funnelSlot`). Fire their beams from the mesh's position.
@@ -233,8 +295,14 @@ recipe's `REV` send and a `FALLBACK` in audio.js. Keep takes short, and put weig
 ## 7. UI and story
 
 - **Roster entry:** `id`, `cls`, `pilot`, `unit`, `unitShort`, `unitJp`, `pilotName`, `pilotJp`, `stats` (spec sheet),
-  `equipment`, `role`, `moves` (the select screen's six lines) and `guide` rows `[keys, text, firstMove]`, where keys use
-  J K B U S. The pilot's first name ends up in co-op radio ("I'll back you up, Ball!").
+  `equipment`, `role`, `moves` (the select screen's six lines, `[keys, text, src]`) and `guide` rows
+  `[keys, text, firstMove, src]`, where keys use J K B U S. The pilot's first name ends up in co-op radio ("I'll back
+  you up, Ball!").
+- **Source tags:** every `moves` line and `guide` row says where the move comes from, and the select screen and combo
+  guide show it: `'reborn'` (shown in the Reborn footage), `'dwg'` (in the wiki's DWG1-3 list but not in the footage)
+  or `'new'` (invented for this game). Tag a row by its main move, and use your audit table from step 1. A row that
+  mixes sources ("tap · hold: …") takes an array in the order of its parts, e.g. the Ball's SP `['reborn', 'new']`.
+  Rendering lives in `srcTag`/`srcLegend` (select.js), used by the select screen, the guide and the co-op lobby.
 - **Portrait and unit render.** The user has OK'd G Generation sprites from The Spriters Resource, and mixing games or
   art styles is fine. First look on the G Gen Wars (PS2) page
   (`/playstation_2/sdgundamggenerationwars/`) and list its assets by grepping `asset/<id>/` links out of the page
@@ -278,6 +346,12 @@ recipe's `REV` send and a `FALLBACK` in audio.js. Keep takes short, and put weig
 - **Guns:** `(await import('/tools/aimtest.js')).run(['<id>'])` plays every movetest chain with an enemy 30 degrees
   off and reports, per move and gun, the worst angle between barrel and round and how far the round starts off the
   barrel's line. Expect 0-2 degrees; 20+ means a shot skips `aimShot`/`aimGunTo` or the gun isn't mounted along +Z.
+- **Recoil:** step each firing move with `render: false` and read how far `hero.pos` moves back along the shot
+  (put the enemy 30+ units away, or a dash move reads as recoil when it separates from its target). It should
+  match your footage table: 0 for regular shots.
+- **SP stocks:** set `game.hero.sp` to 100/200/300 and check the tap and air SP spend exactly one stock, and that a
+  held SP spends what it commits and runs `stockDur` long. movetest's `spHold` holds SP for 120 frames so it commits
+  all three.
 - **Hit areas:** `tools/poses.html?suit=<id>&move=C2&t=0,0.1,0.2&view=front&gap=3` (small suits need a small `gap`).
 - **Numbers:** `(await import('/tools/aistats.js')).run(5400)` reports connect rate and hits per swing for each move.
   Compare against the other suits in the same scene (for example, SP flurries run about 2 hits per swing).
