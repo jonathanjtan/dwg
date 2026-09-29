@@ -129,12 +129,14 @@ const PLAZA_KOS = 50;
 // (only while the landing-zone phase lasts, and not within `grace` seconds of it falling). budget: columns only set
 // out while both armies together number fewer soldiers than this (garrisons refill regardless). fed: every (seconds between a field's drops), squad (GMs per drop),
 // garrison (GMs a field keeps), cap (GMs at most), hp (a GM's; a Zaku has 50), captainHp. zeon: every (seconds
-// between a landing zone's columns), squad, cap (Zaku marching at once).
+// between a landing zone's columns), squad, cap (Zaku marching at once). max: a hard cap on both armies together, which
+// every drop counts toward, a pod's landing garrison and the GMs' included (keeps the frame cost in hand).
 export const WAR = {
   fields: { PLAZA: { owner: 'fed', lock: true, post: [0, -36] }, ALPHA: 'zeon', BRAVO: 'zeon', CHARLIE: 'zeon' },
   allyCapture: true,
   recapture: true,
   budget: 140,
+  max: 150,
   fed: { every: 12, squad: 4, garrison: 8, cap: 30, hp: 60, captainHp: 300, grace: 60 },
   zeon: { every: 45, squad: 6, cap: 18 },
 };
@@ -279,6 +281,8 @@ export class Stage {
   // A garrison squad in loose formation around (x, z); `base` ties it to a landing zone.
   garrison(x, z, n, base, drop = false) {
     const g = this.game;
+    const w = g.war;
+    if (w?.active && w.cfg?.max) n = Math.min(n, Math.max(0, w.cfg.max - g.crowd.count - g.allies.count));
     const sq = this.newSquad(x, z, { base });
     const gunners = n >= 5 ? 1 + (n >= 9 && Math.random() < 0.4 ? 1 : 0) : 0;
     let made = 0;

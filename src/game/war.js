@@ -284,7 +284,7 @@ export class War {
     if (f.spawnT > 0) return;
     f.spawnT = C.every * rand(0.85, 1.15);
     // the garrison always gets its men (up to the GMs' cap); columns only while both armies together are under budget
-    const room = C.cap - g.allies.count;
+    const room = Math.min(C.cap - g.allies.count, (this.cfg.max ?? Infinity) - total);
     const gar = this.garrisonOf(f);
     if (gar < C.garrison) {
       const a = rand(0, TAU);
@@ -365,7 +365,7 @@ export class War {
     if (!f.captain) f.captain = this.spawnCaptain(f, drop);
     let have = this.garrisonOf(f);
     for (let k = 0; k < 4 && have < C.garrison; k++) {
-      const n = Math.min(C.squad, C.garrison - have, C.cap - g.allies.count);
+      const n = Math.min(C.squad, C.garrison - have, C.cap - g.allies.count, (this.cfg.max ?? Infinity) - g.allies.count - g.crowd.count);
       if (n < 1) break;
       const a = rand(0, TAU);
       have += this.fedSquad(f.x + Math.sin(a) * 8, f.z + Math.cos(a) * 8, n, drop, { field: f }).n;
