@@ -95,10 +95,10 @@ export class Ball extends Hero {
     t[P.uArmL * 3] += 0.55 * w;
     if (w > 0.15) this.thrust(0.35 + 0.55 * w, false);
     this.blendPose(dt);
+    return this.beat(dt, sp);
   }
 
   // Every pose floats: the hover and a slow bob go on top of whatever the state or move asked for. Knocked down,
-    return this.beat(dt, sp);
   // the pod tips over on its back on the ground.
   carryPose(t) {
     const down = this.state === 'down' || this.state === 'dead';
