@@ -1,12 +1,15 @@
 // Crossbone Gundam X1 Kai moveset, after Dynasty Warriors: Gundam Reborn's "ALL MOVES" video (space pirate colours,
-// the X-shaped main thrusters, the ABC mantle). Ported 1:1 where the video shows it: Basic Combo -> N1-N6, Shot Combo
-// -> C1/C1R, Charge Shot -> CS (a five-beam spread from the buster gun, not one heavy bolt), Charge 2-6, Dash Combo ->
-// DA/DAF, Dash Charge -> DC, Musou -> SP_*, Air Musou -> SPA_* (a meteoric dive, closer to the Ball's than the
-// Gundam's), Charge Musou -> SPC_* (the screw whip spun out into a widening, pulling vortex). The video skips jump
-// attacks, so JA/JC are invented in the spirit of the kit: a quick zanber cut and a heat-dagger plunge.
+// the X-shaped main thrusters, the ABC mantle), checked beat by beat against it (the Koei wiki has no entry: the suit
+// is Reborn DLC). Ported 1:1 where the video shows it: Basic Combo -> N1-N6, Shot Combo -> C1/C1R (fired from under the
+// mantle), Charge Shot -> CS (the mantle comes off and the buster pours one sustained beam; the "five beams" in the
+// footage are the X-thrusters' exhaust), Charge 2-6, Dash Combo -> DA/DAF, Dash Charge -> DC (a long spinning thruster
+// rush, then a point-blank blast), Musou -> SP_*, Air Musou -> SPA_* (hovering in the mantle, a pink energy orb swells
+// round the suit and detonates), Charge Musou -> SPC_* (the screw whip spun out into a pulling vortex, ~2.1 s a
+// stock). The suit sheds the mantle for its attacks and is back in it half a second after (x1kai.js). The video skips
+// jump attacks, so JA/JC are invented in the spirit of the kit: a quick zanber cut and a heat-dagger plunge.
 // Reach measured off the footage in X1 Kai heights (H ~ 3.0 units, the suit runs ~0.88x the Gundam): the zanber blade
 // is ~1.5H, the screw whip's lash reaches out to ~2.8H and hauls its catch most of the way back, the charge-6 vortex
-// opens to ~3H before it collapses in, and the SPA meteor dive lands a shock ~3H across.
+// opens to ~3H before it collapses in, and the SPA orb detonates ~3H across.
 import { Clip, poseFrom } from '../core/rig.js';
 
 const PI = Math.PI;
@@ -50,10 +53,10 @@ const CROSS_R = { uArmR: [0, -0.3, -1.5], fArmR: [-0.15, 0, 0], hand: [1.2, 0, 0
 const CROSS_L = { uArmL: [0, 0.3, 1.5], fArmL: [-0.15, 0, 0], handL: [1.2, 0, 0] };
 
 // hit: { t, t1, shape, range, arc, len, width, off, hy, dmg, kb, up, pull, big, sp, stop }
-// ev: [t, name, arg]; shots: { t, kind, ang, dn }; wpn: [t, weapon] (saber: zanber blade | rifle: buster gun |
-// cross: zanber + off-hand beam saber both out | whip: screw whip | shield: beam shield | null: empty hands); jets,
-// slide, lunge, air as in moves.js; wh: screw whip extension curve (0..WHIP_R); spin: true marks the X-thrusters
-// spinning up.
+// ev: [t, name, arg]; shots: { t, kind, last } (buster | stream | blast); wpn: [t, weapon] (saber: zanber blade | rifle:
+// buster gun | cross: zanber + off-hand beam saber both out | whip: screw whip | shield: beam shield | null: empty
+// hands); jets, slide, lunge, air as in moves.js; wh: screw whip extension curve (0..WHIP_R); spin: true marks the
+// X-thrusters spinning up; mantle: true keeps the ABC mantle on through the move.
 export const MOVES = {
   // ---- normal string: five zanber cuts and a dual-blade cross that launches everything around the suit ----
   N1: {
@@ -135,9 +138,10 @@ export const MOVES = {
   },
 
   // ---- charge attacks ----
-  // K alone: the buster gun. Mash K for a shot combo; hold it for a five-beam spread off the mantle's edge.
+  // K alone: the buster gun, from under the mantle. Mash K for a shot combo (about six in the footage); hold it for the
+  // charge shot.
   C1: {
-    dur: 0.36, chain: 0.12, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true,
+    dur: 0.36, chain: 0.12, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, mantle: true,
     clip: clip([
       k(0, { ...PISTOL }),
       k(0.08, { ...PISTOL }, 'snap'),
@@ -147,7 +151,7 @@ export const MOVES = {
     shots: [{ t: 0.1, kind: 'buster' }],
   },
   C1R: {
-    dur: 0.22, chain: 0.08, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, maxRepeat: 14,
+    dur: 0.22, chain: 0.08, rifle: true, rate: 1, next: null, charge: 'C1R', shot: true, mantle: true, maxRepeat: 6,
     clip: clip([
       k(0, { ...PISTOL }),
       k(0.04, { uArmR: [-1.5, 0, -0.15], hand: [1.6, 0, 0] }, 'snap'),
@@ -155,19 +159,22 @@ export const MOVES = {
     ]),
     shots: [{ t: 0.02, kind: 'buster' }],
   },
-  CS: { // charge shot: the mantle flares wide, the X-thrusters hop the suit back (~0.4 H) to land braced, five beams fan out
-    dur: 1.1, chain: 0.9, rate: 1, next: null, charge: null, armor: true, mantleFlare: true,
+  // Charge shot: the mantle comes off, the X-thrusters hop the suit back (~0.4 H) to land braced side-on, and the buster
+  // pours one sustained beam into the target with the thrusters blazing behind it.
+  CS: {
+    dur: 1.4, chain: 1.2, rate: 1, next: null, charge: null, armor: true,
     wpn: [[0, 'rifle']],
-    jets: [0.28, 0.9, false],
+    jets: [0.28, 1.2, false],
     air: [[0.28, 0], [0.4, 0.7], [0.54, 0]],
     clip: clip([
       k(0, { ...PISTOL, torso: [0.05, -0.15, 0], y: -0.18, ...LEGS_WIDE }),
-      k(0.4, { ...PISTOL, torso: [0.05, -0.25, 0.1], y: -0.26 }),
-      k(0.55, { torso: [0.05, -0.3, 0.1], uArmR: [-1.65, 0, -0.1], hand: [1.7, 0, 0] }, 'snap'),
-      k(1.1, { ...PISTOL, torso: [0, -0.15, 0] }),
+      k(0.3, { ...PISTOL, torso: [-0.1, -0.5, 0.1], y: 0, ...LEGS_AIR }),
+      k(0.54, { ...PISTOL, torso: [0.05, -0.9, 0.05], uArmR: [-1.6, 0, -0.1], hand: [1.6, 0, 0], y: -0.3, ...LEGS_WIDE }, 'in'),
+      k(1.18, { torso: [0.05, -0.9, 0.05], y: -0.3 }),
+      k(1.4, { ...PISTOL, torso: [0, -0.15, 0] }),
     ]),
     ev: [[0.02, 'flash', 'violet'], [0.22, 'flash', 'violet'], [0.28, 'hopback']],
-    shots: [-0.16, -0.08, 0, 0.08, 0.16].map((ang) => ({ t: 0.56, kind: 'spread', ang })),
+    shots: times(0.56, 1.16, 0.05).map((t, i, a) => ({ t, kind: 'stream', first: i === 0, last: i === a.length - 1 })),
     chargeFx: [0.0, 0.5],
   },
 
@@ -195,26 +202,31 @@ export const MOVES = {
     sfxs: [[0.04, 'slash_rise'], [0.22, 'slash_spin'], [1.0, 'slash_down']],
   },
 
-  // J J K: a rising cut, then the beam shield snapped up and spun in a shielding parry that flings a burst outward.
+  // J J K: a rising cut, then the beam shield ground into the target for a long grind (~2.5 s in the footage), a
+  // launching slash, and a back-flip away.
   C3: {
-    dur: 1.65, chain: 1.4, rate: 1, next: null, charge: null, armor: true, invuln: true, spin: true,
-    wpn: [[0, 'saber'], [0.4, 'shield']],
-    lunge: [[0.02, 0], [0.14, 1.1]],
+    dur: 3.35, chain: 3.1, rate: 1, next: null, charge: null, armor: true, invuln: true, spin: true,
+    wpn: [[0, 'saber'], [0.4, 'shield'], [2.6, 'saber']],
+    lunge: [[0.02, 0], [0.14, 1.1], [2.62, 1.1], [2.74, 1.8], [2.95, 1.8], [3.25, -0.4]],
+    air: [[2.9, 0], [3.06, 1.3], [3.3, 0]],
     clip: clip([
       k(0, { torso: [0.3, -0.3, 0], uArmR: [0.5, -0.3, -0.6], fArmR: [-0.3, 0, 0], hand: [0.3, 0, 0], y: -0.4, ...LEGS_LUNGE_R }),
       k(0.14, { torso: [-0.3, 0.2, 0], uArmR: [-2.6, 0, -0.4], fArmR: [-0.1, 0, 0], hand: [0.4, 0, 0], y: -0.1, ...LEGS_WIDE }, 'snap'),
-      k(0.4, { ...GUARD, torso: [0, -0.1, 0], y: -0.2, yaw: 0, ...LEGS_WIDE }),
-      k(1.35, { ...GUARD, torso: [0, -0.1, 0], y: -0.2, yaw: PI * 5 }, 'linear'),
-      k(1.5, { ...GUARD, uArmL: [-0.8, 0, 1.4], y: -0.35, yaw: PI * 5 }, 'snap'),
-      k(1.65, { torso: [0.05, -0.15, 0], uArmL: [-0.4, 0, 0.5], fArmL: [-0.8, 0, 0], y: -0.15, yaw: PI * 5 }),
+      k(0.4, { ...GUARD, uArmL: [-1.5, 0, 0.2], fArmL: [-0.1, 0, 0], torso: [0.25, 0.3, 0], y: -0.3, ...LEGS_LUNGE_L }),
+      ...times(0.52, 2.5, 0.14).map((t, i) => k(t, { torso: [0.25, i % 2 ? 0.2 : 0.4, 0], uArmL: [-1.5, i % 2 ? -0.1 : 0.1, 0.2] }, 'snap')),
+      k(2.6, { torso: [0.35, -0.3, 0], uArmR: [0.7, 0, -0.35], fArmR: [-0.2, 0, 0], hand: [0.2, 0, 0], uArmL: [-0.4, 0, 0.5], y: -0.45, ...LEGS_LUNGE_R }),
+      k(2.7, { torso: [-0.35, 0.2, 0], uArmR: [-2.8, 0, -0.3], fArmR: [-0.1, 0, 0], hand: [0.4, 0, 0], y: -0.05, ...LEGS_WIDE }, 'snap'),
+      k(2.92, { torso: [-0.2, 0, 0], y: 0, pitch: 0, ...LEGS_AIR }),
+      k(3.2, { torso: [0.3, 0, 0], pitch: -PI * 2, y: -0.3, ...LEGS_KNEEL }),
+      k(3.35, { torso: [0.1, -0.15, 0], uArmR: [-0.4, 0, -0.3], fArmR: [-0.7, 0, 0], y: -0.15, pitch: -PI * 2, ...LEGS_WIDE }),
     ]),
     hits: [
-      { t: 0.06, t1: 0.16, shape: 'arc', range: 5.0, arc: 140, dmg: 28, kb: 2, up: 6 },
-      ...every(0.45, 1.32, 0.16, { shape: 'circle', range: 4.2, dmg: 10, kb: 1.5, up: 0.5, pull: 0.6, stop: 1 }),
-      { t: 1.42, t1: 1.52, shape: 'circle', range: 5.6, dmg: 32, kb: 10, up: 6, big: true },
+      { t: 0.06, t1: 0.16, shape: 'arc', range: 5.0, arc: 140, dmg: 28, kb: 2, up: 0 },
+      ...every(0.45, 2.55, 0.14, { shape: 'line', len: 4.2, width: 3.2, dmg: 7, kb: 0.3, up: 0, pull: 1.3, stop: 1 }),
+      { t: 2.68, t1: 2.8, shape: 'arc', range: 5.2, arc: 170, dmg: 32, kb: 1, up: 12, big: true },
     ],
-    ev: [[0.0, 'flash', 'gold'], [0.4, 'flash', 'pink']],
-    sfxs: [[0.04, 'slash_rise'], [0.4, 'draw'], ...times(0.45, 1.32, 0.32).map((t) => [t, 'slash_fast'])],
+    ev: [[0.0, 'flash', 'gold'], [0.4, 'flash', 'pink'], ...times(0.5, 2.5, 0.28).map((t) => [t, 'grind'])],
+    sfxs: [[0.04, 'slash_rise'], [0.4, 'draw'], ...times(0.45, 2.55, 0.28).map((t) => [t, 'slash_fast']), [2.66, 'slash_rise']],
   },
 
   // J J J K: the screw whip's claw shoots out and hauls its catch back into a short zanber flurry.
@@ -324,21 +336,28 @@ export const MOVES = {
     hits: [{ t: 0.05, t1: 0.17, shape: 'arc', range: 5.4, arc: 195, dmg: 32, kb: 4, up: 11, big: true }],
     sfx: 'slash_rise', swing: 0.03,
   },
-  DC: { // dash charge: the beam shield snaps up for a bash, then the buster gun fires point-blank
-    dur: 1.2, chain: 1.0, rate: 1, next: null, charge: null, armor: true,
-    wpn: [[0, 'shield'], [0.55, 'rifle']],
+  // Dash charge: a long spinning X-thruster rush of hits (~2 s), a slash, then the buster gun fired point-blank.
+  DC: {
+    dur: 3.1, chain: 2.9, rate: 1, next: null, charge: null, armor: true, spin: true,
+    wpn: [[0, 'saber'], [2.3, 'rifle']],
+    lunge: [[0, 0], [1.9, 3.5]],
+    jets: [0, 1.95, false],
     clip: clip([
-      k(0, { ...GUARD, y: -0.3, yaw: 0, ...LEGS_WIDE }),
-      k(0.18, { yaw: PI * 2, ...GUARD }, 'linear'),
-      k(0.38, { yaw: PI * 2, ...GUARD, y: -0.35, ...LEGS_LUNGE_R }),
-      k(0.5, { yaw: PI * 2, ...GUARD, y: -0.35 }),
-      k(0.56, { yaw: PI * 2, ...PISTOL, torso: [0.05, -0.3, 0.05] }, 'snap'),
-      k(1.2, { yaw: PI * 2, torso: [0.1, -0.2, 0], uArmR: [-0.4, 0, -0.3], fArmR: [-0.9, 0, 0], hand: [0.9, 0, 0], y: -0.12 }),
+      k(0, { torso: [0.2, -0.2, 0], uArmR: [0, 0, -1.3], fArmR: [-0.2, 0, 0], hand: [1.2, 0, 0], uArmL: [0, 0, 1.3], fArmL: [-0.2, 0, 0], y: -0.25, yaw: 0, ...LEGS_WIDE }),
+      k(1.9, { yaw: PI * 10, torso: [0.25, 0.2, 0] }, 'linear'),
+      k(2.02, { yaw: PI * 10, torso: [0.12, 0.8, 0], ...SWEEP_L, y: -0.3, ...LEGS_LUNGE_L }),
+      k(2.12, { yaw: PI * 10, torso: [0.15, -0.9, 0], ...SWEEP_R, y: -0.35, ...LEGS_LUNGE_R }, 'snap'),
+      k(2.4, { yaw: PI * 10, ...PISTOL, torso: [0.1, -0.4, 0.05], y: -0.3 }),
+      k(2.52, { yaw: PI * 10, uArmR: [-1.6, 0, -0.1], hand: [1.6, 0, 0] }, 'snap'),
+      k(3.1, { yaw: PI * 10, torso: [0.1, -0.2, 0], uArmR: [-0.4, 0, -0.3], fArmR: [-0.9, 0, 0], hand: [0.9, 0, 0], y: -0.12 }),
     ]),
-    hits: [{ t: 0.03, t1: 0.18, shape: 'arc', range: 4.6, arc: 360, dmg: 13, kb: 1, up: 1.5 }],
-    ev: [[0.02, 'flash', 'pink'], [0.2, 'flash', 'pink']],
-    shots: [{ t: 0.5, kind: 'blast' }],
-    sfxs: [[0.03, 'slash_spin']],
+    hits: [
+      ...every(0.05, 1.9, 0.12, { shape: 'circle', range: 4.6, dmg: 7, kb: 0.6, up: 0, pull: 1.3, stop: 1 }),
+      { t: 2.06, t1: 2.16, shape: 'arc', range: 5.2, arc: 190, dmg: 22, kb: 2, up: 3 },
+    ],
+    ev: [[0.02, 'flash', 'pink'], [1.95, 'flash', 'pink']],
+    shots: [{ t: 2.5, kind: 'blast' }],
+    sfxs: [...times(0.05, 1.9, 0.3).map((t) => [t, 'slash_spin']), [2.04, 'slash_a']],
   },
 
   // ---- aerial ----
@@ -365,9 +384,9 @@ export const MOVES = {
   },
 
   // ---- SP attacks ----
-  // Ground: a starburst, both blades out in a long standing flurry that pulls anyone close in, then a dashing
-  // cross-slash finish. Hold SP through the starburst for the charge SP (the screw whip's vortex); in the air:
-  // a thruster climb and a meteoric heat-dagger dive.
+  // Ground: a starburst, both blades out in a long flurry that pulls anyone close in, then a dashing cross-slash
+  // finish. Hold SP through the starburst for the charge SP (the screw whip's vortex, ~2.1 s a stock); in the air:
+  // a thruster climb, then a pink energy orb swells round the hovering suit and detonates.
   SP_IN: {
     dur: 0.5, rate: 1, saber: true, armor: true, invuln: true, sp: true, spNext: 'SP_FL', spHold: 'SPC_CH',
     wpn: [[0, 'saber'], [0.22, 'cross']],
@@ -413,32 +432,34 @@ export const MOVES = {
     sfxs: [[0.05, 'slash_dash'], [0.5, 'slash_spin']],
   },
   SPA_IN: {
-    dur: 0.5, rate: 1, armor: true, invuln: true, sp: true, isAir: true, spNext: 'SPA_DIVE',
-    wpn: [[0, 'saber']],
+    dur: 0.5, rate: 1, armor: true, invuln: true, sp: true, isAir: true, mantle: true, spNext: 'SPA_ORB',
+    wpn: [[0, null]],
     jets: [0, 0.5, true],
     clip: clip([
       k(0, { torso: [0.1, 0, 0], uArmR: [-0.3, 0, -0.5], uArmL: [-0.5, 0, 0.5], ...LEGS_AIR }),
-      k(0.3, { torso: [-0.3, 0, 0], uArmR: [-2.5, 0, -0.3], uArmL: [-2.5, 0, 0.3], y: 0.1, ...LEGS_AIR }),
-      k(0.5, { torso: [-0.35, 0, 0], y: 0.15, ...LEGS_AIR }),
+      k(0.3, { torso: [-0.2, 0, 0], uArmR: [-0.4, 0, -1.0], fArmR: [-0.4, 0, 0], uArmL: [-0.4, 0, 1.0], fArmL: [-0.4, 0, 0], ...LEGS_AIR }),
+      k(0.5, { torso: [-0.1, 0, 0], ...LEGS_AIR }),
     ]),
     ev: [[0.04, 'burst']],
   },
-  SPA_DIVE: { // heat daggers out, a meteoric plunge that opens a crater
-    dur: 0.9, rate: 1, armor: true, invuln: true, sp: true, isAir: true, dive: 1.6,
-    lunge: [[0, 0], [0.4, 3]],
+  SPA_ORB: { // hovering in the mantle, a pink energy orb swells round the suit, detonates, and leaves a pink pillar
+    dur: 3.0, rate: 1, armor: true, invuln: true, sp: true, isAir: true, mantle: true, spin: true,
+    wpn: [[0, null]],
+    jets: [0, 2.2, true],
     clip: clip([
-      k(0, { torso: [-0.35, 0, 0], uArmR: [-2.5, 0, -0.3], uArmL: [-2.5, 0, 0.3], y: 0.15 }),
-      k(0.35, { torso: [0.7, 0, 0], uArmR: [-0.4, 0, -0.15], uArmL: [-0.4, 0, 0.15], thighR: [-1.2, 0, -0.1], shinR: [1.7, 0, 0], thighL: [-1.2, 0, 0.1], shinL: [1.7, 0, 0] }),
-      k(0.45, { torso: [0.55, 0, 0], y: -0.5, ...LEGS_WIDE }, 'snap'),
-      k(0.9, { torso: [0.15, -0.2, 0], y: -0.15 }),
+      k(0, { torso: [-0.1, 0, 0], uArmR: [-0.4, 0, -1.0], fArmR: [-0.4, 0, 0], uArmL: [-0.4, 0, 1.0], fArmL: [-0.4, 0, 0], head: [0, 0, 0], ...LEGS_AIR }),
+      k(1.3, { torso: [0.35, 0, 0], uArmR: [-0.9, 0, -0.5], fArmR: [-1.2, 0, 0], uArmL: [-0.9, 0, 0.5], fArmL: [-1.2, 0, 0], head: [0.2, 0, 0] }),
+      k(1.45, { torso: [-0.35, 0, 0], uArmR: [-0.3, 0, -2.3], fArmR: [0, 0, 0], uArmL: [-0.3, 0, 2.3], fArmL: [0, 0, 0], head: [-0.3, 0, 0] }, 'snap'),
+      k(2.3, { torso: [-0.15, 0, 0], uArmR: [-0.4, 0, -1.5], uArmL: [-0.4, 0, 1.5], head: [-0.1, 0, 0] }),
+      k(3.0, { torso: [0.1, 0, 0], uArmR: [-0.4, 0, -0.5], fArmR: [-0.4, 0, 0], uArmL: [-0.4, 0, 0.5], fArmL: [-0.4, 0, 0] }),
     ]),
-    hits: [{ t: 0.44, t1: 0.54, shape: 'circle', range: 8.5, dmg: 130, kb: 14, up: 10, big: true, sp: true }],
-    ev: [[0.02, 'charge'], [0.44, 'meteor']],
-    sfxs: [[0.34, 'qb']],
+    ev: [[0.02, 'charge'], ...[0.05, 0.4, 0.75, 1.1].map((t, i) => [t, 'orbgrow', i]), [1.45, 'orbburst'], [2.0, 'pillar']],
+    sfxs: [[1.4, 'qb']],
   },
   SPC_CH: {
     dur: 1.05, rate: 1, armor: true, invuln: true, sp: true, chargeAura: true, spNext: 'SPC_WHIRL',
     wpn: [[0, 'whip']],
+    wh: [[0, 0], [0.8, 0], [1.05, WHIP_R * 0.8]],
     clip: clip([
       k(0, { torso: [-0.2, 0.3, 0], uArmR: [-0.2, 0, -0.6], fArmR: [-0.7, 0, 0], hand: [1.3, 0, 0], y: -0.2, ...LEGS_WIDE }),
       k(0.35, { torso: [0.4, 0, 0], uArmR: [-0.2, 0, -0.9], fArmR: [-0.7, 0, 0], hand: [1.2, 0, 0], uArmL: [-0.2, 0, 0.9], fArmL: [-0.7, 0, 0], head: [-0.2, 0, 0], y: -0.55, ...LEGS_WIDE }),
@@ -446,20 +467,21 @@ export const MOVES = {
     ]),
     ev: [[0.02, 'charge'], [1.0, 'burst']],
   },
-  SPC_WHIRL: { // the screw whip spins out into a slowly widening, pulling vortex
-    dur: 4.2, rate: 1, armor: true, invuln: true, sp: true, rushFx: true, steer: 3, spin: true, spNext: 'SPC_END',
+  SPC_WHIRL: { // the screw whip spun out into a pulling vortex: ~2.1 s a stock in the footage, played in passes
+    dur: 2.1, rate: 1, armor: true, invuln: true, sp: true, rushFx: true, steer: 3, spin: true, spNext: 'SPC_END',
+    stockDur: [2.1, 4.2, 6.3],
     wpn: [[0, 'whip']],
-    wh: [[0, 0.6], [0.3, WHIP_R * 0.55], [4.2, WHIP_R]],
+    wh: [[0, WHIP_R * 0.8], [1.05, WHIP_R], [2.1, WHIP_R * 0.8]],
     clip: clip([
       k(0, { torso: [0.1, 0, 0], uArmR: [-0.3, 0, -1.3], fArmR: [-0.1, 0, 0], hand: [1.2, 0, 0], uArmL: [-0.8, 0, 0.6], y: -0.3, yaw: 0, ...LEGS_WIDE }),
-      k(0.3, { yaw: -PI * 0.5 }, 'in'),
-      k(4.2, { yaw: -PI * 13.5 }, 'linear'),
+      k(2.1, { yaw: -PI * 6 }, 'linear'),
     ]),
-    hits: every(0.2, 4.15, 0.18, { shape: 'circle', range: 5.5, dmg: 11, kb: 4, up: 2.5, pull: 2.2, sp: true }),
-    sfxs: times(0.2, 4.15, 0.36).map((t) => [t, 'whip']),
+    hits: every(0.1, 2.05, 0.15, { shape: 'circle', range: 5.5, dmg: 18, kb: 4, up: 2.5, pull: 2.2, sp: true }),
+    sfxs: times(0.1, 2.05, 0.36).map((t) => [t, 'whip']),
   },
   SPC_END: {
     dur: 0.95, rate: 1, armor: true, invuln: true, sp: true,
+    stockPower: [1, 1.3, 1.6],
     wpn: [[0, 'whip'], [0.72, null]],
     wh: [[0, WHIP_R], [0.2, WHIP_R], [0.7, 0.5]],
     clip: clip([
@@ -468,7 +490,7 @@ export const MOVES = {
       k(0.7, { torso: [0.1, -0.2, 0], uArmR: [-0.9, 0, -0.4], fArmR: [-0.6, 0, 0], yaw: -PI * 1.1, y: -0.2 }),
       k(0.95, { yaw: -PI * 1.1 }),
     ]),
-    hits: [{ t: 0.16, t1: 0.28, shape: 'circle', range: 6.2, dmg: 56, kb: 12, up: 12, big: true, sp: true }],
+    hits: [{ t: 0.16, t1: 0.28, shape: 'circle', range: 6.2, dmg: 90, kb: 12, up: 12, big: true, sp: true }],
     sfxs: [[0.08, 'whip']],
   },
 };

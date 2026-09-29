@@ -15,6 +15,11 @@ import { Trail } from '../fx/fx.js';
 const WEAPON_ID = { saber: 1, rifle: 2, cross: 3, whip: 4, shield: 5 };
 const WEAPON_OF = [null, 'saber', 'rifle', 'cross', 'whip', 'shield'];
 const BUSTER_SHOT = { dmg: 20, kb: 4, up: 1 };
+// the charge shot's sustained beam: a heavy bolt every 0.05 s (no hit-stop, so the stream keeps its rhythm); the last
+// one throws whatever is still in it
+const STREAM_SHOT = { dmg: 8, kb: 1.5, up: 0.6, w: 1.7, r: 1.4, speed: 130, max: 0.45, sp: true };
+const STREAM_LAST = { dmg: 30, kb: 10, up: 8, big: true, w: 2.6, r: 1.6, speed: 130, sp: true };
+const MANTLE_LINGER = 0.5; // seconds after an attack before the ABC mantle is back on (Reborn)
 const SABER_COLOR = new THREE.Color(3.2, 0.6, 2.4); // pink-violet, in the family of the game's other beam weapons
 const OFF_COLOR = new THREE.Color(1.4, 2.6, 3.2); // the off-hand saber runs a shade cooler, cyan-violet
 const SABER_TRAIL = 0xff5fd0;
@@ -40,7 +45,8 @@ export class X1Kai extends Hero {
     this.offScale = 0;
     this.whipExt = 0; // screw whip's current reach, 0..WHIP_R
     this.spinAngle = 0;
-    this.mantleFlare = 0;
+    this.mantleOffT = 0; // the ABC mantle is shed while this runs
+    this.mantleOn = true;
 
     this.hilt = voxelMesh(w.zanberHilt, { scale: X1_WEAPON_VOXEL });
     hand.add(this.hilt);
@@ -138,8 +144,9 @@ export class X1Kai extends Hero {
     }
   }
 
-  // X1 Kai-only move effects: the C2 slam shockwave, the screw whip's lash, the SP cross-burst, the SPA meteor dive.
-  suitEvent(name) {
+  // X1 Kai-only move effects: the C2 slam shockwave, the screw whip's lash, C3's shield grind, the SP cross-burst,
+  // the SPA orb.
+  suitEvent(name, arg) {
     const g = this.game;
     const P0 = this.pos;
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
@@ -179,18 +186,41 @@ export class X1Kai extends Hero {
         if (g.local === this) { g.camera.shake(0.9); g.aberr(1.1); }
         break;
       }
-      case 'meteor': { // SPA: the heat-dagger dive lands like a meteor
-        const c = this._w.set(P0.x, 0.2, P0.z);
-        g.fx.shock(c, 9, 0xff9fe0, 0.7);
-        g.fx.ring(c, 0.6, 9.5, 0xffd0ee, 0.6);
-        g.fx.dust(c, 36, 2.4);
-        g.fx.debris(c, 26, [0xc4c9d6, 0x122c58, 0x1a1a20], 15, 0.25);
-        g.fx.dome(this._v.set(c.x, 0, c.z), 1, 8, 0xff6fd0, 0.7);
-        g.fx.light(c, 0xff6fd0, 200, 28, 0.6);
-        g.fx.scorch(c.x, c.z, 3.8, 18);
+      case 'grind': { // C3: the beam shield ground into the target throws sparks
+        const sh = this.rig.nodes.handL.getWorldPosition(this._w);
+        g.fx.sparks(sh, 8, 0xffa0e0, 12);
+        g.fx.light(sh, 0xff6fd0, 50, 8, 0.12);
+        break;
+      }
+      case 'orbgrow': { // SPA: the pink orb swells round the hovering suit (arg: which pulse), grinding what's below
+        const c = this._v.set(P0.x, P0.y + 1.6, P0.z);
+        const r = 2 + arg * 1.2;
+        g.fx.dome(c, r * 0.6, r, 0xff6fd0, 0.45);
+        g.fx.sparks(c, 10, 0xffb0e8, 10);
+        g.fx.light(c, 0xff6fd0, 90, 14 + r * 2, 0.35);
+        g.combat.aoe(this, P0.x, 0, P0.z, r + 2, 8, 0, 1.5, ++this.hitSerial, false, true);
+        g.audio.play('charge', { vol: 0.6, pitch: 0.8 + arg * 0.15 });
+        break;
+      }
+      case 'orbburst': { // SPA: the orb detonates, flinging rocks across the field (~3 H across)
+        const c = this._v.set(P0.x, P0.y + 1.6, P0.z);
+        g.fx.dome(c, 2, 10, 0xff6fd0, 0.8);
+        g.fx.dome(c, 1, 7, 0xffd0f4, 0.5);
+        g.fx.star(c, 0xffe0f8, 4);
+        g.fx.debris(this._w.set(P0.x, 0.5, P0.z), 30, [0x6f6c64, 0x3a3532, 0x8a867c], 18, 0.35);
+        g.fx.dust(this._w.set(P0.x, 0.2, P0.z), 30, 2.4);
+        g.fx.ring(this._w.set(P0.x, 0, P0.z), 1, 10, 0xffd0ee, 0.6);
+        g.fx.light(c, 0xff6fd0, 220, 30, 0.6);
+        g.combat.aoe(this, P0.x, 0, P0.z, 9, 130, 14, 10, ++this.hitSerial, true, true);
         g.audio.play('bigboom');
         g.slowmo(0.3, 0.35);
         if (g.local === this) { g.camera.shake(1.0); g.aberr(1.2); }
+        break;
+      }
+      case 'pillar': { // SPA: a pink pillar of light stands where the orb was
+        for (let i = 0; i < 5; i++) g.fx.ring(this._w.set(P0.x, 0, P0.z), 0.5, 2.5, 0xff8ad8, 0.5, 0.5 + i * 2);
+        g.fx.sparks(this._v.set(P0.x, 1, P0.z), 20, 0xffb0e8, 14, 0.4, this._w.set(0, 1, 0));
+        g.fx.light(this._v.set(P0.x, 3, P0.z), 0xff6fd0, 140, 20, 0.5);
         break;
       }
     }
@@ -217,16 +247,16 @@ export class X1Kai extends Hero {
       g.audio.play('cshot');
       return;
     }
-    if (shot.kind === 'spread') {
-      // charge shot: five beams fan out from the mantle at once; one shared voice and camera kick, not five
-      g.projectiles.heroBeam(this, from, dir, BUSTER_SHOT);
-      g.fx.muzzle(from, dir, 0xff8ad8, 1.3);
-      if (shot.ang === 0) {
+    if (shot.kind === 'stream') {
+      // charge shot: one sustained beam, a bolt every 0.05 s; one voice and camera kick for the lot
+      g.projectiles.heroBeam(this, from, dir, shot.last ? STREAM_LAST : STREAM_SHOT);
+      if (shot.first || shot.last || Math.random() < 0.25) g.fx.muzzle(from, dir, 0xff8ad8, shot.first || shot.last ? 1.6 : 0.9);
+      if (shot.first) {
         g.audio.play('cshot');
-        g.camera.shake(0.4);
         g.camera.kick(4);
         g.aberr(0.5);
       }
+      g.camera.shake(shot.first ? 0.4 : 0.08);
       return;
     }
     g.projectiles.heroBeam(this, from, dir, BUSTER_SHOT);
@@ -263,12 +293,13 @@ export class X1Kai extends Hero {
     this.spinAngle += (1.1 + speed * 0.35 + rushing) * dt;
     this.rig.nodes.thrusters.rotation.z = this.spinAngle;
 
-    // ABC mantle: a slow idle flutter, flared wide when the buster gun's charge shot opens it for the spread
-    const flareWant = this.move?.mantleFlare ? 1 : 0;
-    this.mantleFlare = damp(this.mantleFlare, flareWant, 8, dt);
+    // ABC mantle: a slow idle flutter. As in Reborn it comes off for the suit's attacks (not the buster's shot combo or
+    // the aerial SP) and is back on half a second after
+    if (inMove && !this.move?.mantle) this.mantleOffT = MANTLE_LINGER;
+    else this.mantleOffT -= dt;
+    this.setMantle(this.mantleOffT <= 0);
     const sway = Math.sin(this.game.time * 1.6) * 0.05 - Math.min(0.3, speed * 0.02);
-    this.rig.nodes.mantle.rotation.x = sway - this.mantleFlare * 0.5;
-    this.rig.nodes.mantle.scale.x = 1 + this.mantleFlare * 0.3;
+    this.rig.nodes.mantle.rotation.x = sway;
   }
 
   postVisuals(dt, inMove) {
@@ -280,6 +311,15 @@ export class X1Kai extends Hero {
     if (dt > 1e-4) this.tipSpeed = damp(this.tipSpeed, this._tip.distanceTo(this._prevTip) / dt, 20, dt);
     this._prevTip.copy(this._tip);
     this.trail.push(this._base, this._tip, swinging && this.blade.visible);
+  }
+
+  // Shed or put on the mantle, with a puff of the dark cloth as it goes.
+  setMantle(on) {
+    if (on === this.mantleOn) return;
+    this.mantleOn = on;
+    this.rig.nodes.mantle.visible = on;
+    const m = this.rig.nodes.mantle.getWorldPosition(this._v);
+    this.game.fx.puff(m, on ? 2 : 4, 0.22, on ? 0.7 : 1, 0.6, 1.6);
   }
 
   showWeapon(wpn) {
@@ -313,7 +353,7 @@ export class X1Kai extends Hero {
     const inMove = this.state === 'attack' || this.state === 'musou';
     const wpn = this.heldWeapon(inMove);
     return {
-      sab: this.saberScale, ofs: this.offScale, wp: WEAPON_ID[wpn] || 0, wh: this.whipExt,
+      sab: this.saberScale, ofs: this.offScale, wp: WEAPON_ID[wpn] || 0, wh: this.whipExt, mo: this.mantleOn ? 1 : 0,
       sw: inMove && (wpn === 'saber' || wpn === 'cross'),
     };
   }
@@ -327,6 +367,7 @@ export class X1Kai extends Hero {
     this.blade.scale.set(1, 1, Math.max(0.001, BLADE * this.saberScale));
     this.offBlade.visible = this.offScale > 0.02;
     this.offBlade.scale.set(1, 1, Math.max(0.001, SBLADE * this.offScale));
+    this.setMantle(s.mo !== 0);
     this.rig.root.updateMatrixWorld(true);
     this.whipExt = s.wh || 0;
     this.placeWhip(wpn === 'whip' && this.whipExt > 0.3);

@@ -139,51 +139,51 @@ SP attacks each spend one of the three SP stocks. On the ground, both arms flail
 
 ### MSN-001A1 Delta Plus (Riddhe Marcenas)
 
-A Zeta-lineage transformable suit from a full generation after everything else on this field, and taller than the Gundam (the game's spec sheet: melee 600, shot 600, defense 480, armor 10000, mobility 728, thruster 1000). It carries a beam saber and rifle, and a grenade launcher built into its shield. Its biggest attacks fold it into its waverider flight mode to ram straight through the line.
+A Zeta-lineage transformable suit from a full generation after everything else on this field, and taller than the Gundam (the game's spec sheet: melee 600, shot 600, defense 480, armor 10000, mobility 728, thruster 1000). It carries a beam saber (which also fixes onto the rifle as a bayonet), a beam rifle, a shield with two beam sabers and a grenade launcher built in, and the beam cannon it fires in its waverider flight mode. The moves follow its Reborn footage and the Koei wiki's Reborn list.
 
-- **J × 6**: a beam saber string (rising cut, forehand, overhead chop, backhand, a shield bash into a thrust), then a thruster hop into a launching spin
-- **K**: the beam rifle. Mash it for a shot combo, or hold it for a charge shot behind the shield
-- **J K**: a rising cut into a full spin, rings of light winding round the blade
-- **J J K**: a saber flurry, then the shield swings round and the grenade launcher goes off point-blank
-- **J J J K**: folds into waverider mode and rams through the target in a long spinning arc, landing in a shockwave
-- **J J J J K**: a big rising double cut that carries the target skyward
-- **J J J J J K**: the shield plants forward and the grenade launcher fans three rounds out
-- In the air: **J** a saber slash, **K** a plunging stab
-- During a boost dash: **J** a paired-cut rush (keep pressing J) that finishes by folding into waverider mode and ramming through with the rifle blazing, **K** a spin into a point-blank grenade blast
+- **J × 4**: three beam saber cuts, then the shield's two sabers light and cut an X with the hand saber that knocks the target away
+- **K**: the beam rifle. Mash it for up to five shots, or hold it for a charge shot behind the shield (the thrusters lift the suit a little after it, and it lands in a crouch)
+- **J K**: a flip kick that launches, then two diagonal saber slashes in the air after the target
+- **J J K**: a beam saber thrust from the shield. If it connects, press **K** again: a kick that launches, a leap after the target with two cuts, and two grenade rounds fired down into it
+- **J J J K**: folds into waverider mode and barrel-rolls through the target in a long arc, landing in a shockwave
+- **J J J J K** (this game's own): a big rising double cut that carries the target skyward
+- In the air (this game's own): **J** a saber slash, **K** a plunging stab
+- During a boost dash: **J J** four bayonet swings with the saber fixed on the rifle, ending in a grenade round; **K** cuts on the rush, a spin, and a point-blank grenade blast
+- **Boost twice** (tap boost again during the quick boost): the Transform Shot. It folds into waverider mode and flies at the target, ramming whatever is in the way; **J** fires the beam cannon from the nose as it unfolds
 
-SP attacks: a starburst, then a saber-and-rifle flurry under pulses of the Bio Sensor's light, and the suit folds into waverider mode and rams the length of the field through its target. Hold SP through the flurry for the charge SP: a longer transformation run that circles the battlefield before the final ram. In the air, it hovers and fans grenades out beneath it.
+SP attacks each spend one of the three SP stocks. On the ground, it folds into waverider mode and circles its target at speed for about four seconds, spinning up a vortex that catches everything inside, then climbs out, unfolds, and fires three rifle shots down into a huge explosion. Hold SP through the starburst for the charge SP (this game's own; Reborn's footage shows none): the same run circles about 3.5 s longer for each extra stock, into a bigger blast. In the air, it hovers low and pours a concentrated rifle beam into its target, then swings the beam sideways to sweep everything away.
 
 ### F91 Gundam F91 (Seabook Arno)
 
-A compact Formula-project Gundam from four decades later, fast and thinly armored (the game's spec sheet: melee 600, shot 600, defense 373, armor 8406, mobility 528, thruster 740). It carries a beam saber, a beam rifle and a beam launcher, and a pair of VSBRs on its back that swing forward under the arms. Its charge attacks and SPs flare with the teal-green afterimages of its M.E.P.E. burst.
+A compact Formula-project Gundam from four decades later, fast and thinly armored (the game's spec sheet: melee 600, shot 600, defense 373, armor 8406, mobility 528, thruster 740). It carries a yellow beam saber (and a second one for C4), a beam rifle, a beam shield off the left forearm, a beam launcher, and a pair of VSBRs on its back that swing forward under the arms. Its charge attacks and SPs flare with the teal-green afterimages of its M.E.P.E. burst. The moves follow its Reborn footage, checked against the Koei wiki's list (the same inputs as in DWG2 and 3).
 
-- **J × 6**: a beam saber string, ending in a thruster-hop spin that launches
-- **K**: the beam rifle. Mash it for a shot combo, or hold it for a charge shot
-- **J K**: a rising saber launcher, a spin and a stomp
-- **J J K**: a launcher, then a barrage of rifle shots into the target in the air
-- **J J J K**: the VSBRs swing forward and the suit spins in a whirlwind of twin beams
-- **J J J J K**: a dash-rush combo into a spinning slam
-- **J J J J J K**: a dash through the target and a saber stab into the ground that erupts in a shockwave
-- In the air: **J** an air slash, **K** a plunging stab
-- During a boost dash: **J** a dash rush (keep pressing J), **K** a spin into the beam launcher fired point-blank
+- **J × 6**: a beam saber string, ending in a turning cut all the way round and a big rising slash that knocks the target back
+- **K**: the beam rifle. Mash it for about six shots, or hold it for a charge shot: both VSBRs fire at once, and the heavy beams skid the F91 back about a third of its height
+- **J K**: a cut, the beam shield ground into the target, a kick that launches it, then a rifle shot up into it
+- **J J K**: a launching slash, then the VSBRs swing forward and one fires straight up into the target
+- **J J J K**: both beam sabers out, spun like wheels at its sides as it glides forward through the target, then a spinning cut as it lands
+- **J J J J K**: a spinning cut, then a lifting stab that drives through the target and carries both up into the air
+- **J J J J J K**: a cut, then it rises into a hover and glides sideways while the VSBRs fire three volleys down at the target
+- In the air (this game's own): **J** an air slash, **K** a plunging stab
+- During a boost dash: **J** a dash rush (keep pressing J), **K** a long saber flurry on the rush, a rising cut that launches, and the beam launcher fired up into the target
 
-SP attacks: on the ground, a VSBR-and-saber flurry into a cross-slash. Hold SP through the starburst for the charge SP: a corkscrew VSBR drill straight up, then an M.E.P.E. afterimage burst on the way down. In the air, it hovers in a swirling vortex of afterimages that pulses the ground below.
+SP attacks each spend one of the three SP stocks. On the ground, a long flurry of drawn-out saber sweeps across the crowd into a cross-slash and an M.E.P.E. flash. Hold SP through the starburst for the charge SP: the VSBRs swing forward and pour one sustained mega-beam ahead, steered with the stick, about 3.6 s of beam for each stock it takes, then one last full-power blast and the M.E.P.E. afterimages peel away. In the air, it hovers inside a swirling sphere of M.E.P.E. afterimages that pulls in and strikes everything around and below it.
 
 ### XM-X1 Crossbone Gundam X1 Kai (Tobia Arronax)
 
-The Crossbone Vanguard's space-pirate Gundam, fifty-four years out of its time. It is as fast and hits as hard as the RX-78, but its armor is far thinner (the game's spec sheet: melee 600, shot 600, defense 150, armor 10000, mobility 800, thruster 1000). It carries a beam zanber and a second saber, a buster gun, a beam shield, a screw whip that lashes out and hauls its catch back in, and heat daggers in its feet. The X-shaped thrusters on its back each have their own exhaust.
+The Crossbone Vanguard's space-pirate Gundam, fifty-four years out of its time. It is as fast and hits as hard as the RX-78, but its armor is far thinner (the game's spec sheet: melee 600, shot 600, defense 150, armor 10000, mobility 800, thruster 1000). It carries a beam zanber and a second saber, a buster gun, a beam shield, a screw whip that lashes out and hauls its catch back in, and heat daggers in its feet. The X-shaped thrusters on its back each have their own exhaust. As in Reborn it wears the ABC mantle, sheds it for its attacks (not for the buster's shot combo) and has it back on half a second after. The Koei wiki has no entry for it (it's Reborn DLC), so its moves come from the footage alone.
 
 - **J × 6**: a zanber string ending in a dual-blade cross-slash that launches everything around the suit
-- **K**: the buster gun. Mash it for a shot combo, or hold it for a five-beam spread
+- **K**: the buster gun, fired from under the mantle. Mash it for about six shots, or hold it for the charge shot: the mantle comes off, the thrusters hop the suit back about 0.4 of its height, and the buster pours one sustained beam into the target with the thrusters blazing behind it
 - **J K**: a rising launcher into a heat-dagger slam and its shockwave
-- **J J K**: the beam shield snapped up and spun in a parrying blur that bursts outward
+- **J J K**: a rising cut, then the beam shield ground into the target for about two and a half seconds, a launching slash and a back-flip away
 - **J J J K**: the screw whip lashes out and hauls its catch back into a short flurry
 - **J J J J K**: launch the target and chase it up with a spinning flurry
 - **J J J J J K**: the screw whip spun out into a widening vortex that pulls everything in, then a dash-through finish
-- In the air: **J** an air cut, **K** a heat-dagger plunge
-- During a boost dash: **J** a rush of zanber cuts (keep pressing J), **K** a shield bash into a point-blank buster blast
+- In the air (this game's own): **J** an air cut, **K** a heat-dagger plunge
+- During a boost dash: **J** a rush of zanber cuts (keep pressing J), **K** about two seconds of spinning X-thruster rush, a slash, and the buster fired point-blank
 
-SP attacks: on the ground, a dual-blade flurry that hauls stragglers in and a dashing cross-slash. Hold SP through the starburst for the charge SP: the screw whip spins out into a long, widening vortex. In the air, a thruster climb into a heat-dagger meteor dive.
+SP attacks each spend one of the three SP stocks. On the ground, a dual-blade flurry that hauls stragglers in and a dashing cross-slash. Hold SP through the starburst for the charge SP: the screw whip spins out into a pulling vortex, about 2.1 s for each stock it takes, then a final lash. In the air, it hovers in its mantle while a pink energy orb swells round it, then the orb detonates across the field and leaves a pillar of light.
 
 ### MSN-04 Sazabi (Char Aznable)
 

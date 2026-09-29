@@ -12,9 +12,9 @@ const $ = (id) => document.getElementById(id);
 const GUIDE_KEYS = { J: 'J', K: 'K', B: 'Shift', U: 'Space', S: 'I' };
 const GUIDE_TOUCH = { J: 'ATK', K: 'CHG', B: 'BOOST', U: 'JUMP', S: 'SP' };
 // Which guide row a running move belongs to (a charge attack's K follow-ups, C2F or C6X, stay on its charge attack's
-// row; a dash string's later hits, DA2 or DAF, on the dash row).
+// row; a dash string's later hits, DA2 or DAF, on the dash row; the Delta Plus's beam cannon, TSF, on the Transform Shot's).
 const guideRow = (name) => (/^N\d/.test(name) ? 'N' : name === 'C1R' || name === 'CS' ? 'C1' : /^DA[2-9F]$/.test(name) ? 'DA'
-  : /^C\d[FX]$/.test(name) ? name.slice(0, 2)
+  : /^C\d[FX]$/.test(name) ? name.slice(0, 2) : name === 'TSF' ? 'TS'
   : name.startsWith('SPA_') ? 'SPA' : name.startsWith('SP') ? 'SP' : name);
 
 export class HUD {
