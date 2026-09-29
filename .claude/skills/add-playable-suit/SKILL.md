@@ -174,6 +174,15 @@ Move fields (see the headers of `moves.js`, `guncannon_moves.js` and `ball_moves
 - **Hits:** `hits` entries are `{ t, t1, shape: 'arc' | 'circle' | 'line', range, arc (deg), len, width, off, hy, dmg,
   kb, up, pull, stop, big, sp }`. Use `every(t0, t1, step, spec)` for flurries.
 - **Shots:** `shots` are `[{ t, kind, ... }]`, passed to the suit's `fire()`.
+- **The K mash (C1/C1R), as in Reborn:** five shots (`maxRepeat: 5`), no ammo or reload. Measure the gap I between
+  shots and when the gun comes down in the footage; recovery R is that plus ~0.1 s (0.35-0.47 s).
+  - C1R: shot at 0.03, `chain = I - 0.03` (a connecting shot's hit-stop adds ~0.03), `dur = 0.03 + R - 0.05`.
+  - C1: shot at 0.10-0.12, `chain ≈ C1R.chain + 0.09`, `dur = shotT + R - 0.05`.
+  - The tap shot is `{ dmg: 13, kb: 2.5, up: 0, pierce: 1 }` in `heroBeam`: a flinch, never a knockdown, stopped by
+    the first body. A shell's damage radius stays about 0.5 H (r ~1.7, `up: 0`); draw the fireball bigger with
+    `heroBlast`'s `fxR`.
+  - Targets: a full mash does 60-70% of the J string's damage per second to one target. The charge shot is the
+    payoff, at least 1.3x a mash (~85-120 on one target), and pierces, throws and knocks down.
 - **Events and sounds:** `ev` is `[[t, name, arg]]`. Shared names are `flash` (gold/violet/red/pink swirl), `burst`,
   `charge` and `land`; any other name goes to `suitEvent`. `sfxs` is `[[t, name]]`, or give `sfx` + `swing` for one
   swing voice.
