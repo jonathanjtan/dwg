@@ -5,6 +5,7 @@
 import { Gundam, GUNDAM } from './gundam.js';
 import { Guncannon, GUNCANNON } from './guncannon.js';
 import { Ball, BALL } from './ball.js';
+import { GM, GM_SUIT } from './gm.js';
 import { DeltaPlus, DELTAPLUS } from './deltaplus.js';
 import { F91, F91_SUIT } from './f91.js';
 import { X1Kai, X1KAI } from './x1kai.js';
@@ -103,6 +104,36 @@ export const ROSTER = [
       ['U K', 'Cannon at the ground', 'JC', 'new'],
       ['S', 'Claw frenzy, point-blank shell · hold: squadron', 'SP', ['reborn', 'new']],
       ['U S', 'Ram and blast', 'SPA', 'reborn'],
+    ],
+  },
+  {
+    id: 'gm', cls: GM, cfg: GM_SUIT, pilot: 'gm',
+    unit: 'RGM-79 GM', unitShort: 'GM', unitJp: 'ジム', pilotName: 'GM TEAM LEADER', pilotJp: 'ジム小隊長',
+    stats: { MELEE: 600, SHOT: 600, DEFENSE: 115, ARMOR: 9746, MOBILITY: 465, THRUSTER: 820 },
+    equipment: ['Beam Saber', 'Beam Spray Gun'],
+    role: "Pride of mass production. The Federation's answer to the Zaku: a pink beam saber, a short-range beam spray gun and a long shield, a step behind the Gundam at everything.",
+    moves: [
+      ['J ×6', 'Quick paired saber cuts, ending in a launching swipe', 'reborn'],
+      ['K', 'Beam spray gun: mash for five shots, or hold for a hopping three-shot burst', 'reborn'],
+      ['J K', 'Saber flurry, a gold-lit shield bash, a spinning launch', 'reborn'],
+      ['B K', 'Dashing flurry and launch, a shot up, then the saber thrust up into it', 'reborn'],
+      ['J J K', 'Spray gun fanned across the front, three volleys', 'new'],
+      ['SP (hold)', 'Rising strike and spray fire · hold: braced spray sweep, longer per stock', ['reborn', 'new']],
+    ],
+    guide: [
+      ['J J J J J J', 'Paired cuts, launching swipe', 'N', 'reborn'],
+      ['K', 'Spray gun · mash (five), or hold for charge burst', 'C1', 'reborn'],
+      ['J K', 'Flurry, shield bash, spinning launch', 'C2', 'reborn'],
+      ['J J K', 'Spray gun fan, three volleys', 'C3', 'new'],
+      ['J J J K', 'Shield rush into a thrust', 'C4', 'new'],
+      ['J J J J K', 'Launch, then shoot it down', 'C5', 'new'],
+      ['J J J J J K', 'Thruster thrust charge', 'C6', 'new'],
+      ['B J', 'Dash rush · keep pressing J', 'DA', 'reborn'],
+      ['B K', 'Dash cuts, launch, shot up, rising thrust', 'DC', 'reborn'],
+      ['U J', 'Air slash', 'JA', 'new'],
+      ['U K', 'Spray gun at the ground', 'JC', 'new'],
+      ['S', 'Rising strike, spray fire, swirl · hold: spray sweep', 'SP', ['reborn', 'new']],
+      ['U S', 'Shield ram along the ground', 'SPA', 'reborn'],
     ],
   },
   {

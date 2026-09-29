@@ -741,6 +741,38 @@ function funnel(s) {
   s.click(0, 0.35, main);
 }
 
+// ---------------------------------------------------------------- GM
+// Beam spray gun: a short, thick report. Over the footage's shot combo its excess energy sits 61% in the body (a 65 Hz
+// thump and a buzz at 170-190 Hz), 29% in a 330-520 Hz growl and under a tenth in a zap near 2.1 kHz: a sub thump, a
+// short saw buzz, the growl through a low-mid bandpass, a small zap, and a spatter of ticks for the spray.
+function spray(s) {
+  const main = s.bus({ pan: s.r(-0.15, 0.15) });
+  s.tone('sine', 95, 62, 0, 0.16, 0.9, { dest: main });
+  const lp = s.filter('lowpass', 900, 1, main);
+  for (const d of [-8, 8]) s.tone('sawtooth', 188, 168, 0, 0.14, 0.26, { dest: s.bus({ dest: lp, drive: 3 }), detune: d, a: 0.002 });
+  const mid = s.filter('bandpass', 420, 1.2, main);
+  for (const f of [340, 520]) s.tone('sawtooth', f, f * 0.82, 0, 0.12, 0.14, { dest: mid, a: 0.003 });
+  s.tone('sine', 2150 * s.r(0.95, 1.05), 1500, 0, 0.08, 0.07, { dest: main, glide: 0.07 });
+  s.click(0, 0.5, main);
+  s.noise(0, 0.05, 0.3, { type: 'bandpass', f0: 2100, q: 1.2, dest: main, a: 0.001 });
+  s.crackle(0.02, 0.12, 5, 0.08, { f0: 1600, f1: 3600, dest: main });
+}
+
+// The charge burst's heavier shots: 65% in a 55-70 Hz sub, the same growl (16%) and a hotter crack at 2.3-3.4 kHz (18%).
+function sprayCs(s) {
+  const main = s.bus();
+  s.tone('sine', 120, 55, 0, 0.35, 1, { dest: main });
+  const lp = s.filter('lowpass', 700, 1.1, main);
+  for (const d of [-12, 0, 12]) s.tone('sawtooth', 150, 118, 0, 0.3, 0.22, { dest: s.bus({ dest: lp, drive: 4 }), detune: d, a: 0.003 });
+  const mid = s.filter('bandpass', 420, 1.1, main);
+  for (const f of [330, 490]) s.tone('sawtooth', f, f * 0.8, 0, 0.22, 0.15, { dest: mid, a: 0.004 });
+  s.noise(0, 0.12, 0.6, { type: 'highpass', f0: 2300, dest: s.filter('bandpass', 2800, 1.4, main), a: 0.001 });
+  s.tone('sine', 3300 * s.r(0.95, 1.05), 1800, 0, 0.14, 0.12, { dest: main, glide: 0.12 });
+  s.click(0, 0.8, main);
+  s.noise(0.02, 0.3, 0.25, { type: 'bandpass', f0: 2400, f1: 1000, q: 1.3, dest: main });
+  s.crackle(0.04, 0.3, 7, 0.12, { f0: 1800, f1: 4200, dest: main });
+}
+
 // ---------------------------------------------------------------- movement
 // Footfall: sub thump, a knock of steel on concrete, a clank from the leg, crumbling ground, hydraulics and a servo.
 function step(s, v) {
@@ -850,6 +882,8 @@ export const RECIPES = {
   whip: { n: 4, dur: 0.5, level: 0.75, build: whip },
   srifle: { n: 4, dur: 0.55, level: 0.85, build: srifle },
   funnel: { n: 6, dur: 0.3, level: 0.5, build: funnel },
+  spray: { n: 5, dur: 0.35, level: 0.72, build: spray },
+  spray_cs: { n: 3, dur: 0.6, level: 0.9, build: sprayCs },
 };
 
 const hashName = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };

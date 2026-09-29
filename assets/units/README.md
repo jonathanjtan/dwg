@@ -10,6 +10,7 @@ lacks a suit.
 | `gundam.png` | RX-78-2 Gundam | Amuro |
 | `guncannon.png` | RX-77-2 Guncannon | Kai |
 | `ball.png` | RB-79 Ball | the Ball squad leader |
+| `gm.png` | RGM-79 GM | the GM team leader |
 | `deltaplus.png` | MSN-001A1 Delta Plus | Riddhe (from *SD Gundam G Generation Genesis*, PS4: an evade frame) |
 | `f91.png` | F91 Gundam F91 | Seabook |
 | `x1kai.png` | XM-X1 Crossbone Gundam X1 Kai | Tobia (the Wars sheet's X1, which the Kai barely differs from) |

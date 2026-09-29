@@ -15,6 +15,7 @@ const REV = {
   vsbr: 0.3,
   whip: 0.15,
   srifle: 0.3, funnel: 0.2,
+  spray: 0.2, spray_cs: 0.3,
 };
 // live-synth stand-ins used until the rendered bank is ready
 const FALLBACK = {
@@ -28,6 +29,7 @@ const FALLBACK = {
   vsbr: 'swing',
   whip: 'clang',
   srifle: 'rifle', funnel: 'rifle',
+  spray: 'rifle', spray_cs: 'rifle',
 };
 // the deployed game (GitHub Pages); localhost, file:// and the dev tools start muted
 const LIVE = location.hostname.endsWith('github.io');
