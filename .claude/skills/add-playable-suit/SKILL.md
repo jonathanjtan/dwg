@@ -216,6 +216,11 @@ Names matter: `N1-N6`, `C1` (+`C1R` repeat, `CS` charge shot), `C2-C6`, `DA`/`DA
 `SPA_*` (air) and `SPC_*` (charge). The HUD's combo guide maps moves to rows by these prefixes (`guideRow` in hud.js).
 
 Gotchas:
+- `VoxelModel` reads any colour value below 0x10000 as a palette id, not a colour: write dark colours with a nonzero
+  high byte or pick them from the palette.
+- A shield hangs along the forearm, so a face-forward bash needs the forearm raised past vertical. The GM's working
+  pose: torso yaw ~0.7, `uArmL [-0.6, 0, 0.1]`, `fArmL [-2.1, 0, 0]`, `handL [0, 1.4, 0]`. The sign of `handL`'s y
+  flips with whether the forearm points up or down.
 - `combat.inShape` only hits targets between `hy - 2.5` and `hy + (spec.hy || 3.2)` of the suit's height, so an aerial
   blow misses ground troops unless the suit comes down. The Ball's air-SP ram sets `spAirY` lower through `dive`.
 - `combat.acquire` returns `{x, z}` (no y) for commanders: read heights as `t.y ?? t.pos?.y ?? 0`.
@@ -295,7 +300,9 @@ far enough. What it needs from a suit:
 - Remote weapons (funnels, bits, a squadron) are world-space meshes owned through `this.own()`. Keep their state as a
   mode, an anchor and a clock, compute positions from those in one function, and send just those in `netExtras` so
   the guest runs the same function (the Sazabi's `funnelSlot`). Fire their beams from the mesh's position.
-- Check it with `tools/aimtest.js` (section 8): every row should read 0-2 degrees.
+- Check it with `tools/aimtest.js` (section 8): every row should read 0-2 degrees. A fan fired all at once (the GM's
+  C3) reads up to ~25 degrees on its outer rounds, by design: the gun points down the middle. A sweep fired shot by
+  shot should aim the gun per shot with `aimGunTo`.
 
 Scratch vectors: `Hero` owns `_v _w _q _r`. Make your own in `buildWeapons` and don't reuse one while another call
 still holds it.
@@ -414,6 +421,12 @@ lead then merges the branches one at a time.
   committed, and SendMessage resumes them once the limit resets.
 
 ## 9. Balance
+
+- Char's evade counter (`commander.js`) dodges out after 5 recent hits, so a suit whose presses land two hits each
+  (the GM's paired cuts) triggers it twice as fast and struggles against him. Balance for it with `hp`/`defense`/
+  `power` and heavier second cuts rather than dropping hits the footage shows.
+- The browser tool times out at 45 s: run autoplay missions async in the page and poll the result (each mission
+  takes ~6 s with rendering off).
 
 Suits don't need to be even (the user's words): some can be weak, some overpowered. What matters is that no suit is
 unwinnable or unfun. A mass-produced or joke unit should sit below a real mobile suit. The Ball has 960 HP, defense
