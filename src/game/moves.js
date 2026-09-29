@@ -10,6 +10,7 @@ import { Clip, poseFrom } from '../core/rig.js';
 const PI = Math.PI;
 export const BLADE = 4.4; // beam saber length (units)
 export const HAMMER_R = 5.2; // Gundam hammer orbit radius
+const JAV_SLAM = 4.7; // how far ahead SP_JV's slam drives the javelin's tip (and its catch) into the ground
 
 // Ready stance: saber low and forward, shield up.
 export const STANCE = poseFrom({
@@ -412,25 +413,29 @@ export const MOVES = {
     ev: times(0.05, 2.95, 0.1).map((t) => [t, 'jab']),
     sfxs: times(0.02, 2.9, 0.2).map((t) => [t, 'javelin']),
   },
-  SP_JV: {
-    dur: 1.25, rate: 1, armor: true, invuln: true, sp: true, spNext: 'SP_OUT',
+  SP_JV: { // as in Reborn: the javelin runs its target through, hoists it overhead on the shaft and drives it into the
+    // ground in front, where purple lightning erupts (the body rides the tip from 'skewer' to 'bolt': gundam.js)
+    dur: 1.35, rate: 1, armor: true, invuln: true, sp: true, spNext: 'SP_OUT', carry: [0.12, 0.82],
     wpn: [[0, 'javelin']],
     lunge: [[0, 0], [0.16, 2]],
     clip: clip([
       k(0, { torso: [0.2, -0.4, 0], uArmR: [-0.3, 0, -0.4], fArmR: [-1.4, 0, 0], hand: [1.7, 0, 0], y: -0.35, ...LEGS_WIDE }),
       k(0.14, { torso: [0.35, -0.2, 0], uArmR: [-1.5, 0, 0.05], fArmR: [0, 0, 0], hand: [1.5, 0, 0], uArmL: [-0.4, 0, 0.6], y: -0.45, ...LEGS_LUNGE_R }, 'snap'),
-      k(0.3, { torso: [0.3, -0.2, 0] }),
-      k(0.6, { torso: [-0.35, 0, 0], uArmR: [-3.0, 0, 0.05], fArmR: [0, 0, 0], hand: [0.2, 0, 0], uArmL: [-2.6, 0, -0.1], fArmL: [-0.4, 0, 0], y: -0.05, head: [0.3, 0, 0], ...LEGS_WIDE }),
-      k(0.78, { torso: [0.8, 0, 0], uArmR: [-0.8, 0, 0.05], fArmR: [0, 0, 0], hand: [0.9, 0, 0], uArmL: [-0.7, 0, 0.1], y: -0.9, head: [-0.4, 0, 0], ...LEGS_KNEEL }, 'in'),
-      k(1.25, { torso: [0.7, 0, 0], y: -0.85 }),
+      k(0.26, { torso: [0.3, -0.2, 0] }),
+      // the hoist: the shaft swings up to stand almost straight, its catch overhead
+      k(0.56, { torso: [-0.3, -0.1, 0], uArmR: [-2.7, 0, 0.05], fArmR: [0, 0, 0], hand: [1.5, 0, 0], uArmL: [-1.6, 0, 0.3], fArmL: [-0.6, 0, 0], y: -0.1, head: [0.35, 0, 0], ...LEGS_WIDE }),
+      k(0.66, { torso: [-0.38, -0.1, 0], uArmR: [-2.8, 0, 0.05], hand: [1.45, 0, 0] }),
+      // the slam: over and down, the catch driven into the ground at the tip
+      k(0.8, { torso: [0.55, 0, 0], uArmR: [-1.1, 0, 0.05], fArmR: [0, 0, 0], hand: [0.72, 0, 0], uArmL: [-0.7, 0, 0.1], y: -0.9, head: [-0.4, 0, 0], ...LEGS_KNEEL }, 'in'),
+      k(1.35, { torso: [0.5, 0, 0], y: -0.85 }),
     ]),
     hits: [
       { t: 0.08, t1: 0.2, shape: 'line', len: 7.5, width: 2.8, dmg: 30, kb: 0.5, up: 3, sp: true },
-      { t: 0.74, t1: 0.8, shape: 'circle', range: 5, off: 2.4, dmg: 40, kb: 2, up: 5, sp: true },
-      { t: 0.82, t1: 0.9, shape: 'circle', range: 7.5, dmg: 150, kb: 12, up: 12, big: true, sp: true },
+      { t: 0.8, t1: 0.86, shape: 'circle', range: 4, off: JAV_SLAM, dmg: 40, kb: 2, up: 5, sp: true },
+      { t: 0.82, t1: 0.9, shape: 'circle', range: 7.5, off: JAV_SLAM, dmg: 150, kb: 12, up: 12, big: true, sp: true },
     ],
-    ev: [[0.16, 'javtip'], [0.8, 'bolt']],
-    sfxs: [[0.04, 'javelin'], [0.62, 'slash_down']],
+    ev: [[0.12, 'skewer'], [0.16, 'javtip'], [0.8, 'bolt']],
+    sfxs: [[0.04, 'javelin'], [0.3, 'grab'], [0.66, 'slash_down']],
   },
   SP_OUT: {
     dur: 0.55, rate: 1, armor: true, invuln: true, sp: true,

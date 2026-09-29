@@ -34,6 +34,7 @@ export class Gundam extends Hero {
     this.saberLit = 0;
     this.rifleVis = 0;
     this.hamR = 0; // hammer chain length
+    this.held = null; // the soldier run through on the javelin (SP finisher)
     this.hilt = voxelMesh(w.hilt, { scale: GUNDAM_VOXEL });
     hand.add(this.hilt);
     this.blade = new THREE.Group();
@@ -86,6 +87,7 @@ export class Gundam extends Hero {
     this._baseL = new THREE.Vector3();
     this._tipL = new THREE.Vector3();
     this._up = new THREE.Vector3();
+    this._tipJ = new THREE.Vector3();
     this._base = new THREE.Vector3();
     this._tip = new THREE.Vector3();
     this._prevTip = new THREE.Vector3();
@@ -114,16 +116,59 @@ export class Gundam extends Hero {
     else if (w) this.saberLit = 0;
     if (w === 'rifle') this.rifleVis = 0.6;
     if (m.ham) this.hamR = curve(m.ham, t);
+    if (this.held) this.carryHeld(m, t);
     // C6, "Last Shooting": the aim layer holds the rifle straight up (a little forward) instead of level
     if (m.sky && w === 'rifle') this.gunAim = this._up.set(Math.sin(this.heading) * 0.12, 1, Math.cos(this.heading) * 0.12).normalize();
   }
 
   onEndMusou() {
     this.hamR = 0;
+    this.dropHeld();
   }
 
   onInterrupt() {
     this.saberLit = 0;
+    this.dropHeld();
+  }
+
+  // ---------- the SP finisher's skewer ----------
+  javTip(out) {
+    this.rig.root.updateMatrixWorld(true);
+    return this.javelin.localToWorld(out.set(0, 0, 4.0));
+  }
+
+  // The thrust runs the nearest soldier in front through; it rides the javelin's tip until the slam. Officers and
+  // Char are too heavy to lift: the thrust and the slam just hit them.
+  skewer() {
+    const g = this.game;
+    const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
+    let best = null, bd = 6;
+    for (const e of g.crowd.grid.query(this.pos.x + fx * 3, this.pos.z + fz * 3, 5, g.combat.tmp)) {
+      if (!e.alive || e.state === 'dying' || e.state === 'drop' || e.state === 'held' || e.y > 4) continue;
+      const dx = e.x - this.pos.x, dz = e.z - this.pos.z, d = Math.hypot(dx, dz);
+      if (d > bd || (dx * fx + dz * fz) / (d || 1) < 0.4) continue;
+      best = e;
+      bd = d;
+    }
+    if (!best) return;
+    g.crowd.hold(best, this);
+    this.held = best;
+    this.carryHeld(this.move, this.moveT);
+  }
+
+  carryHeld(m, t) {
+    const e = this.held;
+    if (!e.alive || e.state !== 'held' || !m?.carry || t > m.carry[1]) return this.dropHeld();
+    const tip = this.javTip(this._tipJ);
+    // run through at the waist, lying along the shaft as it rises
+    const up = Math.min(1, Math.max(0, (tip.y - 1) / 5));
+    this.game.crowd.place(e, tip.x, Math.max(0, tip.y - 1.5), tip.z, this.heading + Math.PI, -0.5 - up * 0.9);
+  }
+
+  dropHeld() {
+    const e = this.held;
+    this.held = null;
+    if (e && e.alive && e.state === 'held') this.game.crowd.fling(e, 0, 1, 0, 0);
   }
 
   // outside attacks a lit saber is carried angled up and back, so the long blade doesn't plough the ground
@@ -167,8 +212,18 @@ export class Gundam extends Hero {
         if (g.local === this) { g.camera.shake(0.7); g.aberr(0.8); }
         break;
       }
-      case 'bolt': { // SP finisher: purple lightning erupts where the javelin hits the ground
-        const c = this._w.set(P0.x + fx * 2.4, 0.3, P0.z + fz * 2.4);
+      case 'skewer': // SP finisher: the thrust runs its target through
+        this.skewer();
+        break;
+      case 'bolt': { // SP finisher: the body is driven into the ground on the javelin's tip, and purple lightning erupts
+        const tip = this.javTip(this._tipJ);
+        const c = this._w.set(tip.x, 0.3, tip.z);
+        const e = this.held;
+        this.held = null;
+        if (e && e.alive && e.state === 'held') {
+          g.crowd.place(e, tip.x, 0, tip.z, this.heading + Math.PI, -Math.PI / 2);
+          g.crowd.fling(e, fx * 1.5, -4, fz * 1.5, 0, true); // the lightning that follows throws it
+        }
         g.fx.bolts(c, 7.5, 0xc27aff, 10);
         g.fx.dome(c, 1, 7, 0xc27aff, 0.7);
         g.fx.shock(c, 8, 0xb070ff, 0.6);
