@@ -226,7 +226,9 @@ export class Net {
       crowd[o + 8] = Math.round(e.vz * 100);
       crowd[o + 9] = Math.round(e.flash * 1000);
       crowd[o + 10] = Math.round(Math.max(-32, Math.min(32, e.pitch)) * 1000);
-      crowd[o + 11] = (e.gun ? 1 : 0) | (e.staggerAlt ? 2 : 0) | (e.hp <= 0 ? 4 : 0) | ((e.hitKind & 3) << 3) | (e.shudder > 0 ? 32 : 0);
+      // bits 6-13: health left in 255ths, for the guests' grunt health bars
+      crowd[o + 11] = (e.gun ? 1 : 0) | (e.staggerAlt ? 2 : 0) | (e.hp <= 0 ? 4 : 0) | ((e.hitKind & 3) << 3) | (e.shudder > 0 ? 32 : 0)
+        | (Math.ceil(Math.max(0, Math.min(1, e.hp / e.maxHp)) * 255) << 6);
       crowd[o + 12] = e.i;
     });
     const pj = g.projectiles;

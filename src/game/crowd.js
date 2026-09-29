@@ -651,7 +651,7 @@ export class Crowd {
       const f = a[o + 11];
       g.gun = !!(f & 1);
       g.staggerAlt = !!(f & 2);
-      g.hp = f & 4 ? 0 : 1;
+      g.hp = f & 4 ? 0 : Math.max(1, f >> 6) / 255; g.maxHp = 1;
       g.hitKind = (f >> 3) & 3;
       g.shudder = f & 32 ? 0.03 : 0;
       g.i = a[o + 12];

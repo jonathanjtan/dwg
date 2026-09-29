@@ -141,6 +141,7 @@ export class Post {
     this.radial = 0;
     this.aberr = 0;
     this.focus = 9;
+    this.overlays = []; // screen-space layers drawn over the finished frame, e.g. the grunts' health bars
   }
 
   setSize(w, h) {
@@ -165,5 +166,6 @@ export class Post {
     u.uAberr.value = this.aberr;
     r.setRenderTarget(null);
     this.quad.render(r);
+    for (const o of this.overlays) o.render(r, camera);
   }
 }

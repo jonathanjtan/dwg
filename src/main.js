@@ -16,6 +16,7 @@ import { Tutorial, TRAINING } from './game/tutorial.js';
 import { Net, RemoteInput, GRUNT_STATES, GF, LOCALNET, MAX_PLAYERS } from './net/net.js';
 import { CameraRig } from './camera.js';
 import { HUD } from './ui/hud.js';
+import { MobBars } from './ui/mobbars.js';
 import { SuitSelect, srcTag } from './ui/select.js';
 import { Audio } from './audio/audio.js';
 import { rand, wrapAngle } from './core/util.js';
@@ -94,6 +95,7 @@ class Game {
     this.guestPicked = false;
     this.localSpT = 0;
     this.hud = new HUD(this);
+    this.mobBars = new MobBars(this);
     this.hud.setPilot(this.hero.suit.id);
     this.select = new SuitSelect(this);
     this.mission = new Stage(this);
