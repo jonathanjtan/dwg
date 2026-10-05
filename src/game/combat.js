@@ -60,7 +60,7 @@ export class Combat {
     const reach = (spec.range || spec.len || 4) + (spec.off || 0) + 2;
     const near = g.crowd.grid.query(hx, hz, reach, this.tmp);
     let hits = 0;
-    const dmgMul = g.difficulty.dmgDealt * (hero.suit?.power ?? 1) * (hero.spPower ?? 1); // spPower: charge SP stocks
+    const dmgMul = this.dmgMul(hero);
     for (const e of near) {
       if (!e.alive || e.state === 'dying' || e.state === 'drop' || e.state === 'held') continue;
       if (!this.inShape(spec, hx, hy, hz, h, e.x, e.y, e.z, e.radius)) continue;
@@ -110,12 +110,17 @@ export class Combat {
     if (g.local === who) { g.camera.punch(3.5); g.aberr(0.55); }
   }
 
-  // Area blast (Guntank shells and missiles): damage falls off toward the edge.
-  aoe(who, x, y, z, r, dmg, kb, up, id, big = false, sp = false) {
+  // What a suit's blows, blasts and beams are worth: the difficulty, the suit's power and the charge SP's stocks.
+  dmgMul(who) {
+    return this.game.difficulty.dmgDealt * (who.suit?.power ?? 1) * (who.spPower ?? 1);
+  }
+
+  // Area blast (Guntank shells and missiles): damage falls off toward the edge. tap: a K-mash shell (commander.js).
+  aoe(who, x, y, z, r, dmg, kb, up, id, big = false, sp = false, tap = false) {
     const g = this.game;
     const near = g.crowd.grid.query(x, z, r + 1, this.tmp);
     let hits = 0;
-    const mul = g.difficulty.dmgDealt * (who.suit?.power ?? 1) * (who.spPower ?? 1);
+    const mul = this.dmgMul(who);
     for (const e of near) {
       if (!e.alive || e.state === 'dying' || e.state === 'drop' || e.state === 'held') continue;
       const d = Math.hypot(e.x - x, e.z - z);
@@ -128,7 +133,7 @@ export class Combat {
     }
     for (const c of g.commanders.list) {
       if (!c.alive || Math.hypot(c.pos.x - x, c.pos.z - z) > r + 1) continue;
-      if (c.damage(dmg * 0.8 * mul, kb, up, x, z, id)) hits++;
+      if (c.damage(dmg * 0.8 * mul, kb, up, x, z, id, { tap })) hits++;
     }
     if (hits) this.registerHits(hits, { big, sp }, who);
     return hits;

@@ -61,12 +61,13 @@ export class Projectiles {
   }
 
   // o: { dmg, kb, up, big, w (thickness), r (hit radius), speed, max (lifetime), sp (no hit-stop: remote weapons),
-  // pierce (how many targets it hits before it ends; default: everything in its path) }
+  // pierce (how many targets it hits before it ends; default: everything in its path) }. dmg is scaled on contact
+  // like a blow or blast (combat.dmgMul); tap marks the K mash's shots, which officers learn to shrug off.
   heroBeam(owner, from, dir, o = {}) {
     this.beams.push({
       owner, p: from.clone(), d: dir.clone(), life: 0, max: o.max ?? 0.8, speed: o.speed ?? 120, id: ++this.serial,
       dmg: o.dmg ?? 22, kb: o.kb ?? 4, up: o.up ?? 1, big: !!o.big, sp: !!o.sp, w: o.w ?? 1, r: o.r ?? 0.8, kills: 0,
-      pierce: o.pierce ?? Infinity,
+      pierce: o.pierce ?? Infinity, tap: !!owner.move?.shot,
     });
   }
 
@@ -79,13 +80,13 @@ export class Projectiles {
   // when its fuse runs out. o: { speed, fuse, r, dmg, kb, up, big, sp, lite, smoke }
   shell(owner, from, dir, o = BAZOOKA) {
     if (this.rockets.length > 60) return;
-    this.rockets.push({ p: from.clone(), v: dir.clone().multiplyScalar(o.speed ?? 52), life: 0, owner, id: ++this.serial, o });
+    this.rockets.push({ p: from.clone(), v: dir.clone().multiplyScalar(o.speed ?? 52), life: 0, owner, id: ++this.serial, o, tap: !!owner.move?.shot });
   }
 
   // Detonation: white flash, fireball, smoke, and a blast that throws everything within r.
   // o.lite: a lighter burst for barrages (no light, smaller fireball); o.sp: an SP blast (no hit-stop); o.fxR: the
-  // radius the burst looks (default r), for a shell whose fireball is bigger than what it damages.
-  heroBlast(owner, p, r, dmg, kb, up, o = {}) {
+  // radius the burst looks (default r), for a shell whose fireball is bigger than what it damages; tap: a K-mash shell.
+  heroBlast(owner, p, r, dmg, kb, up, o = {}, tap = false) {
     const g = this.game;
     const c = this._v.set(p.x, Math.max(0.8, p.y), p.z);
     const fr = o.fxR ?? r;
@@ -99,7 +100,7 @@ export class Projectiles {
       g.fx.star(c, 0xfff0d0, 2.2);
       g.fx.light(c, 0xffb060, 120, 18, 0.35);
     }
-    g.combat.aoe(owner, c.x, c.y, c.z, r, dmg, kb, up, ++this.serial, o.big ?? true, !!o.sp);
+    g.combat.aoe(owner, c.x, c.y, c.z, r, dmg, kb, up, ++this.serial, o.big ?? true, !!o.sp, tap);
     g.audio.play(o.sound || 'bzboom', { at: c, vol: o.lite ? 0.6 : 1 });
     g.shakeFor(owner, o.lite ? 0.03 : 0.3);
     if (!o.lite && g.local === owner) g.aberr(0.35);
@@ -160,9 +161,10 @@ export class Projectiles {
       });
       if (b.pierce < Infinity) found.sort(byNear);
       let stopAt = null;
+      const dmg = found.length ? b.dmg * combat.dmgMul(b.owner) : 0;
       for (const { t, boss } of found) {
         if (b.kills >= b.pierce) break;
-        const ok = boss ? t.damage(b.dmg * 1.1, b.kb, b.up, ax, az, b.id) : g.crowd.damage(t, b.dmg, b.kb, b.up, ax, az, b.id, { big: b.big });
+        const ok = boss ? t.damage(dmg * 1.1, b.kb, b.up, ax, az, b.id, { tap: b.tap }) : g.crowd.damage(t, dmg, b.kb, b.up, ax, az, b.id, { big: b.big });
         if (ok) {
           b.kills++;
           const hp = this._v.set(t.x ?? t.pos.x, (t.y ?? t.pos.y) + 1.8, t.z ?? t.pos.z);
@@ -197,7 +199,7 @@ export class Projectiles {
       let hit = false;
       combat.beamSweep(ax, ay, az, r.p.x, r.p.y, r.p.z, 1.1, () => { hit = true; });
       if (hit || r.p.y <= 0.3 || r.life > o.fuse || (g.world.blocked(r.p.x, r.p.z, 0) && r.p.y < 8)) {
-        this.heroBlast(r.owner, r.p, o.r, o.dmg, o.kb, o.up, o);
+        this.heroBlast(r.owner, r.p, o.r, o.dmg, o.kb, o.up, o, r.tap);
         this.rockets.splice(i, 1);
       }
     }

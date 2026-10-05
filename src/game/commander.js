@@ -44,6 +44,8 @@ const COMBOS = {
   officer: [['N1', 'N2'], ['N3'], ['N1', 'N3']],
   char: [['N1', 'N2', 'N3'], ['N2', 'N1', 'N4'], ['KICK'], ['N1', 'KICK'], ['N5']],
 };
+// K mash: a commander flinches from this many shots, each within TAP_GAP s of the last, then shrugs one off
+const TAP_BREAK = 3, TAP_GAP = 0.75;
 
 export class Commander {
   constructor(game, cfg) {
@@ -76,6 +78,10 @@ export class Commander {
     this.moveT = 0;
     this.poise = 0;
     this.recentHits = 0;
+    this.taps = 0; // K-mash flinches in a row, the last at tapAt
+    this.tapAt = -1e9;
+    this.shrug = false; // took a K-mash shot to counter it: the next update goes for the shooter
+    this.countering = false; // rushing a K-masher: its shots don't stop this (see damage)
     this.invuln = 0;
     this.lie = 0;
     this.fired = 0;
@@ -105,6 +111,8 @@ export class Commander {
     this.prev.set(this.pose);
     this.prev[RYAW] = wrapAngle(this.prev[RYAW]);
     this.blend = 0;
+    if (this.state === 'aim') { this.rig.nodes.gun.visible = false; this.rig.nodes.hawk.visible = true; } // cut short
+    if (s !== 'dash' && s !== 'combo') this.countering = false; // a counter lasts while it rushes in and swings
     this.state = s;
     this.t = 0;
     this.gs.amp = 0; // the gait picks up again from the stance
@@ -143,20 +151,29 @@ export class Commander {
         return true;
       }
     }
+    const heavy = up > 6 || kb > 8.5 || opts.sp;
+    const tap = opts.tap && !heavy; // a K-mash shot: a flinch, never a knockdown
     this.hp -= dmg;
     this.flash = 1;
     this.shudder = 0.05;
     this.recentHits++;
-    this.poise += dmg;
+    if (!tap) this.poise += dmg;
     g.hud.bossHit(this);
     if (this.hp <= 0) {
       this.hp = 0;
       this.defeat(dx / l, dz / l);
       return true;
     }
-    const heavy = up > 6 || kb > 8.5 || opts.sp;
-    const armored = (this.state === 'combo' && this.kind === 'char' && this.moveT > 0.05 && !heavy) || this.state === 'dash';
+    // Char's swings and any dash shrug off blows; a counter to a K mash shrugs off its shots, but not a heavy hit
+    const armored = this.state === 'dash' ? !(heavy && this.countering)
+      : this.state === 'combo' && !heavy && ((this.kind === 'char' && this.moveT > 0.05) || (tap && this.countering));
     if (armored) return true;
+    // a K mash it has flinched from a few times running: it takes the next shot and goes for the shooter (Reborn)
+    if (tap && this.state !== 'air' && this.state !== 'down') {
+      if (this.taps >= TAP_BREAK && g.time - this.tapAt < TAP_GAP) { this.taps = 0; this.shrug = true; return true; }
+      this.taps = g.time - this.tapAt < TAP_GAP ? this.taps + 1 : 1;
+      this.tapAt = g.time;
+    }
     if (this.state === 'air' || heavy || this.poise > this.maxHp * 0.12) {
       this.poise = 0;
       this.setState('air');
@@ -236,6 +253,15 @@ export class Commander {
     const target = this.targetPose || (this.targetPose = makePose());
     const sp = this.speed;
     let trailOn = false;
+    // the counter to a K mash (see damage): boost in on the shooter, or swing at once when it's close
+    if (this.shrug) {
+      this.shrug = false;
+      if (heroOk && !npc && this.state !== 'air' && this.state !== 'down') {
+        if (dist > 4.5) this.dash(toHero);
+        else { this.heading = toHero; this.startCombo(); }
+        this.countering = true;
+      }
+    }
 
     switch (this.state) {
       case 'drop': {
@@ -294,12 +320,7 @@ export class Commander {
             else this.dash(toHero);
           } else if (dist > 7 && canShoot && Math.random() < (isChar ? 0.12 : 0.15)) {
             this.setState('aim'); this.fired = 0;
-          } else {
-            const list = COMBOS[this.kind];
-            this.combo = list[(Math.random() * list.length) | 0];
-            this.comboIdx = 0;
-            this.startComboStep();
-          }
+          } else this.startCombo();
           break;
         }
         // strafe / close distance
@@ -322,12 +343,7 @@ export class Commander {
         this.thrust(1.5);
         trailOn = true;
         target.set(poseFrom({ torso: [0.55, 0, 0], head: [-0.3, 0, 0], thighR: [0.5, 0, 0], shinR: [0.8, 0, 0], thighL: [0.3, 0, 0], shinL: [0.6, 0, 0], uArmR: [0.5, 0, -0.5], uArmL: [0.5, 0, 0.5], y: -0.2 }, CSTANCE));
-        if (dist < 4.5 || this.t > T * 1.6) {
-          const list = COMBOS[this.kind];
-          this.combo = list[(Math.random() * list.length) | 0];
-          this.comboIdx = 0;
-          this.startComboStep();
-        }
+        if (dist < 4.5 || this.t > T * 1.6) this.startCombo();
         break;
       }
       case 'combo': {
@@ -421,13 +437,7 @@ export class Commander {
         this.vel.z = damp(this.vel.z, 0, 8, dt);
         this.heading = angleDamp(this.heading, toHero, 10, dt);
         target.set(GUARD);
-        if (this.t > (isChar ? 0.5 : 0.8)) {
-          // counter attack
-          const list = COMBOS[this.kind];
-          this.combo = list[(Math.random() * list.length) | 0];
-          this.comboIdx = 0;
-          this.startComboStep();
-        }
+        if (this.t > (isChar ? 0.5 : 0.8)) this.startCombo(); // counter attack
         break;
       }
       case 'evade': {
@@ -628,6 +638,13 @@ export class Commander {
     this.heading = toHero;
     this.setState('dash');
     this.game.audio.play('qb', { vol: 0.7, at: this.pos });
+  }
+
+  startCombo() {
+    const list = COMBOS[this.kind];
+    this.combo = list[(Math.random() * list.length) | 0];
+    this.comboIdx = 0;
+    this.startComboStep();
   }
 
   startComboStep() {
