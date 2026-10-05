@@ -11,6 +11,7 @@ const GRAV = 28;
 const ATK_RATE = 0.86; // swings play a touch under keyframed speed: heavier, more deliberate
 const REGEN_DELAY = 3.5; // seconds unhit before damaged armor starts to recover
 const CHARGE_HOLD = 0.3; // seconds of held charge that turn a rifle shot into a charge shot
+const CHARGE_COMBO = /^C[2-6]/; // the charge attacks (and their K follow-ups) a held charge can end in a charge shot
 const RUSH_MAX = 6; // paired blows in a dash combo before the launching finisher
 // Hand-held guns the aim layer points down the line of fire (suit config `guns` overrides); all hang off `hand`
 // with no rotation of their own, so the barrel is the hand's +Z.
@@ -670,6 +671,14 @@ export class Hero {
         if (this.repeat < this.moves[m.charge].maxRepeat) { this.repeat++; return this.startMove(m.charge, dir); }
       }
       if (this.buffer === 'attack' && m.isAir && this.airAttacks < 2 && this.pos.y > 0.8) return this.startMove('JA', dir);
+    }
+    // charge held on through a charge attack: the charge shot follows it, from its chain point (the middle) to its end,
+    // as in Reborn. A K follow-up the move has (C2F, C6X) went first, above; once per hold, and only off the ground.
+    if (t >= m.chain && this.chargeHeldT >= CHARGE_HOLD && CHARGE_COMBO.test(this.moveName) && this.moves.CS && !m.isAir && this.pos.y < 0.3) {
+      this.chargeHeldT = -99;
+      this.comboStep = 0;
+      this.repeat = 1;
+      return this.startMove('CS', dir);
     }
     if (t >= m.chain + 0.05 && act.dodge) return this.dodge(dir);
     if (t >= m.dur) {

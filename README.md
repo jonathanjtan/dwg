@@ -63,7 +63,7 @@ New to it? **TRAINING** on the title screen walks you through every essential co
 | Camera | Mouse (click to lock), Q / E, wheel to zoom | Right stick (LT recenters) | Drag the right half |
 | Lock on to a commander (again to release) | R / middle click | Right stick click | LOCK |
 | Attack | J / left click | X / Square | ATK |
-| Charge attack (hold for a charge shot) | K / right click | Y / Triangle | CHG |
+| Charge attack (hold for a charge shot; keep holding through a charge attack to follow it with one) | K / right click | Y / Triangle | CHG |
 | Jump (hold to hover on the thrusters) | Space | A / Cross | JUMP |
 | Boost dodge (hold to boost dash, keep holding to sprint) | L / Shift | B / Circle | BOOST |
 | SP attack (hold for the charge SP) | I / F | RB / R1 | SP |

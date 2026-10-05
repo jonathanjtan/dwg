@@ -53,6 +53,7 @@ export const CHAINS = {
   c6: [[...taps(J, 5, 24), [120, 'tap', [K]]], 360],
   shots: [taps(K, 4, 12), 160],
   cshot: [[[0, 'hold', [K], 60]], 160],
+  c3cs: [[...taps(J, 2, 22), [44, 'hold', [K], 200]], 380], // K held on through C3: the charge shot follows it
   rush: [[[0, 'hold', [L], 40], ...taps(J, 8, 18, 30)], 330],
   dc: [[[0, 'hold', [L], 40], [30, 'tap', [K]]], 200],
   jump: [[[0, 'hold', ['Space'], 6], [20, 'tap', [J]], [45, 'tap', [J]]], 150],

@@ -204,6 +204,9 @@ Move fields (see the headers of `moves.js`, `guncannon_moves.js` and `ball_moves
   extra K taps that lengthen a move are `C6X`), and a dash string's later hits chain through `next` (`DA`, `DA2`,
   `DAF`). `guideRow` in hud.js keeps `CnF`/`CnX` on the charge attack's row and `DA2`-`DAF` on the dash row. A
   connect-gated follow-up (the Delta Plus's C3F only comes out if C3 hit) is a `startMove` override in the suit class.
+- **The charge shot after a combo:** as in Reborn, K held on through a charge attack (`C2`-`C6` and their follow-ups)
+  starts `CS` from that move's `chain` point on, once per hold (`CHARGE_COMBO` in hero.js). A suit needs nothing for
+  it beyond having a `CS` and sensible `chain` points; movetest's `c3cs` chain checks it.
 - **String length follows the source.** If the wiki gives a four-press J string, there is no N5/N6 and no C6 (the
   Delta Plus), and a dash string with a fixed length chains through `next` instead of `rush`.
 - **A suit's own input** (the Delta Plus's Transform Shot: a second boost press during the quick boost) goes in the
