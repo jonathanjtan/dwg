@@ -117,7 +117,10 @@ class Game {
     this.lowHpT = 0;
     this.ambT = 4;
     this.titleT = 0;
-    this.frameTimes = [];
+    this.frameTimes = []; // adaptQuality's window
+    this.qualityT = 0;
+    this.raisedAt = -1e9; // when the resolution last went up, and the soonest it may again (seconds)
+    this.raiseAt = 0;
     this._focus = new THREE.Vector3();
     this._near = [];
 
@@ -1057,9 +1060,10 @@ class Game {
   // ---------- loop ----------
   frame() {
     const now = performance.now();
-    let rdt = Math.min(0.05, (now - this.last) / 1000);
+    const raw = (now - this.last) / 1000;
+    let rdt = Math.min(0.05, raw);
     this.last = now;
-    this.adaptQuality(rdt);
+    this.adaptQuality(raw, now / 1000);
     // the pad is only up while there is a suit to drive, and never over a menu
     // 'paused' counts as in-mission: the pad goes away but the pause button stays, so the menu can
     // always be closed even if its own buttons are somehow not taking taps.
@@ -1203,14 +1207,33 @@ class Game {
     this.post.render(this.scene, this.cam, this.time);
   }
 
-  adaptQuality(rdt) {
-    this.frameTimes.push(rdt);
-    if (this.frameTimes.length < 90) return;
-    const avg = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
-    this.frameTimes.length = 0;
+  // Trade resolution for frame rate. Judged on a second and a half of wall time rather than a count of frames: at 10 fps
+  // ninety frames took nine seconds a step, so a heavy stretch lagged for the best part of half a minute before the
+  // resolution came down. The slowest tenth of the frames, and always the slowest one (a one-off hitch: a shader compile,
+  // an officer arriving, a long collection), is left out. Every change reallocates the whole post chain, so after stepping down it waits before trying the sharper
+  // setting again, and waits a minute if that setting has just failed.
+  adaptQuality(dt, now) {
+    const ft = this.frameTimes;
+    if (dt > 2) { ft.length = 0; this.qualityT = 0; return; } // back from a hidden tab, not a slow frame
+    ft.push(dt);
+    this.qualityT += dt;
+    if (this.qualityT < 1.5) return;
+    this.qualityT = 0;
+    ft.sort((a, b) => a - b);
+    const keep = ft.length - Math.max(1, Math.floor(ft.length / 10));
+    let sum = 0;
+    for (let i = 0; i < keep; i++) sum += ft[i];
+    ft.length = 0;
+    if (keep < 1) return; // one long frame filled the window by itself: a hitch, not a frame rate
+    const avg = sum / keep;
     let pr = this.pixelRatio;
-    if (avg > 1 / 45 && pr > this.minPixelRatio) pr = Math.max(this.minPixelRatio, pr - 0.25);
-    else if (avg < 1 / 58 && pr < this.maxPixelRatio) pr = Math.min(this.maxPixelRatio, pr + 0.25);
+    if (avg > 1 / 45 && pr > this.minPixelRatio) {
+      pr = Math.max(this.minPixelRatio, pr - (avg > 1 / 20 ? 0.5 : 0.25));
+      this.raiseAt = now + (now - this.raisedAt < 8 ? 60 : 10);
+    } else if (avg < 1 / 58 && pr < this.maxPixelRatio && now >= this.raiseAt) {
+      pr = Math.min(this.maxPixelRatio, pr + 0.25);
+      this.raisedAt = now;
+    }
     if (pr !== this.pixelRatio) {
       this.pixelRatio = pr;
       this.renderer.setPixelRatio(pr);

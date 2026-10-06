@@ -1,7 +1,7 @@
 // Fully synthesized SFX; the score lives in music.js.
 // Positional sounds are panned against the camera and dulled with distance, big ones ring out through a
 // shared colony-hall reverb, and the beam saber hum and thruster roar run as continuous loops.
-import { Music } from './music.js';
+import { Music, unhook } from './music.js';
 import { renderBank } from './sfx.js';
 
 // reverb send per sound (positional sounds also get wetter with distance)
@@ -43,6 +43,8 @@ export class Audio {
     this.listenerYaw = 0; // camera yaw: sounds pan against the camera's right vector
     this.throttle = new Map();
     this.lastTake = new Map();
+    this.lastSrc = null; // the longest-ringing source of the sound being synthesized (track)
+    this.lastEnd = 0;
     this.bank = null;
     // render the sample bank in the background (needs no user gesture); live synthesis covers the gap
     if (typeof OfflineAudioContext !== 'undefined') renderBank(48000).then((b) => { this.bank = b; }).catch(() => {});
@@ -266,7 +268,14 @@ export class Audio {
     o.connect(g).connect(out);
     o.start(t);
     o.stop(t + dur + a + 0.05);
+    this.track(o, t + dur + a + 0.05);
     return o;
+  }
+  // the source that rings longest in the sound play() is building: its end unhooks the sound
+  track(src, end) {
+    if (end < this.lastEnd) return;
+    this.lastEnd = end;
+    this.lastSrc = src;
   }
   noiseBurst(t, dur, vol, out, { type = 'lowpass', f0 = 2000, f1 = f0, q = 0.8, a = 0.003 } = {}) {
     const ctx = this.ctx;
@@ -284,6 +293,7 @@ export class Audio {
     const off = Math.random() * 1.5;
     s.start(t, off);
     s.stop(t + dur + a + 0.05);
+    this.track(s, t + Math.min(dur + a + 0.05, this.noise.duration - off)); // or the buffer runs out first
   }
 
   play(name, { vol = 1, pitch = 1, at = null, pan = null } = {}) {
@@ -305,6 +315,7 @@ export class Audio {
     const t = now + 0.005;
     const out = ctx.createGain();
     out.gain.value = vol;
+    const chain = [out]; // everything between this sound's sources and the shared buses (see unhook)
     // far sounds lose their top end, then sit left or right of the camera
     let node = out;
     if (dist > 10) {
@@ -313,6 +324,7 @@ export class Audio {
       lp.frequency.value = 900 + 17000 * Math.pow(1 - Math.min(1, dist / 70), 2.2);
       node.connect(lp);
       node = lp;
+      chain.push(lp);
     }
     if (pan === null && at && L && dist > 2) {
       const rx = -Math.cos(this.listenerYaw), rz = Math.sin(this.listenerYaw);
@@ -323,6 +335,7 @@ export class Audio {
       sp.pan.value = pan;
       node.connect(sp);
       node = sp;
+      chain.push(sp);
     }
     node.connect(this.sfx);
     const wet = (REV[name] || 0) + (at ? Math.min(0.35, dist / 120) : 0);
@@ -330,6 +343,7 @@ export class Audio {
       const send = ctx.createGain();
       send.gain.value = wet;
       node.connect(send).connect(this.revIn);
+      chain.push(send);
     }
     const p = pitch;
     // rendered takes: never the same one twice in a row, with a little pitch drift
@@ -343,9 +357,19 @@ export class Audio {
       src.playbackRate.value = p * (1 + (Math.random() - 0.5) * 0.06);
       src.connect(out);
       src.start(t);
+      unhook(src, chain);
       return;
     }
-    switch (FALLBACK[name] || name) {
+    // live synthesis mixes several voices into `out`, the shape that lingers: unhook it once the last one ends
+    this.lastSrc = null;
+    this.lastEnd = 0;
+    this.synth(FALLBACK[name] || name, t, p, out);
+    if (this.lastSrc) unhook(this.lastSrc, chain);
+  }
+
+  synth(name, t, p, out) {
+    const ctx = this.ctx;
+    switch (name) {
       case 'ignite':
         this.osc('sawtooth', 70 * p, 240 * p, t, 0.35, 0.18, out);
         this.osc('sawtooth', 71 * p, 243 * p, t, 0.35, 0.12, out);

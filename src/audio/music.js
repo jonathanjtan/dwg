@@ -11,6 +11,17 @@ const midi = (name) => {
 };
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
+// Chrome keeps a node fed by two or more inputs (a filter three oscillators share, a send a chord's notes feed) rendering
+// after its sources stop, and everything after it, until a major garbage collection reclaims it. The score builds a couple
+// of hundred nodes a second, so when collections spread out (they do when the frame rate sags) the dead ones piled up
+// until the audio thread missed its deadlines and the output went silent, for as long as the next collection took to
+// come. So a note or sound unhooks its own nodes from the shared buses the moment its last source ends.
+export function unhook(src, nodes) {
+  src.onended = () => { for (const n of nodes) n.disconnect(); };
+}
+// how far ahead of the audio clock the score is booked: covers a main thread that stalls for most of that
+const AHEAD = 0.2;
+
 // ---------------------------------------------------------------- drums
 // k kick, s snare, g ghost snare, h closed hat, a soft hat, o open hat, t tom, r snare roll (crescendo)
 const all16 = Array.from({ length: 16 }, (_, i) => i);
@@ -311,7 +322,14 @@ export class Music {
     this.bus.gain.cancelScheduledValues(this.ctx.currentTime);
     this.bus.gain.setValueAtTime(0.85, this.ctx.currentTime);
     const tick = () => {
-      while (this.song && this.next < this.ctx.currentTime + 0.14) {
+      const now = this.ctx.currentTime;
+      // a stalled main thread (a long frame, a slow collection) leaves steps behind the clock: skip them, as the band
+      // would have played on, rather than build a burst of notes that have already ended
+      while (this.song && this.next < now - 0.05) {
+        this.advance();
+        this.next += this.stepDur;
+      }
+      while (this.song && this.next < now + AHEAD) {
         this.schedule(this.next);
         this.advance();
         this.next += this.stepDur;
@@ -387,6 +405,8 @@ export class Music {
     const send = ctx.createGain();
     send.gain.value = soft ? 0.5 : 0.25;
     send.connect(this.verb);
+    const nodes = [send];
+    let last = null;
     for (const m of notes) {
       const f = mtof(m);
       const g = ctx.createGain();
@@ -405,12 +425,14 @@ export class Music {
       lp.connect(g);
       g.connect(dest);
       g.connect(send);
+      nodes.push(g, lp);
       const end = t + hold + rel + 0.05;
       let lg = null;
       if (dur > 0.35 && !stab) {
         const lfo = ctx.createOscillator();
         lfo.frequency.value = 5.3;
         lg = ctx.createGain();
+        nodes.push(lg);
         lg.gain.setValueAtTime(0, t);
         lg.gain.setValueAtTime(0, t + 0.22);
         lg.gain.linearRampToValueAtTime(f * 0.007, t + Math.min(0.6, dur));
@@ -432,8 +454,11 @@ export class Music {
         o.connect(og).connect(lp);
         o.start(t);
         o.stop(end);
+        nodes.push(og);
+        last = o;
       }
     }
+    unhook(last, nodes); // every note ends together
     if (!soft) this.noiseHit(t, 0.05, vol * 0.5, 'bandpass', 1900, 1.2, dest);
   }
 
@@ -462,6 +487,7 @@ export class Music {
     lfo.connect(lg);
     lfo.start(t);
     lfo.stop(end);
+    let last = lfo;
     for (const m of notes) {
       for (const det of [-12, -5, 5, 12]) {
         const o = ctx.createOscillator();
@@ -472,8 +498,10 @@ export class Music {
         o.connect(lp);
         o.start(t);
         o.stop(end);
+        last = o;
       }
     }
+    unhook(last, [lp, g, send, lg]);
   }
 
   // Fingered funk bass: a saw with a sine an octave down, through a resonant low-pass that snaps shut after the pluck.
@@ -492,6 +520,8 @@ export class Music {
     lp.frequency.exponentialRampToValueAtTime(soft ? 300 : 480, t + Math.min(dur, 0.14));
     lp.connect(g).connect(this.pans.bass);
     const f = mtof(m);
+    const nodes = [lp, g];
+    let last = null;
     for (const [type, mul, a] of [['sawtooth', 1, 1], ['triangle', 1, 0.6]]) {
       const o = ctx.createOscillator();
       o.type = type;
@@ -501,7 +531,10 @@ export class Music {
       o.connect(og).connect(lp);
       o.start(t);
       o.stop(t + dur + 0.1);
+      nodes.push(og);
+      last = o;
     }
+    unhook(last, nodes);
   }
 
   // Glockenspiel: struck bar partials that ring out.
@@ -511,6 +544,8 @@ export class Music {
     const send = ctx.createGain();
     send.gain.value = 0.5;
     send.connect(this.verb);
+    const nodes = [send];
+    let last = null;
     for (const [mul, a, d] of [[1, 0.05, 0.9], [2.76, 0.012, 0.35], [5.4, 0.006, 0.15]]) {
       const o = ctx.createOscillator();
       o.type = 'sine';
@@ -524,7 +559,10 @@ export class Music {
       g.connect(send);
       o.start(t);
       o.stop(t + 1.3);
+      nodes.push(g);
+      last = o;
     }
+    unhook(last, nodes);
   }
 
   // Timpani: a tuned drum that sags a little in pitch, with the mallet's thud.
