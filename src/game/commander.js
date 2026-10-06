@@ -118,9 +118,13 @@ export class Commander {
     this.gs.amp = 0; // the gait picks up again from the stance
   }
 
+  // The rig's geometry is shared with every officer of the same model (officerCfg); only what is this one's own is freed.
   dispose() {
     this.game.scene.remove(this.rig.root);
     this.game.scene.remove(this.trail.mesh);
+    this.trail.mesh.geometry.dispose();
+    this.trail.mesh.material.dispose();
+    this.rig.solidMat.dispose();
   }
 
   damage(dmg, kb, up, fromX, fromZ, id, opts = {}) {

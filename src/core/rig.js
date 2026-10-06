@@ -86,7 +86,7 @@ function sortedParts(def) {
 }
 
 // Cache geometries per model so multiple rigs can share them.
-function partGeoms(def) {
+export function partGeoms(def) {
   if (def._geoms) return def._geoms;
   const s = def.scale;
   const out = {};

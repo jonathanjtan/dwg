@@ -38,8 +38,13 @@ export class SpatialHash {
   key(cx, cz) {
     return (cx + 1024) * 4096 + (cz + 1024);
   }
+  // Empties every cell, and drops the ones nobody stood in since the last clear: otherwise every cell a crowd ever crossed
+  // stays in the map and is walked here each frame.
   clear() {
-    for (const a of this.map.values()) a.length = 0;
+    for (const [k, a] of this.map) {
+      if (a.length) a.length = 0;
+      else this.map.delete(k);
+    }
   }
   insert(obj, x, z) {
     const k = this.key(Math.floor(x / this.cell), Math.floor(z / this.cell));
