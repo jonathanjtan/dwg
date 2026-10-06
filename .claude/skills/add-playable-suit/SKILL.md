@@ -253,11 +253,18 @@ Config fields (doc comment above `class Hero`) are `hp`, `run`, `boostSpeed`, `b
   - `impact`, `sway`, `roll`, `lat`: the weight in each footfall. `lean`: the forward pitch at a run.
   - `arm` and `carry`: how the weapon and shield arms are held. Zero `carry[2]` for a long gun that would swing into
     the legs.
+  - `keep`: how near the line between the hips a foot may come, as a share of its footing out from it (0.6). Turns
+    and strafes set the stance out or slide a planted foot along that line rather than step across it, so the legs
+    never pass through each other.
 
   The model needs `thighR`/`shinR` pivots and must stand on straight legs in its rest pose, since the leg lengths
   come from `rigDef`. A suit without legs (the Ball) overrides `locomotion` and returns `this.beat(dt, sp)` for its
   footfalls. Check it by filming side and 3/4 runs, and by stepping the harness while reading the foot's world
-  position (the end of `hero.rig.nodes.shinR`) each frame: a planted foot should barely move while it's down.
+  position (the end of `hero.rig.nodes.shinR`) each frame: a planted foot should barely move while it's down. Then
+  `(await import('/tools/legtest.js')).run(null, ['<id>'])` drives runs, walks, turns, reversals and lock-on strafes
+  and reports, per run in leg lengths, the closest the feet, knees and legs come and how many frames they crossed
+  (0), plus `slip`, how far planted feet slide against the distance covered; `shape(['<id>'])` gives a straight run's
+  highest thigh, deepest knee and foot lift.
 
 Hooks: `buildWeapons` (anything in the scene goes through `this.own()`, so it attaches and detaches with the suit),
 `preUpdate`, `onMoveStart`, `onMoveTick`, `onMoveEnd`, `onInterrupt` and `onEndMusou`. Then `carryPose(target)`,
