@@ -9,15 +9,19 @@ const PREFIX = 'gundam-musou-side7-';
 const SNAP_HZ = 20;
 // A guest whose link has this much unsent (bytes) skips snapshots until it drains, rather than falling seconds behind.
 const MAX_BACKLOG = 64 * 1024;
-// TURN relay, for networks that block direct links (public Wi-Fi that isolates its clients, carrier NAT on phones).
-// A Metered credentials URL, https://<app>.metered.live/api/v1/turn/credentials?apiKey=... (that apiKey is
-// credential-scoped and meant to ship in the page). Empty: public STUN and PeerJS's own relay only.
-const TURN_URL = '';
-const ICE_BASE = [
-  { urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] },
+// TURN relay (Metered), for networks that block direct links: public Wi-Fi that isolates its clients or only lets
+// ports 80 and 443 out, carrier NAT on phones. These credentials are meant to ship in the page.
+const TURN = { username: 'ce687dd121f4aa755e68031c', credential: 'hwSvDmLE8sp30QAs' };
+const ICE_SERVERS = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun.relay.metered.ca:80'] },
+  { urls: 'turn:standard.relay.metered.ca:80', ...TURN },
+  { urls: 'turn:standard.relay.metered.ca:80?transport=tcp', ...TURN },
+  { urls: 'turn:standard.relay.metered.ca:443', ...TURN },
+  { urls: 'turns:standard.relay.metered.ca:443?transport=tcp', ...TURN },
   // PeerJS's free relay, its default, which passing our own iceServers would otherwise drop
   { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
 ];
+const PEER_OPTS = { debug: 1, config: { iceServers: ICE_SERVERS } };
 export const MAX_PLAYERS = 3; // the host and two guests
 // ?localnet: same-browser BroadcastChannel transport for testing co-op in several tabs (no WebRTC).
 export const LOCALNET = new URLSearchParams(location.search).has('localnet');
@@ -104,19 +108,6 @@ export class Net {
     return mod.Peer || mod.default?.Peer || mod.default;
   }
 
-  // PeerJS options: our ICE servers, with the TURN relay's credentials first when one is set up.
-  async peerOptions() {
-    let turn = [];
-    if (TURN_URL) {
-      try {
-        const r = await fetch(TURN_URL, { signal: AbortSignal.timeout(5000) });
-        const list = await r.json();
-        if (Array.isArray(list)) turn = list;
-      } catch (e) { /* no relay this time; direct links may still work */ }
-    }
-    return { debug: 1, config: { iceServers: [...turn, ...ICE_BASE] } };
-  }
-
   // Bytes queued on a guest's link and not yet on the wire (PeerJS's own queue only fills past 8 MB).
   static backlog(conn) {
     if (conn.bufferSize > 0) return Infinity;
@@ -144,8 +135,8 @@ export class Net {
       };
       return this.code;
     }
-    const [Peer, opts] = await Promise.all([this.loadPeer(), this.peerOptions()]);
-    this.peer = new Peer(PREFIX + this.code, opts);
+    const Peer = await this.loadPeer();
+    this.peer = new Peer(PREFIX + this.code, PEER_OPTS);
     await new Promise((resolve, reject) => {
       this.peer.on('open', resolve);
       this.peer.on('error', reject);
@@ -332,8 +323,8 @@ export class Net {
         setTimeout(() => { if (!this.conn) reject(new Error('timeout')); }, 5000);
       });
     }
-    const [Peer, opts] = await Promise.all([this.loadPeer(), this.peerOptions()]);
-    this.peer = new Peer(opts);
+    const Peer = await this.loadPeer();
+    this.peer = new Peer(PEER_OPTS);
     await new Promise((resolve, reject) => {
       this.peer.on('open', resolve);
       this.peer.on('error', reject);
