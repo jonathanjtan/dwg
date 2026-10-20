@@ -34,7 +34,7 @@ A guest whose suit is destroyed redeploys after 8 seconds. The mission fails onl
 
 To add a playable suit, write a `Hero` subclass (see `gundam.js`, or `ball.js` for one that isn't built like a humanoid) and add an entry to `ROSTER` in `roster.js`. The select screens and co-op pick it up from there. Entries marked `coop` are only offered to guests. `.claude/skills/add-playable-suit` walks through the whole process, footage study to deploy.
 
-Connectivity: players connect directly, which works on most home networks. There's no TURN relay, so two players who are both behind strict or symmetric NATs (some corporate or mobile networks) may not be able to connect. For local testing, add `?localnet` to the URL to use a same-browser BroadcastChannel transport between tabs.
+Connectivity: players connect directly, which works on most home networks. Public Wi-Fi often doesn't allow it: many hotspots keep their clients from reaching each other and only let ports 80 and 443 out, and phones on mobile data sit behind carrier NAT. Those players need a TURN relay. The game falls back on PeerJS's free relay, which is often overloaded and runs on port 3478, so blocked networks can't reach it. For a reliable relay, make a free [Metered](https://www.metered.ca/stun-turn) TURN app and put its credentials URL (`https://<app>.metered.live/api/v1/turn/credentials?apiKey=...`) in `TURN_URL` at the top of `src/net/net.js`. For local testing, add `?localnet` to the URL to use a same-browser BroadcastChannel transport between tabs.
 
 ## The mission
 

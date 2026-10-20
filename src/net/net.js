@@ -7,6 +7,17 @@
 const PEER_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/+esm';
 const PREFIX = 'gundam-musou-side7-';
 const SNAP_HZ = 20;
+// A guest whose link has this much unsent (bytes) skips snapshots until it drains, rather than falling seconds behind.
+const MAX_BACKLOG = 64 * 1024;
+// TURN relay, for networks that block direct links (public Wi-Fi that isolates its clients, carrier NAT on phones).
+// A Metered credentials URL, https://<app>.metered.live/api/v1/turn/credentials?apiKey=... (that apiKey is
+// credential-scoped and meant to ship in the page). Empty: public STUN and PeerJS's own relay only.
+const TURN_URL = '';
+const ICE_BASE = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] },
+  // PeerJS's free relay, its default, which passing our own iceServers would otherwise drop
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+];
 export const MAX_PLAYERS = 3; // the host and two guests
 // ?localnet: same-browser BroadcastChannel transport for testing co-op in several tabs (no WebRTC).
 export const LOCALNET = new URLSearchParams(location.search).has('localnet');
@@ -93,6 +104,25 @@ export class Net {
     return mod.Peer || mod.default?.Peer || mod.default;
   }
 
+  // PeerJS options: our ICE servers, with the TURN relay's credentials first when one is set up.
+  async peerOptions() {
+    let turn = [];
+    if (TURN_URL) {
+      try {
+        const r = await fetch(TURN_URL, { signal: AbortSignal.timeout(5000) });
+        const list = await r.json();
+        if (Array.isArray(list)) turn = list;
+      } catch (e) { /* no relay this time; direct links may still work */ }
+    }
+    return { debug: 1, config: { iceServers: [...turn, ...ICE_BASE] } };
+  }
+
+  // Bytes queued on a guest's link and not yet on the wire (PeerJS's own queue only fills past 8 MB).
+  static backlog(conn) {
+    if (conn.bufferSize > 0) return Infinity;
+    return conn.dataChannel?.bufferedAmount || 0;
+  }
+
   // ---------------------------------------------------------------- host
   async host() {
     this.role = 'host';
@@ -114,8 +144,8 @@ export class Net {
       };
       return this.code;
     }
-    const Peer = await this.loadPeer();
-    this.peer = new Peer(PREFIX + this.code, { debug: 1 });
+    const [Peer, opts] = await Promise.all([this.loadPeer(), this.peerOptions()]);
+    this.peer = new Peer(PREFIX + this.code, opts);
     await new Promise((resolve, reject) => {
       this.peer.on('open', resolve);
       this.peer.on('error', reject);
@@ -140,7 +170,7 @@ export class Net {
       setTimeout(() => conn.close(), 300);
       return false;
     }
-    this.guests.push({ slot, conn });
+    this.guests.push({ slot, conn, ev: [] });
     this.hookRecorders();
     conn.send({ y: 'hello', slot, difficulty: this.game.difficultyName, mode: this.game.mode });
     this.game.onGuestJoined(slot);
@@ -207,8 +237,20 @@ export class Net {
     this.snapT -= dt;
     if (this.snapT > 0) return;
     this.snapT = 1 / SNAP_HZ;
-    this.send(this.snapshot());
-    this.ev.length = 0;
+    // A guest that is behind (slow Wi-Fi, a relay, a backgrounded phone) skips this snapshot: the next one supersedes
+    // it. Its one-shot events wait for that next one.
+    const snap = this.snapshot();
+    for (const x of this.guests) {
+      if (!x.conn.open) continue;
+      if (Net.backlog(x.conn) > MAX_BACKLOG) {
+        x.ev.push(...this.ev);
+        if (x.ev.length > 500) x.ev.splice(0, x.ev.length - 500);
+        continue;
+      }
+      x.conn.send({ ...snap, ev: x.ev.length ? x.ev.concat(this.ev) : this.ev });
+      x.ev = [];
+    }
+    this.ev = [];
   }
 
   // A crowd's soldiers, GF int16s each.
@@ -290,8 +332,8 @@ export class Net {
         setTimeout(() => { if (!this.conn) reject(new Error('timeout')); }, 5000);
       });
     }
-    const Peer = await this.loadPeer();
-    this.peer = new Peer({ debug: 1 });
+    const [Peer, opts] = await Promise.all([this.loadPeer(), this.peerOptions()]);
+    this.peer = new Peer(opts);
     await new Promise((resolve, reject) => {
       this.peer.on('open', resolve);
       this.peer.on('error', reject);
@@ -307,7 +349,7 @@ export class Net {
       });
       conn.on('data', (d) => this.game.onNet(d));
       conn.on('close', () => { this.conn = null; this.game.onHostLeft(); });
-      setTimeout(() => { if (!this.conn) reject(new Error('timeout')); }, 12000);
+      setTimeout(() => { if (!this.conn) reject(new Error('timeout')); }, 20000); // relay candidates can be slow
     });
   }
 

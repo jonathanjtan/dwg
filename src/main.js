@@ -754,7 +754,9 @@ class Game {
       $('lobby-status').textContent = 'Connected.';
       this.openGuestSelect();
     } catch (e) {
-      $('lobby-status').textContent = e.type === 'peer-unavailable' ? "That room doesn't exist (or the host closed it)." : `Couldn't connect (${e.type || e.message}).`;
+      $('lobby-status').textContent = e.type === 'peer-unavailable' ? "That room doesn't exist (or the host closed it)."
+        : e.message === 'timeout' ? "Couldn't reach the host. This network may block direct connections: try mobile data or another Wi-Fi."
+          : `Couldn't connect (${e.type || e.message}).`;
     }
   }
 
