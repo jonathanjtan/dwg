@@ -3,6 +3,7 @@
 // pilot comes near, fights, and falls back to its post if the pilots move on.
 import { commanderDef, charDef, captainDef, CMD_COLORS, CHAR_COLORS, CAPT_COLORS } from '../models/zaku.js';
 import { rand, randi } from '../core/util.js';
+import { partGeoms } from '../core/rig.js';
 import { ARENA, ROADS, fieldAt } from '../world/world.js';
 import { LZ_SITES } from './bases.js';
 import { suitInfo } from './roster.js';
@@ -145,7 +146,10 @@ const WAR_LINES = {
   lost: (z) => `Zeon has retaken LZ ${z}! Their pods are coming down again. Take it back!`,
 };
 
-// Officer loadouts, shared with co-op guests (who rebuild commander puppets by name).
+// Officer loadouts, shared with co-op guests (who rebuild commander puppets by name). Each model is sculpted and meshed
+// once and shared by every officer that wears it: building one takes tens of milliseconds, a hitch at every squad
+// leader's landing and at Char's entrance, and their geometry was never freed.
+const DEFS = new Map();
 export function officerCfg(which) {
   const cfgs = {
     denim: { name: 'denim', kind: 'officer', title: 'DENIM · ZAKU II', jp: 'デニム', unit: 'zaku2c', def: commanderDef, colors: CMD_COLORS, hp: 1100, speed: 6.2, dmg: 44, strafe: 1 },
@@ -154,7 +158,12 @@ export function officerCfg(which) {
     captain: { name: 'captain', kind: 'captain', title: 'SQUAD LEADER', jp: '小隊長', unit: 'zaku2', def: captainDef, colors: CAPT_COLORS, hp: 420, speed: 5.4, dmg: 30, strafe: 1, leash: 30 },
   };
   const c = cfgs[which];
-  return { ...c, def: c.def() };
+  if (!DEFS.has(c.def)) {
+    const def = c.def();
+    partGeoms(def); // sculpted and meshed now, so a warm-up call (Char's, in the prechar lull) leaves nothing for the spawn
+    DEFS.set(c.def, def);
+  }
+  return { ...c, def: DEFS.get(c.def) };
 }
 
 // Posts: where Zeon squads stand guard around the colony. The three landing yards hold the most troops; the
@@ -496,6 +505,7 @@ export class Stage {
       this.t = 0;
       g.hud.setObjective('Hold the plaza');
       g.hud.say('bright', 'BRIGHT NOA', this.lines.warn, 3.4);
+      setTimeoutGame(g, 1.5, () => officerCfg('char')); // build his model in the lull, not on his entrance
       setTimeoutGame(g, 4.2, () => this.startChar());
     }
   }

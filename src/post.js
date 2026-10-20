@@ -16,6 +16,54 @@ export const POST = {
 
 const vs = /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
+// UnrealBloomPass (three r186) without its last step, blending the bloom back over its input: the final pass adds the
+// bloom itself. Even with nothing drawn, that step bound the scene target and rendered into it, and three resolves a
+// multisampled target after every render into it: a second full-screen blit of the 4x MSAA HalfFloat scene, every frame.
+// This stops once the mips are composited into renderTargetsHorizontal[0].
+class Bloom extends UnrealBloomPass {
+  constructor(...args) {
+    super(...args);
+    this.quad = new FullScreenQuad(null);
+    this.oldClear = new THREE.Color();
+  }
+
+  render(renderer, writeBuffer, readBuffer) {
+    const quad = this.quad;
+    renderer.getClearColor(this.oldClear);
+    const clearAlpha = renderer.getClearAlpha(), autoClear = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.setClearColor(this.clearColor, 0);
+    const pass = (material, target) => {
+      quad.material = material;
+      renderer.setRenderTarget(target);
+      renderer.clear();
+      quad.render(renderer);
+    };
+    // bright areas, then each mip blurred across and down, then the mips composited
+    this.highPassUniforms.tDiffuse.value = readBuffer.texture;
+    this.highPassUniforms.luminosityThreshold.value = this.threshold;
+    pass(this.materialHighPassFilter, this.renderTargetBright);
+    let input = this.renderTargetBright;
+    for (let i = 0; i < this.nMips; i++) {
+      const m = this.separableBlurMaterials[i];
+      m.uniforms.colorTexture.value = input.texture;
+      m.uniforms.direction.value = UnrealBloomPass.BlurDirectionX;
+      pass(m, this.renderTargetsHorizontal[i]);
+      m.uniforms.colorTexture.value = this.renderTargetsHorizontal[i].texture;
+      m.uniforms.direction.value = UnrealBloomPass.BlurDirectionY;
+      pass(m, this.renderTargetsVertical[i]);
+      input = this.renderTargetsVertical[i];
+    }
+    const c = this.compositeMaterial.uniforms;
+    c.bloomStrength.value = this.strength;
+    c.bloomRadius.value = this.radius;
+    c.bloomTintColors.value = this.bloomTintColors;
+    pass(this.compositeMaterial, this.renderTargetsHorizontal[0]);
+    renderer.setClearColor(this.oldClear, clearAlpha);
+    renderer.autoClear = autoClear;
+  }
+}
+
 const fs = /* glsl */`
   #include <packing>
   uniform sampler2D tColor, tDepth, tBloom;
@@ -106,8 +154,7 @@ export class Post {
     const depthTexture = new THREE.DepthTexture(w, h);
     depthTexture.type = THREE.UnsignedIntType;
     this.sceneRT = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4, depthTexture });
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(w / 2, h / 2), POST.bloom, POST.bloomRadius, POST.bloomThreshold);
-    this.bloom.blendMaterial.visible = false; // the final pass adds the bloom itself
+    this.bloom = new Bloom(new THREE.Vector2(w / 2, h / 2), POST.bloom, POST.bloomRadius, POST.bloomThreshold);
     // cap the prefilter so stacked additive glows bloom as a halo, never a white flare over the action
     const hp = this.bloom.materialHighPassFilter;
     hp.fragmentShader = /* glsl */`
